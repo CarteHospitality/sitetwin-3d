@@ -25,7 +25,8 @@ def slug(site_id: str) -> str:
     return re.sub(r"[^A-Za-z0-9_-]+", "_", site_id).strip("_").lower()
 
 
-def import_site(doc: dict, out_dir: Path, web_root: Path = Path("viewer"), with_surroundings: bool = True) -> dict:
+def import_site(doc: dict, out_dir: Path, web_root: Path = Path("viewer"), with_surroundings: bool = True,
+                anonymize_names: bool = False) -> dict:
     """Import one SiteTwin document, write its twin, return its portfolio entry."""
     site = doc.get("site") or {}
     lat, lon = dms_to_deg(site["latitude_dms"]), dms_to_deg(site["longitude_dms"])
@@ -33,6 +34,11 @@ def import_site(doc: dict, out_dir: Path, web_root: Path = Path("viewer"), with_
     if host is not None and (doc.get("structure") or {}).get("kind") in GROUND_STRUCTURES:
         neighbours.append(host)
         host = None
+    if anonymize_names:
+        # Public demos should not tie a real, named school or clinic to a fictional EMF problem.
+        for i, n in enumerate(neighbours, 1):
+            if not re.fullmatch(r"B\d{3}", n.id):
+                n.id = f"{n.use.capitalize()} {i}"
     existing, proposed = from_sitetwin(doc, neighbours, host, notes)
     twin = build_twin(proposed)
     twin["baseline"] = existing.model_dump()
@@ -68,6 +74,7 @@ def main() -> None:
     p.add_argument("--scan", type=Path, help="SiteTwin work folder to search for SITE_MODEL.json files")
     p.add_argument("--limit", type=int, default=10)
     p.add_argument("--out", type=Path, required=True)
+    p.add_argument("--anonymize-names", action="store_true", help="replace OSM building names (for public sample data)")
     args = p.parse_args()
 
     files = list(args.files) + (latest_per_site(args.scan) if args.scan else [])
@@ -75,7 +82,7 @@ def main() -> None:
     for f in files[: args.limit]:
         doc = json.loads(f.read_text(encoding="utf-8"))
         try:
-            entries.append(import_site(doc, args.out))
+            entries.append(import_site(doc, args.out, anonymize_names=args.anonymize_names))
             print(f"{doc['site_id']}: ok ({entries[-1]['structure']})", flush=True)
         except Exception as e:  # one bad file must not stop the portfolio
             print(f"{doc.get('site_id', f)}: FAILED {e}", flush=True)

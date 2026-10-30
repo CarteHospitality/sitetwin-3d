@@ -4,44 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SiteTwin 3D</title>
+<link rel="stylesheet" href="ui.css?v=1">
 <style>
-  :root { --bg:#0f1115; --panel:#171a21; --line:#262b36; --text:#e6e8ee; --muted:#9aa3b2; --accent:#4096ff; --bad:#ff4d4f; --warn:#ffa940; --ok:#52c41a; }
-  [hidden] { display:none !important; }
-  html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font:13px/1.45 system-ui, sans-serif; }
-  #app { display:flex; height:100%; }
-  #scene { flex:1; min-width:0; position:relative; }
+  #scene canvas { display:block; }
   #legend { position:absolute; left:12px; bottom:12px; background:#171a21e6; padding:8px 10px; border-radius:6px; font-size:12px; }
-  aside { width:340px; background:var(--panel); overflow:auto; box-sizing:border-box; border-left:1px solid var(--line); }
-  section { padding:12px 14px; border-bottom:1px solid var(--line); }
-  h1 { font-size:15px; margin:0 0 2px; }
-  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:0 0 8px; }
-  .muted { color:var(--muted); font-size:12px; }
-  .row { display:flex; align-items:center; gap:8px; margin:6px 0; }
-  .row label { width:92px; color:var(--muted); }
-  .row input[type=range] { flex:1; }
-  .row output { width:52px; text-align:right; font-variant-numeric:tabular-nums; }
-  button, select { background:#222733; color:var(--text); border:1px solid #333a48; border-radius:5px; padding:5px 9px; font:inherit; cursor:pointer; }
-  button:hover { border-color:var(--accent); }
-  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
-  .chips { display:flex; flex-wrap:wrap; gap:6px; }
-  .chip { padding:2px 8px; border-radius:10px; background:#222733; border:1px solid #333a48; cursor:pointer; }
-  .chip.on { border-color:var(--accent); color:#fff; }
-  ul { margin:0; padding-left:18px; }
-  li { margin:3px 0; }
-  .bad { color:var(--bad); } .warn { color:var(--warn); } .ok { color:var(--ok); }
+  .panel .row { align-items:center; }
+  .panel .row label { width:92px; color:var(--muted); }
+  .panel .row input[type=range] { flex:1; }
+  .panel .row output { width:52px; text-align:right; font-variant-numeric:tabular-nums; }
   table { width:100%; border-collapse:collapse; font-size:12px; }
   td, th { padding:3px 2px; text-align:left; border-bottom:1px solid var(--line); }
   tr.sel td { color:#fff; background:#1f2a3d; }
-  #chatLog { max-height:260px; overflow:auto; display:flex; flex-direction:column; gap:6px; }
-  .msg { padding:6px 9px; border-radius:8px; white-space:pre-wrap; }
-  .msg.user { background:#1f2a3d; align-self:flex-end; max-width:90%; }
-  .msg.assistant { background:#222733; }
-  .msg.tool { color:var(--muted); font-size:12px; padding:2px 4px; }
-  textarea { flex:1; background:#0f1115; color:var(--text); border:1px solid #333a48; border-radius:5px; padding:6px; font:inherit; resize:vertical; }
-  button:disabled { opacity:.5; cursor:default; }
-  button.recording { background:var(--bad); border-color:var(--bad); color:#fff; }
   .sw { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; vertical-align:-1px; }
-  @media (max-width: 760px) { #app { flex-direction:column; } aside { width:auto; height:45%; border-left:0; border-top:1px solid var(--line); } }
+  a.back { color:var(--muted); text-decoration:none; font-size:12px; }
+  a.back:hover { color:var(--text); }
 </style>
 <script type="importmap">
 { "imports": {
@@ -51,11 +27,39 @@
 </script>
 </head>
 <body>
-<div id="app">
-  <div id="scene"><div id="legend"></div></div>
-  <aside>
-    <section>
-      <a id="backToMap" class="muted" href="portfolio.html" style="text-decoration:none">← Portfolio map</a>
+<div class="layout">
+  <!-- Left: the conversation with the Expert Operator -->
+  <aside class="chat">
+    <header>
+      <a id="backToMap" class="back" href="portfolio.html">← Portfolio map</a>
+      <div class="brand">SiteTwin <span>Expert Operator</span></div>
+      <div class="muted" id="chatModel"></div>
+    </header>
+    <div id="chatLog" class="log"></div>
+    <div class="composer">
+      <div class="chips">
+        <span class="chip suggest">Review this site like an operator: what would you change and why?</span>
+        <span class="chip suggest">Fix the neighbour conflicts with the smallest change</span>
+        <span class="chip suggest">Add 5G N3500 to sector 2 without new conflicts</span>
+      </div>
+      <div class="row">
+        <textarea id="chatInput" rows="2" placeholder="Talk or type, any language: “remove S2-A”, “add 5G on sector 1”, “undo”"></textarea>
+        <div class="stack">
+          <button class="primary" id="chatSend">Send</button>
+          <button id="micButton" title="Push to talk (Muse Voice Transcribe)">🎤 Talk</button>
+        </div>
+      </div>
+      <div class="row between">
+        <label class="muted"><input type="checkbox" id="speakReplies" checked> Read replies aloud</label>
+        <span class="muted" id="chatBusy" hidden></span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Right: the 3D twin, site information and actions taken -->
+  <main class="work">
+    <div id="scene" class="stage"><div id="legend"></div></div>
+    <section class="panel">
       <h1 id="title">SiteTwin 3D</h1>
       <div class="muted" id="subtitle"></div>
       <div class="row" style="margin-top:10px">
@@ -70,60 +74,36 @@
         </div>
       </div>
       <div class="row" id="coverageRow" hidden><label for="coverageBand">Coverage band</label><select id="coverageBand"></select></div>
-    </section>
 
-    <section>
-      <h2>Expert Operator <span class="muted" id="chatModel" style="text-transform:none;letter-spacing:0"></span></h2>
-      <div id="chatLog"></div>
-      <div class="chips" style="margin:8px 0">
-        <span class="chip suggest">Review this site like an operator: what would you change and why?</span>
-        <span class="chip suggest">Fix the neighbour conflicts with the smallest change</span>
-        <span class="chip suggest">Add 5G N3500 to sector 2 without new conflicts</span>
-      </div>
-      <div class="row">
-        <textarea id="chatInput" rows="2" placeholder="Type or talk, any language: “remove S2-A”, “add 5G on sector 1”, “undo”"></textarea>
-        <div style="display:flex;flex-direction:column;gap:4px">
-          <button class="primary" id="chatSend">Send</button>
-          <button id="micButton" title="Push to talk (Muse Voice Transcribe)">🎤 Talk</button>
-        </div>
-      </div>
-      <label class="muted"><input type="checkbox" id="speakReplies" checked> Read replies aloud</label>
-      <div class="muted" id="chatBusy" hidden>Thinking and testing options on the twin…</div>
-    </section>
-
-    <section>
       <h2>Checks</h2>
       <ul id="checks"></ul>
-    </section>
 
-    <section>
       <h2>Antennas</h2>
       <table><thead><tr><th>ID</th><th>Az</th><th>Tilt</th><th>Bands</th><th>Zone</th></tr></thead><tbody id="antennas"></tbody></table>
       <div class="row" style="margin-top:8px"><button id="addAntenna">+ New antenna</button></div>
-    </section>
 
-    <section id="editor" hidden>
-      <h2>Edit <span id="editId"></span></h2>
-      <div class="row"><label>Azimuth</label><input type="range" min="0" max="359" step="1" data-k="azimuth_deg"><output></output></div>
-      <div class="row"><label>Mech. tilt</label><input type="range" min="-5" max="15" step="0.5" data-k="mechanical_tilt_deg"><output></output></div>
-      <div class="row"><label>Elec. tilt</label><input type="range" min="0" max="15" step="0.5" data-k="electrical_tilt_deg"><output></output></div>
-      <div class="row"><label>Height AGL</label><input type="range" min="21" max="40" step="0.5" data-k="height_agl_m"><output></output></div>
-      <div class="row"><label>East (x)</label><input type="range" min="-9" max="9" step="0.5" data-k="x_m"><output></output></div>
-      <div class="row"><label>South (z)</label><input type="range" min="-7" max="7" step="0.5" data-k="z_m"><output></output></div>
-      <div class="muted" style="margin-top:6px">Bands (power per band)</div>
-      <div id="bands"></div>
-      <div class="row"><select id="bandPreset"></select><button id="addBand">Add band</button><button id="removeAntenna" style="margin-left:auto">Delete</button></div>
-    </section>
+      <div id="editor" hidden>
+        <h2>Edit <span id="editId"></span></h2>
+        <div class="row"><label>Azimuth</label><input type="range" min="0" max="359" step="1" data-k="azimuth_deg"><output></output></div>
+        <div class="row"><label>Mech. tilt</label><input type="range" min="-5" max="15" step="0.5" data-k="mechanical_tilt_deg"><output></output></div>
+        <div class="row"><label>Elec. tilt</label><input type="range" min="0" max="15" step="0.5" data-k="electrical_tilt_deg"><output></output></div>
+        <div class="row"><label>Height AGL</label><input type="range" min="21" max="40" step="0.5" data-k="height_agl_m"><output></output></div>
+        <div class="row"><label>East (x)</label><input type="range" min="-9" max="9" step="0.5" data-k="x_m"><output></output></div>
+        <div class="row"><label>South (z)</label><input type="range" min="-7" max="7" step="0.5" data-k="z_m"><output></output></div>
+        <div class="muted" style="margin-top:6px">Bands (power per band)</div>
+        <div id="bands"></div>
+        <div class="row"><select id="bandPreset"></select><button id="addBand">Add band</button><button id="removeAntenna" style="margin-left:auto">Delete</button></div>
+      </div>
 
-    <section>
-      <h2>Changes vs. baseline</h2>
+      <h2>Actions taken (vs. baseline)</h2>
       <ul id="changes"></ul>
       <div class="row" style="margin-top:8px"><button id="reset">Reset</button><button class="primary" id="export">Export plan</button></div>
-    </section>
 
-    <section class="muted" id="notes"></section>
-  </aside>
+      <h2>Data notes</h2>
+      <div class="muted" id="notes"></div>
+    </section>
+  </main>
 </div>
-<script type="module" src="app.js?v=3"></script>
+<script type="module" src="app.js?v=4"></script>
 </body>
 </html>

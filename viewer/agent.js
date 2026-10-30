@@ -133,22 +133,32 @@ Final answer: 2-5 short sentences in the same language as the engineer (Turkish 
 }
 
 export function initAgent(planner, ui) {
-  const history = [];
+  return createAgent({
+    definitions: TOOLS,
+    handlers: {
+      get_site_state: () => planner.state(),
+      evaluate_change: ({ changes }) => planner.evaluate(changes),
+      apply_change: ({ changes, reason }) => planner.apply(changes, reason),
+      undo_last_change: () => planner.undo(),
+      get_population_context: () => planner.population(),
+      set_view: (args) => planner.setView(args),
+    },
+    systemPrompt: () => systemPrompt(planner),
+    ui,
+  });
+}
 
-  const tools = {
-    get_site_state: () => planner.state(),
-    evaluate_change: ({ changes }) => planner.evaluate(changes),
-    apply_change: ({ changes, reason }) => planner.apply(changes, reason),
-    undo_last_change: () => planner.undo(),
-    get_population_context: () => planner.population(),
-    set_view: (args) => planner.setView(args),
-  };
+// The agent loop itself, shared by the 3D planner and the portfolio map:
+// the model picks tools, the handlers run them in this page, results go back.
+export function createAgent({ definitions, handlers, systemPrompt, ui }) {
+  const history = [];
+  const tools = handlers;
 
   async function callModel(messages) {
     const res = await fetch("api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages, tools: TOOLS }),
+      body: JSON.stringify({ messages, tools: definitions }),
     });
     if (!res.ok) throw new Error(`assistant unavailable (${res.status}): ${await res.text()}`);
     return res.json();
@@ -160,7 +170,7 @@ export function initAgent(planner, ui) {
     ui.busy(true);
     try {
       for (let step = 0; step < MAX_STEPS; step++) {
-        const { message, model } = await callModel([{ role: "system", content: systemPrompt(planner) }, ...history]);
+        const { message, model } = await callModel([{ role: "system", content: systemPrompt() }, ...history]);
         ui.model(model);
         history.push(message);
         if (!message.tool_calls?.length) {
@@ -173,7 +183,7 @@ export function initAgent(planner, ui) {
           let result;
           try {
             args = JSON.parse(call.function.arguments || "{}");
-            result = tools[call.function.name]?.(args) ?? { error: `unknown tool ${call.function.name}` };
+            result = (await tools[call.function.name]?.(args)) ?? { error: `unknown tool ${call.function.name}` };
           } catch (e) {
             result = { error: String(e.message ?? e) };
           }
@@ -181,7 +191,7 @@ export function initAgent(planner, ui) {
           history.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
         }
       }
-      ui.assistant("Stopped after too many steps. The plan shows the last applied change.");
+      ui.assistant("Stopped after too many steps.");
     } catch (e) {
       ui.assistant(`⚠️ ${e.message ?? e}`);
     } finally {

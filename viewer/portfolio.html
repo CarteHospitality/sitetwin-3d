@@ -5,56 +5,56 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SiteTwin Portfolio</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<style>
-  [hidden] { display:none !important; }
-  :root { --bg:#0f1115; --panel:#171a21; --line:#262b36; --text:#e6e8ee; --muted:#9aa3b2; --accent:#4096ff;
-          --critical:#ff4d4f; --high:#fa8c16; --medium:#fadb14; --planned:#4096ff; --ok:#52c41a; }
-  html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font:13px/1.45 system-ui, sans-serif; }
-  #app { display:flex; height:100%; }
-  #map { flex:1; min-width:0; background:#0b0d11; }
-  aside { width:380px; background:var(--panel); border-left:1px solid var(--line); overflow:auto; box-sizing:border-box; }
-  section { padding:12px 14px; border-bottom:1px solid var(--line); }
-  h1 { font-size:16px; margin:0 0 2px; }
-  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:0 0 8px; }
-  .muted { color:var(--muted); font-size:12px; }
-  .stats { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
-  .stat { background:#222733; border-radius:6px; padding:6px 10px; }
-  .stat b { font-size:16px; display:block; }
-  .site { padding:10px 14px; border-bottom:1px solid var(--line); cursor:pointer; }
-  .site:hover, .site.sel { background:#1f2a3d; }
-  .site .head { display:flex; align-items:center; gap:8px; }
-  .site .id { font-weight:600; }
-  .dot { width:10px; height:10px; border-radius:50%; flex:none; }
-  .tag { font-size:11px; padding:1px 6px; border-radius:8px; background:#2a3040; color:var(--muted); }
-  ul { margin:6px 0 0; padding-left:18px; }
-  li { margin:2px 0; }
-  button, label.btn { background:#222733; color:var(--text); border:1px solid #333a48; border-radius:5px; padding:6px 10px; font:inherit; cursor:pointer; }
-  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
-  .pin { width:16px; height:16px; border-radius:50%; border:2px solid #0f1115; box-sizing:border-box; }
-  .pin.critical { animation:pulse 1.2s infinite; }
-  @keyframes pulse { 0% { box-shadow:0 0 0 0 rgba(255,77,79,.8); } 100% { box-shadow:0 0 0 16px rgba(255,77,79,0); } }
-  .leaflet-container { font:inherit; }
-  .dark-tiles { filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9); }
-  @media (max-width: 760px) { #app { flex-direction:column; } aside { width:auto; height:50%; border-left:0; border-top:1px solid var(--line); } }
-</style>
+<link rel="stylesheet" href="ui.css?v=1">
 </head>
 <body>
-<div id="app">
-  <div id="map"></div>
-  <aside>
-    <section>
-      <h1>SiteTwin Portfolio</h1>
-      <div class="muted">Every site is checked automatically: EMF zones against real neighbouring buildings, sensitive buildings, rooftop safety, capacity and pending SiteTwin changes. Click a site to open its 3D twin; the Expert Operator reviews it on arrival.</div>
-      <div class="stats" id="stats"></div>
-      <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
-        <label class="btn">⬆ Load SiteTwin file<input type="file" id="upload" accept=".json,application/json" hidden></label>
-        <span class="muted" id="uploadStatus"></span>
+<div class="layout">
+  <!-- Left: the conversation with the Expert Operator -->
+  <aside class="chat">
+    <header>
+      <div class="brand">SiteTwin <span>Expert Operator</span></div>
+      <div class="muted" id="chatModel"></div>
+    </header>
+    <div id="chatLog" class="log">
+      <div class="msg assistant">Merhaba! Tüm sahaları kontrol ettim. “Hangi saha acil?” ya da “Ankara'yı aç ve okul sorununu çöz” diye yazabilir veya 🎤 ile konuşabilirsiniz.</div>
+    </div>
+    <div class="composer">
+      <div class="chips">
+        <span class="chip suggest">Which site is most urgent and why?</span>
+        <span class="chip suggest">Hangi sahalarda okul ya da hastane riski var?</span>
       </div>
-    </section>
-    <div id="list"></div>
+      <div class="row">
+        <textarea id="chatInput" rows="2" placeholder="Talk or type, any language"></textarea>
+        <div class="stack">
+          <button class="primary" id="chatSend">Send</button>
+          <button id="micButton" title="Push to talk (Muse Voice Transcribe)">🎤 Talk</button>
+        </div>
+      </div>
+      <div class="row between">
+        <label class="muted"><input type="checkbox" id="speakReplies" checked> Read replies aloud</label>
+        <span class="muted" id="chatBusy" hidden></span>
+      </div>
+    </div>
   </aside>
+
+  <!-- Right: the map, site information and actions taken -->
+  <main class="work">
+    <div id="map" class="stage"></div>
+    <section class="panel">
+      <div class="panel-head">
+        <h1>Portfolio</h1>
+        <label class="btn">⬆ Load SiteTwin file<input type="file" id="upload" accept=".json,application/json" hidden></label>
+      </div>
+      <div class="muted" id="uploadStatus"></div>
+      <div class="stats" id="stats"></div>
+      <h2>Sites</h2>
+      <div id="list"></div>
+      <h2>Actions taken</h2>
+      <ul id="actions" class="actions"><li class="muted">Nothing yet</li></ul>
+    </section>
+  </main>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script type="module" src="portfolio.js?v=3"></script>
+<script type="module" src="portfolio.js?v=4"></script>
 </body>
 </html>

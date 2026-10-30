@@ -504,8 +504,11 @@ const params = new URLSearchParams(location.search);
 $("backToMap").href = params.get("from") || "portfolio.html";
 refreshCoverageBands();
 update();
-// Opened from the portfolio map: the Expert Operator reviews the site straight away.
-if (params.get("auto") === "review") {
+// Opened from the portfolio map: the Expert Operator carries out what was asked
+// there, or reviews the site straight away.
+if (params.get("ask")) {
+  agent.ask(params.get("ask"));
+} else if (params.get("auto") === "review") {
   agent.ask("Review this site like an operator: what is the most important problem, what would you change and why? Apply the best fix and give the before/after numbers.");
 }
 
