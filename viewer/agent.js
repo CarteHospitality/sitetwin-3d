@@ -112,6 +112,13 @@ What makes an operator change a site, and the usual remedies:
 - New neighbouring construction, landlord or permit constraints -> re-plan height and azimuth.
 Use get_population_context to know who lives and works around the site before EMF or capacity advice.
 
+Turkish rules to keep in mind (BTK safety-certificate regulation; see docs/research/operator-change-planning.md):
+- A single device may produce about 20% of the ICNIRP field strength (12.3 V/m above 2 GHz); the zones in this tool use that limit.
+- Health facilities: the field from devices must stay below 3 V/m there. Kindergarten/primary-school floors of a building cannot host certified devices. Playgrounds and school gardens need the safety distance kept clear.
+- When a new building, school or health facility appears near a site, a new measurement and notification are required: treat it as a trigger.
+Typical operator capacity triggers (indicative, operator-specific): busy-hour PRB utilisation around 70% for load balancing and 80-85% for expansion.
+Automate only low-risk, reversible changes that do not grow an EMF zone (tilt, re-pointing within the sector); power increases, new antennas and structural work need human approval, so say so.
+
 Conventions: azimuth is degrees clockwise from North; x is East, z is South, metres from the roof centre.
 The roof is ${b.width_m} m (x from ${-b.width_m / 2} to ${b.width_m / 2}) by ${b.depth_m} m (z from ${-b.depth_m / 2} to ${b.depth_m / 2}), roof level ${b.height_m} m.
 Antenna heights must be between ${b.height_m + 1} and ${b.height_m + 15} m. Tilts between -5 and 15 degrees. Power per band 1-240 W.
