@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SiteTwin 3D</title>
-<link rel="stylesheet" href="ui.css?v=design-4">
+<link rel="stylesheet" href="ui.css?v=cards-1">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -58,52 +58,67 @@
       <div id="legend"></div>
       <div class="hud scene-caption">Illustrative lighting · conservative EMF model</div>
     </div>
-    <section class="panel">
-      <div class="inspector-summary">
-      <button class="drawer-close" aria-label="Close inspector">Close</button>
-      <h1 id="title">SiteTwin 3D</h1>
-      <div class="muted" id="subtitle"></div>
-      <div class="muted" id="activeRegime">TR single device (20% field)</div>
-      <div class="summary-counts"><div><strong id="hitCount">–</strong> hit buildings</div><div><strong id="roofCount">–</strong> roof restrictions</div></div>
-      <div class="muted" id="findingCount"></div>
-      <div class="muted" id="planDelta">No changes yet</div>
-      <div class="muted" id="planSession" role="status"></div>
-      <div class="tabs" role="tablist" aria-label="Inspector">
-        <button id="tabSummary" role="tab" data-tab="summary" aria-controls="paneSummary" aria-selected="true">Summary</button>
-        <button id="tabAntennas" role="tab" data-tab="antennas" aria-controls="paneAntennas" aria-selected="false" tabindex="-1">Antennas</button>
-        <button id="tabWork" role="tab" data-tab="work" aria-controls="paneWork" aria-selected="false" tabindex="-1">Work order</button>
-      </div>
-      </div>
-      <div id="paneSummary" role="tabpanel" aria-labelledby="tabSummary">
-      <div class="row" style="margin-top:10px">
-        <label for="regime">EMF limit</label>
-        <select id="regime"><option value="tr">TR single device (20% field)</option><option value="icnirp">ICNIRP public</option></select>
-      </div>
-      <div class="row"><label>Layers</label>
-        <div class="chips">
-          <button class="chip on" data-layer="zones" aria-pressed="true">EMF zones</button>
-          <button class="chip" data-layer="coverage" aria-pressed="false">Coverage</button>
-          <button class="chip" data-layer="baseline" aria-pressed="false">Baseline</button>
+    <section class="panel cards">
+      <div class="panel-top"><button class="drawer-close" aria-label="Close inspector">Close</button></div>
+
+      <section class="card" data-card="site">
+        <button class="card-head" aria-expanded="true"><span class="card-icon">🏢</span><span class="card-title">Site</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
+        <div class="card-body">
+          <h1 id="title">SiteTwin 3D</h1>
+          <div class="muted" id="subtitle"></div>
+          <div class="muted" id="activeRegime">TR single device (20% field)</div>
+          <div class="muted" id="planSession" role="status"></div>
+          <div class="row" style="margin-top:10px">
+            <label for="regime">EMF limit</label>
+            <select id="regime"><option value="tr">TR single device (20% field)</option><option value="icnirp">ICNIRP public</option></select>
+          </div>
+          <div class="row"><label>Layers</label>
+            <div class="chips">
+              <button class="chip on" data-layer="zones" aria-pressed="true">EMF zones</button>
+              <button class="chip" data-layer="coverage" aria-pressed="false">Coverage</button>
+              <button class="chip" data-layer="baseline" aria-pressed="false">Baseline</button>
+            </div>
+          </div>
+          <div class="row" id="coverageRow" hidden><label for="coverageBand">Coverage band</label><select id="coverageBand"></select></div>
+          <div id="comparison" class="comparison" hidden></div>
         </div>
-      </div>
-      <div class="row" id="coverageRow" hidden><label for="coverageBand">Coverage band</label><select id="coverageBand"></select></div>
-      <div id="comparison" class="comparison" hidden></div>
+      </section>
 
-      <h2>Checks</h2>
-      <ul id="checks"></ul>
+      <section class="card" data-card="checks">
+        <button class="card-head" aria-expanded="true"><span class="card-icon">⚠</span><span class="card-title">Checks</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
+        <div class="card-body">
+          <div class="summary-counts"><div><strong id="hitCount">–</strong> hit buildings</div><div><strong id="roofCount">–</strong> roof restrictions</div></div>
+          <div class="muted" id="findingCount"></div>
+          <ul id="checks"></ul>
+        </div>
+      </section>
 
-      <h2>Actions taken (vs. baseline)</h2>
-      <ul id="changes"></ul>
-      <ul id="planActions" class="actions"></ul>
-      <div class="row"><button id="reset">Reset plan</button><button id="undo">Undo last change</button></div>
-      <details class="data-notes"><summary>Data notes and model limits</summary><div class="muted" id="notes"></div><p class="muted">Planning estimates require field verification. Coverage uses Hata, without terrain or clutter. Safety envelopes do not shrink with tilt.</p></details>
-      </div>
-      <div id="paneAntennas" role="tabpanel" aria-labelledby="tabAntennas" hidden>
+      <section class="card" data-card="changes" hidden>
+        <button class="card-head" aria-expanded="true"><span class="card-icon">↔</span><span class="card-title">Changes to the plan</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
+        <div class="card-body">
+          <div class="muted" id="planDelta">No changes yet</div>
+          <ul id="changes"></ul>
+          <ul id="planActions" class="actions"></ul>
+          <div class="row"><button id="reset">Reset plan</button><button id="undo">Undo last change</button></div>
+        </div>
+      </section>
 
-      <h2>Antennas</h2>
-      <table><thead><tr><th>ID</th><th>Az °</th><th>Tilt °</th><th>Bands</th><th>Zone m</th></tr></thead><tbody id="antennas"></tbody></table>
-      <div class="row" style="margin-top:8px"><button id="addAntenna">+ New antenna</button></div>
+      <section class="card" data-card="crew" hidden>
+        <button class="card-head" aria-expanded="true"><span class="card-icon">👷</span><span class="card-title">Field crew and schedule</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
+        <div class="card-body" id="crew"></div>
+      </section>
 
+      <section class="card" data-card="work" hidden>
+        <button class="card-head" aria-expanded="true"><span class="card-icon">🧰</span><span class="card-title">Work order: steps, materials, precautions</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
+        <div class="card-body">
+          <p class="muted">Derived physical follow-up · quantities are estimates. Changes are applied to the plan only.</p>
+          <div id="fieldwork" class="fieldwork"></div>
+        </div>
+      </section>
+
+      <section class="card" data-card="antenna" hidden>
+        <button class="card-head" aria-expanded="true"><span class="card-icon">📡</span><span class="card-title">Selected antenna</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
+        <div class="card-body">
       <div id="editor" hidden>
         <h2>Edit <span id="editId"></span></h2>
         <div class="row"><label>Azimuth</label><input type="range" min="0" max="359" step="1" data-k="azimuth_deg"><output></output></div>
@@ -116,19 +131,27 @@
         <div id="bands"></div>
         <div class="row"><select id="bandPreset" aria-label="Band preset"></select><button id="addBand">Add band</button><button id="removeAntenna" class="destructive">Remove antenna</button></div>
       </div>
+        </div>
+      </section>
 
-      </div>
-      <div id="paneWork" role="tabpanel" aria-labelledby="tabWork" hidden>
-      <p class="muted">Derived physical follow-up · quantities are estimates. Changes are applied to the plan only.</p>
-      <h2>Field work order</h2>
-      <div id="fieldwork" class="fieldwork"></div>
-      </div>
+      <section class="card" data-card="antennas" data-folded>
+        <button class="card-head" aria-expanded="false"><span class="card-icon">🗼</span><span class="card-title">Antennas</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
+        <div class="card-body">
+          <table><thead><tr><th>ID</th><th>Az °</th><th>Tilt °</th><th>Bands</th><th>Zone m</th></tr></thead><tbody id="antennas"></tbody></table>
+          <div class="row" style="margin-top:8px"><button id="addAntenna">+ New antenna</button></div>
+        </div>
+      </section>
+
+      <section class="card" data-card="notes" data-folded>
+        <button class="card-head" aria-expanded="false"><span class="card-icon">📄</span><span class="card-title">Data notes and model limits</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
+        <div class="card-body"><div class="muted" id="notes"></div><p class="muted">Planning estimates require field verification. Coverage uses Hata, without terrain or clutter. Safety envelopes do not shrink with tilt.</p></div>
+      </section>
     </section>
   </main>
 </div>
 <nav class="mobile-nav" aria-label="Workspace navigation"><button data-pane="workspace" aria-pressed="true">Workspace</button><button data-pane="operator" aria-expanded="false">Operator</button><button data-pane="inspect" aria-expanded="false">Inspect</button></nav>
 <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
 <div id="liveStatus" class="sr-only" role="status" aria-live="polite"></div>
-<script type="module" src="app.js?v=design-4"></script>
+<script type="module" src="app.js?v=cards-1"></script>
 </body>
 </html>

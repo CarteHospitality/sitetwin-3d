@@ -3,7 +3,9 @@
 // tool to call; the tools run here on the live twin, so every option it
 // tries is scored by the same EMF, conflict and coverage code as the UI.
 
-const MAX_STEPS = 16;
+const MAX_STEPS = 24;
+// Steps left at which the agent is told to stop exploring and commit to its best option.
+const DECIDE_AT = 6;
 
 const CHANGE_SCHEMA = {
   type: "array",
@@ -93,7 +95,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "get_field_work_order",
-      description: "The physical work the current plan needs on site, derived from plan vs baseline: per antenna the work steps, materials and precautions, plus site-wide steps (permits, RF shutdown, EMF re-measurement, roof barriers). Call it after every apply_change.",
+      description: "The physical work the current plan needs on site, derived from plan vs baseline: per antenna the work steps, materials and precautions, site-wide steps (permits, RF shutdown, EMF re-measurement, roof barriers), and `crew`: who goes to site, headcount, visits with estimated hours and days, tools to bring. Call it after every apply_change.",
       parameters: { type: "object", properties: {} },
     },
   },
@@ -158,8 +160,8 @@ Never invent numbers: quote only figures returned by the tools, and say "estimat
 Final answer, in the same language as the engineer (Turkish if they speak Turkish): what you changed, why, and the key before/after numbers. If no option meets goal 1, say so plainly and give the least-bad option.
 After every apply_change, call get_field_work_order and, without being asked, finish with what has to happen physically:
 ${voice
-    ? "in one or two spoken sentences, the main work (e.g. pole extension and longer cables, rigging team), the key precaution and the EMF re-measurement; say the full work order is in the panel."
-    : "a short 'Field work' part with three labelled lists: work steps, materials, precautions and approvals (permits, RF shutdown, EMF re-measurement and safety certificate). Use only items the work order returned."}
+    ? "in two or three spoken sentences: how many people go to site and for how long (from crew), the main work and materials, the key precaution and the EMF re-measurement; say the crew plan is in the panel."
+    : "a short 'Field work' part: first one line with the crew (headcount, roles, visits and estimated days from the work order's crew), then three labelled lists: work steps, materials and tools, precautions and approvals (permits, RF shutdown, EMF re-measurement and safety certificate). Use only items the work order returned and call durations estimates."}
 If the engineer asks about or names another site, use list_sites and open_site; you cannot change other sites from here.`;
 }
 
@@ -226,7 +228,10 @@ export function createAgent({ definitions, handlers, systemPrompt, ui }) {
       let leaving = false;
       for (let step = 0; step < MAX_STEPS; step++) {
         // After a navigation tool (e.g. open_site) the page is about to change: one last answer, no more tools.
-        const { message, model } = await callModel([{ role: "system", content: systemPrompt(mode) }, ...history], !leaving);
+        const nudge = MAX_STEPS - step <= DECIDE_AT
+          ? [{ role: "system", content: "Step budget nearly used. Stop testing: apply the best option you have evaluated (or say none is acceptable), call get_field_work_order if you applied a change, then answer." }]
+          : [];
+        const { message, model } = await callModel([{ role: "system", content: systemPrompt(mode) }, ...history, ...nudge], !leaving);
         ui.model(model);
         history.push(message);
         if (!message.tool_calls?.length) {

@@ -13,9 +13,12 @@ import { initConversation } from "./conversation.js";
 import { createSceneMotion } from "./scene.js";
 import { restoreProposed, saveProposed, sourceFingerprint, consumeHandoff, handoffId, absoluteUrl } from "./session.js";
 import { fieldWorkOrder } from "./fieldwork.js";
-import { $, el, token, initShell, showTab, setText } from "./ui.js";
+import { $, el, token, initShell, setText } from "./ui.js";
+import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
+import { crewPlan } from "./crew.js";
 
 initShell();
+initCards();
 
 const BAND_PRESETS = {
   L800: { name: "L800", frequency_mhz: 800, tx_power_w: 20, gain_dbi: 15.0, horizontal_beamwidth_deg: 65, vertical_beamwidth_deg: 9, front_to_back_db: 25, feeder_loss_db: 0 },
@@ -290,6 +293,10 @@ const planner = {
     refreshCoverageBands();
     update({ animate: true });
     renderEditor();
+    // The engineer should see who has to go to site without asking.
+    if (crewPlan(fieldWorkOrder(baseline, site, checkSite(site, siteZones(site, REGIMES[regimeKey]))), site).visits.length) {
+      showCard("crew", { reveal: true });
+    }
     return { applied: true, reason, result: summarize(site) };
   },
   undo() {
@@ -301,7 +308,10 @@ const planner = {
     return { undone: true, result: summarize(site) };
   },
   population: () => populationContext(site),
-  fieldWork: () => fieldWorkOrder(baseline, site, checkSite(site, siteZones(site, REGIMES[regimeKey]))),
+  fieldWork: () => {
+    const order = fieldWorkOrder(baseline, site, checkSite(site, siteZones(site, REGIMES[regimeKey])));
+    return { ...order, crew: crewPlan(order, site) };
+  },
   listSites: async () => (await portfolioIndex()).sites.map((s) => ({ site_id: s.site_id, structure: s.structure, technology: s.technology, pending_change: s.reason })),
   async openSite({ site_id, instruction }) {
     const s = (await portfolioIndex()).sites.find((x) => x.site_id.toLowerCase().includes(String(site_id).toLowerCase()));
@@ -361,7 +371,9 @@ function pairRange(range, out, label, setter) {
 function renderEditor() {
   const a = site.antennas.find((x) => x.id === selectedId);
   $("editor").hidden = !a;
-  if (!a) return;
+  if (!a) { hideCard("antenna"); return; }
+  showCard("antenna");
+  setCardSummary("antenna", `${a.id} · ${Math.round(a.azimuth_deg)}° · ${a.height_agl_m} m`);
   $("editId").textContent = a.id;
   for (const input of document.querySelectorAll("#editor input[data-k]")) {
     input.value = a[input.dataset.k];
@@ -437,7 +449,46 @@ function renderPanels(zones, checks, changes) {
   }
   $("undo").disabled = !undoStack.length;
 
-  renderFieldWork(fieldWorkOrder(baseline, site, checks));
+  const bad = checks.findings.filter((f) => f.level === "bad");
+  const sensitive = bad.filter((f) => f.sensitive).length;
+  setCardSummary("checks", bad.length ? `${checks.hit.size} building(s)${sensitive ? ` · ${sensitive} sensitive` : ""}` : "No conflicts", bad.length ? "bad" : "ok");
+  setCardSummary("site", REGIMES[regimeKey].name.replace(" (20% field)", ""));
+  setCardSummary("antennas", `${site.antennas.length}`);
+  if (changes.length) { showCard("changes"); setCardSummary("changes", `${changes.length} change(s)`); } else hideCard("changes");
+
+  const order = fieldWorkOrder(baseline, site, checks);
+  renderFieldWork(order);
+  renderCrew(crewPlan(order, site));
+}
+
+let crewSignature = "";
+function renderCrew(plan) {
+  const signature = JSON.stringify(plan);
+  if (crewSignature === signature) return;
+  crewSignature = signature;
+  if (!plan.visits.length) { hideCard("crew"); hideCard("work"); return; }
+  showCard("crew");
+  showCard("work");
+  const install = plan.visits.find((v) => v.name === "Installation visit");
+  setCardSummary("crew", install ? `${plan.headcount} people · ${install.days} day(s)` : "Remote only", install ? "warn" : "ok");
+  const list = (title, items) => items.length ? [el("h2", { textContent: title }), el("ul", {}, ...items.map((t) => el("li", { textContent: t })))] : [];
+  $("crew").replaceChildren(
+    el("div", { className: "crew-grid" },
+      el("div", {}, el("strong", { textContent: String(plan.headcount || 0) }), "people on site"),
+      el("div", {}, el("strong", { textContent: String(plan.onsite_days) }), "site day(s)"),
+      el("div", {}, el("strong", { textContent: String(plan.visits.length) }), "visit(s)")),
+    ...(plan.crew.length ? [el("h2", { textContent: "Crew" }), ...plan.crew.map((c) => el("div", { className: "crew-role" },
+      el("span", { className: "n", textContent: String(c.count) }), el("div", {}, el("strong", { textContent: c.role }), el("div", { className: "muted", textContent: c.why }))))] : []),
+    el("h2", { textContent: "Visits and duration" }),
+    ...plan.visits.map((v) => el("div", { className: `visit${v.remote ? " remote" : ""}` },
+      el("strong", { textContent: v.name }),
+      el("div", { className: "muted", textContent: v.remote ? `Remote · ${v.people} engineer · ~${v.hours} h` : `${v.people} people · ~${v.hours} h · ${v.days} day(s)` }),
+      el("ul", {}, ...v.tasks.map((t) => el("li", { textContent: t }))))),
+    ...list("Tools and equipment to bring", plan.tools),
+    ...list("Materials", plan.materials),
+    el("p", { className: "muted", textContent: plan.note }),
+  );
+  setCardSummary("work", `${plan.materials.length} material(s)`);
 }
 
 function renderFieldWork(order) {
@@ -561,7 +612,7 @@ function update(options = {}) {
 function select(id, finding = null) {
   const changed = id !== selectedId || (finding?.building ?? null) !== sceneMotion.selectedBuilding;
   selectedId = id;
-  if (id && !finding) showTab("antennas");
+  if (id && !finding) showCard("antenna", { reveal: true });
   update();
   renderEditor();
   if (changed && id) sceneMotion.focus(id, finding?.building ?? null);
