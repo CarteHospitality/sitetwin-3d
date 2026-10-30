@@ -84,7 +84,10 @@ const zoneGroup = new THREE.Group();
 const baselineGroup = new THREE.Group();
 scene.add(antennaGroup, zoneGroup, baselineGroup);
 
-const coverageCanvas = document.createElement("canvas");
+// Size the canvas before the texture exists: three.js allocates GPU storage at
+// the first upload, and a later size change would only fill part of it.
+const COVERAGE_CELLS = 150;
+const coverageCanvas = Object.assign(document.createElement("canvas"), { width: COVERAGE_CELLS, height: COVERAGE_CELLS });
 const coverageTexture = new THREE.CanvasTexture(coverageCanvas);
 coverageTexture.magFilter = THREE.NearestFilter;
 const coveragePlane = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshBasicMaterial({ map: coverageTexture, transparent: true, depthWrite: false }));
@@ -329,7 +332,7 @@ function renderCoverage() {
   coveragePlane.visible = layers.coverage;
   if (!layers.coverage) return;
   coverageTimer = setTimeout(() => {
-    paintCoverage(coverageCanvas, coverageGrid(site, coverageBand));
+    paintCoverage(coverageCanvas, coverageGrid(site, coverageBand, 600, COVERAGE_CELLS));
     coverageTexture.needsUpdate = true;
   }, 60);
 }

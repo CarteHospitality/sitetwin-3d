@@ -63,7 +63,7 @@ export const RSRP_BINS = [
 ];
 
 export function paintCoverage(canvas, { grid, n }) {
-  canvas.width = canvas.height = n;
+  if (canvas.width !== n || canvas.height !== n) throw new Error(`coverage canvas must be ${n}x${n}`);
   const ctx = canvas.getContext("2d");
   const img = ctx.createImageData(n, n);
   for (let k = 0; k < n * n; k++) {
