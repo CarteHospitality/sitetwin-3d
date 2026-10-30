@@ -15,7 +15,12 @@ Built for the Meta Global AI Developer Hackathon (Indie track).
 2. **Video → tracked equipment.** SAM 3.1 segments and tracks antennas and radios across the walk-around video.
 3. **Observations → site model.** An agent merges the per-photo findings into one `SiteModel` (`sitetwin3d/schema.py`) and lists what is still unknown.
 4. **Site model → EMF zones.** `sitetwin3d/emf.py` computes a conservative far-field safety distance for each antenna, summing the exposure ratios of all its bands.
-5. **3D twin.** `viewer/index.html` (three.js) renders the building, antennas, equipment and the safety zones.
+5. **3D change planner.** `viewer/` (three.js) renders the twin and lets an engineer plan a change on one screen:
+   - select an antenna, change azimuth, tilt, height, position and per-band power, add a 5G band or a new antenna;
+   - EMF zones recompute live (`viewer/emf.js`, kept identical to the Python code by `tests/test_emf_parity.py`);
+   - checks flag zones that reach a neighbouring building and roof area that needs restricted access;
+   - an indicative coverage layer (Hata models, no terrain) compares bands and plans;
+   - the baseline stays visible as a wireframe, the change list is generated, and the plan exports as JSON.
 
 Steps 1-3 are in progress. Steps 4-5 work today with the sample site.
 

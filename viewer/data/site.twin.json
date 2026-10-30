@@ -180,6 +180,32 @@
         "source_photos": []
       }
     ],
+    "neighbours": [
+      {
+        "id": "N1 apartment",
+        "x_m": 17.0,
+        "z_m": -21.0,
+        "width_m": 10.0,
+        "depth_m": 8.0,
+        "height_m": 27.0
+      },
+      {
+        "id": "N2 school",
+        "x_m": -26.0,
+        "z_m": 24.0,
+        "width_m": 16.0,
+        "depth_m": 12.0,
+        "height_m": 12.0
+      },
+      {
+        "id": "N3 office",
+        "x_m": -30.0,
+        "z_m": -8.0,
+        "width_m": 9.0,
+        "depth_m": 14.0,
+        "height_m": 30.0
+      }
+    ],
     "notes": [
       "All values are synthetic and for demonstration only."
     ]

@@ -61,12 +61,24 @@ class Equipment(BaseModel):
     source_photos: list[str] = Field(default_factory=list)
 
 
+class Neighbour(BaseModel):
+    """A nearby building, as an axis-aligned box. Occupied, so EMF zones must not reach it."""
+
+    id: str
+    x_m: float
+    z_m: float
+    width_m: float
+    depth_m: float
+    height_m: float
+
+
 class SiteModel(BaseModel):
     site_id: str
     name: str | None = None
     building: Building
     antennas: list[Antenna] = Field(default_factory=list)
     equipment: list[Equipment] = Field(default_factory=list)
+    neighbours: list[Neighbour] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
 
 

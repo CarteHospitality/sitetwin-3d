@@ -35,5 +35,10 @@
     { "id": "CAB-1", "kind": "cabinet", "label": "Outdoor cabinet", "x_m": -3, "z_m": 4, "height_agl_m": 21, "size_m": [0.8, 1.8, 0.7] },
     { "id": "PWR-1", "kind": "power", "label": "Rectifier / batteries", "x_m": -1.8, "z_m": 4, "height_agl_m": 21, "size_m": [0.7, 1.6, 0.7] }
   ],
+  "neighbours": [
+    { "id": "N1 apartment", "x_m": 17, "z_m": -21, "width_m": 10, "depth_m": 8, "height_m": 27 },
+    { "id": "N2 school", "x_m": -26, "z_m": 24, "width_m": 16, "depth_m": 12, "height_m": 12 },
+    { "id": "N3 office", "x_m": -30, "z_m": -8, "width_m": 9, "depth_m": 14, "height_m": 30 }
+  ],
   "notes": ["All values are synthetic and for demonstration only."]
 }
