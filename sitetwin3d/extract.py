@@ -1,4 +1,4 @@
-"""Per-photo extraction: one survey photo -> structured observation (JSON).
+﻿"""Per-photo extraction: one survey photo -> structured observation (JSON).
 
     python -m sitetwin3d.extract PHOTO [PHOTO ...] --provider meta|baseten
 
@@ -27,7 +27,7 @@ MAX_SIDE = 1600
 
 PROVIDERS = {
     "meta": dict(base_url="https://api.meta.ai/v1", key_env="MODEL_API_KEY", model="muse-spark-1.3"),
-    "baseten": dict(base_url="https://inference.baseten.co/v1", key_env="BASETEN_API_KEY", model="meta-models/muse-spark-open-1026"),
+    "baseten": dict(base_url="https://inference.baseten.co/v1", key_env="BASETEN_API_KEY", model="meta-models/muse-spark-open"),
 }
 
 
@@ -50,7 +50,10 @@ class PhotoObservation(BaseModel):
 
 
 PROMPT = """You are a telecom site engineer reviewing one site-survey photo of a mobile base station.
-Describe only what is visible. Read label text verbatim. Do not guess manufacturers or models you cannot read; leave them null.
+List every piece of telecom equipment you can see in `items` (antennas, radio units, cabinets,
+power units, batteries, cable trays, masts), one entry per type with a count, even when the
+manufacturer is unknown. Read label text verbatim. Leave manufacturer and model null unless
+you can actually read them. `summary` is one plain sentence about this photo.
 Return JSON that matches the schema."""
 
 
@@ -73,10 +76,11 @@ def extract(path: Path, provider: str = "meta") -> PhotoObservation:
     client = OpenAI(base_url=cfg["base_url"], api_key=os.environ[cfg["key_env"]])
     response = client.chat.completions.create(
         model=cfg["model"],
+        # Instructions go in the user turn: the open-weight model follows them
+        # there more reliably than in a system message.
         messages=[
-            {"role": "system", "content": PROMPT},
             {"role": "user", "content": [
-                {"type": "text", "text": f"Photo file: {path.name}"},
+                {"type": "text", "text": f"{PROMPT}\n\nPhoto file: {path.name}"},
                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
             ]},
         ],
