@@ -1,0 +1,66 @@
+{
+ "sites": [
+  {
+   "site_id": "SAMPLE-01_ANKARA",
+   "lat": 39.9215,
+   "lon": 32.823,
+   "structure": "rooftop",
+   "technology": "4.5G",
+   "reason": "Low poles on a dense block; zones reach the facing apartments",
+   "antenna_actions": {
+    "retain": 3
+   },
+   "twin": "data/samples/sites/sample-01_ankara.twin.json"
+  },
+  {
+   "site_id": "SAMPLE-02_IZMIR",
+   "lat": 38.4365,
+   "lon": 27.144,
+   "structure": "rooftop",
+   "technology": "5G",
+   "reason": "1800 removal, 700 and 3600 addition on all sectors",
+   "antenna_actions": {
+    "remove": 3,
+    "add": 6
+   },
+   "twin": "data/samples/sites/sample-02_izmir.twin.json"
+  },
+  {
+   "site_id": "SAMPLE-03_ISTANBUL",
+   "lat": 40.984,
+   "lon": 29.027,
+   "structure": "rooftop",
+   "technology": "5G",
+   "reason": "n78 AAU addition in a busy district",
+   "antenna_actions": {
+    "retain": 3,
+    "add": 3
+   },
+   "twin": "data/samples/sites/sample-03_istanbul.twin.json"
+  },
+  {
+   "site_id": "SAMPLE-04_ADANA",
+   "lat": 36.996,
+   "lon": 35.3,
+   "structure": "lattice_tower",
+   "technology": "4.5G",
+   "reason": "Greenfield tower serving a residential edge",
+   "antenna_actions": {
+    "retain": 3
+   },
+   "twin": "data/samples/sites/sample-04_adana.twin.json"
+  },
+  {
+   "site_id": "SAMPLE-05_BURSA",
+   "lat": 40.193,
+   "lon": 29.06,
+   "structure": "rooftop",
+   "technology": "4.5G",
+   "reason": "High-rise block with heavy evening traffic",
+   "antenna_actions": {
+    "retain": 3
+   },
+   "twin": "data/samples/sites/sample-05_bursa.twin.json"
+  }
+ ]
+}
