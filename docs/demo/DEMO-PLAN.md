@@ -27,7 +27,7 @@ Bu bilerek iyi bir şey: "mühendis kendi dilinde konuşuyor" mesajı.
 | 0:45–1:20 | 🎤 tuşuna basıp Türkçe: *"Hangi saha en acil? Onu aç ve okul sorununu en küçük değişiklikle çöz."* | "I just talk to it, in Turkish. Muse Voice Transcribe turns my voice into text, and the Expert Operator, running on Muse Spark Open, takes it from there." |
 | 1:20–2:05 | 3D ikiz açılır; ajan seçenekleri dener, EMF bölgesi küçülür, okul kırmızıdan çıkar | "The agent doesn't guess. Every option it tries runs through the same EMF model I see: tilt, azimuth, power. It picks the smallest change that clears the school." |
 | 2:05–2:35 | Sağda "Saha ekibi ve takvim" ve "İş emri" kartları belirir | "Then it plans the field work: who goes, what they carry, how long it takes." |
-| 2:35–2:55 | "Planı dışa aktar" | "One plan, ready for the operator and the vendor." |
+| 2:35–2:55 | "Eylem planı" → plan açılır → "E-postayla gönder" | "One click turns it into an action plan for the site chief: where, why, what to do, crew, tools, materials, precautions." |
 | 2:55–3:00 | Logo + repo adresi | "SiteTwin 3D. Open source, built on Meta's open models." |
 
 ## Kayıt öncesi kontrol listesi

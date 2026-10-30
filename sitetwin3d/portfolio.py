@@ -49,8 +49,11 @@ def import_site(doc: dict, out_dir: Path, web_root: Path = Path("viewer"), with_
     for a in doc.get("antennas") or []:
         actions[a.get("action", "?")] = actions.get(a.get("action", "?"), 0) + 1
     app = doc.get("application") or {}
+    # The address goes only into the portfolio index, for the field crew's action plan;
+    # real portfolios stay in git-ignored folders.
+    address = ", ".join(str(site[k]) for k in ("address", "district", "province") if site.get(k))
     return {
-        "site_id": doc["site_id"], "lat": round(lat, 6), "lon": round(lon, 6),
+        "site_id": doc["site_id"], "lat": round(lat, 6), "lon": round(lon, 6), **({"address": address} if address else {}),
         "structure": proposed.structure, "technology": app.get("technology"), "reason": app.get("reason"),
         "antenna_actions": actions, "twin": path.resolve().relative_to(web_root.resolve()).as_posix(),
     }

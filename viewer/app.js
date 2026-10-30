@@ -17,6 +17,7 @@ import { fieldWorkOrder } from "./fieldwork.js";
 import { $, el, token, initShell, setText } from "./ui.js";
 import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
 import { crewPlan } from "./crew.js";
+import { actionPlan, openActionPlan } from "./actionplan.js";
 
 initShell();
 initCards();
@@ -59,6 +60,7 @@ let coverageBand = restored.view.coverageBand ?? null;
 let lastModelState = clone(site);
 const planActions = restored.actions.filter((a) => a && typeof a.time === "string" && Array.isArray(a.delta));
 let saveTimer = null;
+let lastReason = null; // the operator's own words for the latest applied change, for the action plan
 let pageActive = true;
 window.addEventListener("pagehide", () => { pageActive = false; });
 window.addEventListener("pageshow", () => { pageActive = true; });
@@ -294,6 +296,7 @@ const planner = {
   apply(changes, reason) {
     const { site: candidate, errors } = applyChanges(site, changes);
     if (errors.length) return { errors };
+    lastReason = reason ?? lastReason;
     undoStack.push(site);
     site = candidate;
     selectedId = changes[0]?.antenna_id ?? selectedId;
@@ -452,6 +455,8 @@ function renderPanels(zones, checks, changes) {
       el("div", { textContent: action.delta.join("; ") }), el("div", { className: "muted", textContent: action.result ?? "" }))));
   }
   $("undo").disabled = !undoStack.length;
+  // Exporting only makes sense once the plan differs from the source.
+  $("export").hidden = !changes.length;
 
   const bad = checks.findings.filter((f) => f.level === "bad");
   const sensitive = bad.filter((f) => f.sensitive).length;
@@ -670,18 +675,21 @@ $("addAntenna").onclick = () => {
   select(`S${i}-N`);
 };
 $("reset").onclick = () => { undoStack.push(clone(site)); site = clone(baseline); selectedId = null; refreshCoverageBands(); update(); renderEditor(); };
-$("export").onclick = () => {
+$("export").onclick = async () => {
   const regime = REGIMES[regimeKey];
   const zones = siteZones(site, regime);
-  const plan = {
+  const checks = checkSite(site, zones);
+  const order = fieldWorkOrder(baseline, site, checks);
+  const data = {
     site_id: site.site_id, regime: regime.name, created: new Date().toISOString(),
-    changes: diffSites(baseline, site), checks: checkSite(site, zones).findings,
-    zones, baseline, proposed: site, actions: planActions,
-    field_work_order: fieldWorkOrder(baseline, site, checkSite(site, zones)),
+    changes: diffSites(baseline, site), checks: checks.findings,
+    zones, baseline, proposed: site, actions: planActions, field_work_order: order,
   };
-  const a = el("a", { href: URL.createObjectURL(new Blob([JSON.stringify(plan, null, 2)], { type: "application/json" })), download: `${site.site_id}-plan.json` });
-  a.click();
-  URL.revokeObjectURL(a.href);
+  const entry = (await portfolioIndex().catch(() => ({ sites: [] }))).sites.find((s) => s.site_id === site.site_id);
+  openActionPlan(actionPlan({
+    site, entry, regime: regime.name, reason: lastReason, order, crew: crewPlan(order, site), changes: data.changes,
+    before: headline(checkSite(baseline, siteZones(baseline, regime))), after: headline(checks),
+  }), { data });
 };
 $("regime").onchange = (e) => { regimeKey = e.target.value; update(); };
 $("coverageBand").onchange = (e) => { coverageBand = e.target.value; renderCoverage(); renderLegend(); saveSessionPlan(); };
@@ -758,7 +766,7 @@ $("backToMap").href = backTo;
 refreshCoverageBands();
 update();
 $("loading").hidden = true;
-$("export").disabled = false;
+
 // Opened from the portfolio map: the Expert Operator carries out what was asked
 // there, or reviews the site straight away.
 const handoff = consumeHandoff(params);

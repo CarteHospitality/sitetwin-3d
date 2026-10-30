@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SiteTwin Portfolio</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="ui.css?v=simple-1">
+<link rel="stylesheet" href="ui.css?v=simple-2">
 </head>
 <body>
 <header class="topbar">
@@ -15,7 +15,7 @@
   <label class="contrast-control"><input id="projector" type="checkbox"><span>Projector contrast</span></label>
   <button class="drawer-trigger operator-trigger" data-pane="operator" aria-expanded="false">Operator</button>
   <button class="drawer-trigger inspect-trigger" data-pane="inspect" aria-expanded="false">Inspect</button>
-  <button class="primary" id="loadTwin">Load SiteTwin file</button><input type="file" id="upload" accept=".json,application/json" hidden>
+  <button class="upload-btn" id="loadTwin" title="Load SiteTwin file">Load file</button><input type="file" id="upload" accept=".json,application/json" hidden>
 </header>
 <div class="layout">
   <!-- Left: the conversation with the Expert Operator -->
@@ -33,16 +33,11 @@
         <button class="chip suggest">Which site is most urgent and why?</button>
         <button class="chip suggest">Hangi sahalarda okul ya da hastane riski var?</button>
       </div>
-      <div class="row">
-        <textarea id="chatInput" aria-label="Message to Expert Operator" rows="2" placeholder="Talk or type, any language"></textarea>
-        <div class="stack">
-          <button class="primary" id="chatSend">Send</button>
-          <button id="micButton" title="Push to talk (Muse Voice Transcribe)">Talk</button>
-        </div>
-      </div>
-      <div class="row between">
-        <span class="muted">🎤 Spoken questions get spoken answers</span>
-        <span class="muted" id="chatBusy" hidden></span>
+      <div class="muted composer-status" id="chatBusy" role="status" hidden></div>
+      <div class="input-pill">
+        <textarea id="chatInput" aria-label="Message to Expert Operator" rows="1" placeholder="Ask about your sites"></textarea>
+        <button class="icon-btn" id="micButton" title="Talk" aria-label="Talk"></button>
+        <button class="icon-btn send" id="chatSend" title="Send" aria-label="Send"></button>
       </div>
     </div>
   </aside>
@@ -88,6 +83,6 @@
 <nav class="mobile-nav" aria-label="Workspace navigation"><button data-pane="workspace" aria-pressed="true">Workspace</button><button data-pane="operator" aria-expanded="false">Operator</button><button data-pane="inspect" aria-expanded="false">Inspect</button></nav>
 <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
 <div id="liveStatus" class="sr-only" role="status" aria-live="polite"></div>
-<script type="module" src="portfolio.js?v=simple-1"></script>
+<script type="module" src="portfolio.js?v=simple-2"></script>
 </body>
 </html>

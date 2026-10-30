@@ -47,7 +47,9 @@ export function initVoice({ button, status, onText }) {
   const setState = (value, message = value) => {
     state = value; button.dataset.state = value.toLowerCase();
     button.classList.toggle("recording", value === "Listening");
-    button.textContent = value === "Listening" ? "Listening… tap to stop" : pending ? "Cancel mic" : "Talk";
+    // Icon-only button: the state is in its label and tooltip.
+    const label = value === "Listening" ? "Listening… tap to stop" : pending ? "Cancel mic" : "Talk";
+    button.title = label; button.setAttribute("aria-label", label);
     button.setAttribute("aria-pressed", String(value === "Listening" || pending));
     button.disabled = running || value === "Transcribing";
     stopSpeech.hidden = value !== "Speaking";

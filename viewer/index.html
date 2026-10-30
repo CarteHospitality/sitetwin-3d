@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SiteTwin 3D</title>
-<link rel="stylesheet" href="ui.css?v=simple-1">
+<link rel="stylesheet" href="ui.css?v=simple-2">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -20,7 +20,7 @@
   <label class="contrast-control"><input id="projector" type="checkbox"><span>Projector contrast</span></label>
   <button class="drawer-trigger operator-trigger" data-pane="operator" aria-expanded="false">Operator</button>
   <button class="drawer-trigger inspect-trigger" data-pane="inspect" aria-expanded="false">Inspect</button>
-  <button class="primary" id="export" disabled>Export plan</button>
+  <button class="primary" id="export" hidden>Action plan</button>
 </header>
 <div class="layout">
   <!-- Left: the conversation with the Expert Operator -->
@@ -36,16 +36,11 @@
         <button class="chip suggest">Review this site like an operator: what would you change and why?</button>
         <button class="chip suggest">Fix the neighbour conflicts with the smallest change</button>
         </div>
-      <div class="row">
-        <textarea id="chatInput" aria-label="Message to Expert Operator" rows="2" placeholder="Talk or type, any language: “remove S2-A”, “add 5G on sector 1”, “undo”"></textarea>
-        <div class="stack">
-          <button class="primary" id="chatSend">Send</button>
-          <button id="micButton" title="Push to talk (Muse Voice Transcribe)">Talk</button>
-        </div>
-      </div>
-      <div class="row between">
-        <span class="muted">🎤 Spoken questions get spoken answers</span>
-        <span class="muted" id="chatBusy" hidden></span>
+      <div class="muted composer-status" id="chatBusy" role="status" hidden></div>
+      <div class="input-pill">
+        <textarea id="chatInput" aria-label="Message to Expert Operator" rows="1" placeholder="Ask or give an instruction"></textarea>
+        <button class="icon-btn" id="micButton" title="Talk" aria-label="Talk"></button>
+        <button class="icon-btn send" id="chatSend" title="Send" aria-label="Send"></button>
       </div>
     </div>
   </aside>
@@ -97,7 +92,7 @@
           <div class="muted" id="planDelta">No changes yet</div>
           <ul id="changes"></ul>
           <ul id="planActions" class="actions"></ul>
-          <div class="row"><button id="reset">Reset plan</button><button id="undo">Undo last change</button></div>
+          <div class="row quiet-actions"><button id="undo">Undo</button><button id="reset">Reset</button></div>
         </div>
       </section>
 
@@ -151,6 +146,6 @@
 <nav class="mobile-nav" aria-label="Workspace navigation"><button data-pane="workspace" aria-pressed="true">Workspace</button><button data-pane="operator" aria-expanded="false">Operator</button><button data-pane="inspect" aria-expanded="false">Inspect</button></nav>
 <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
 <div id="liveStatus" class="sr-only" role="status" aria-live="polite"></div>
-<script type="module" src="app.js?v=simple-1"></script>
+<script type="module" src="app.js?v=simple-2"></script>
 </body>
 </html>
