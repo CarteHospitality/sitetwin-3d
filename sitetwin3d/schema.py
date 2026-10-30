@@ -18,6 +18,7 @@ class Building(BaseModel):
     width_m: float = Field(description="East-west extent of the roof")
     depth_m: float = Field(description="North-south extent of the roof")
     height_m: float = Field(description="Roof height above ground")
+    footprint: list[tuple[float, float]] | None = Field(default=None, description="Roof outline (x, z) around the site origin")
 
 
 class Antenna(BaseModel):
@@ -73,6 +74,7 @@ class Neighbour(BaseModel):
     use: Literal["residential", "office", "commercial", "school", "kindergarten", "hospital", "other"] = "residential"
     storeys: int | None = None
     population: int | None = Field(default=None, description="Known occupancy; estimated from floor area when missing")
+    footprint: list[tuple[float, float]] | None = Field(default=None, description="Outline in the site frame (x, z); the box fields are its bounds")
 
 
 class SiteModel(BaseModel):

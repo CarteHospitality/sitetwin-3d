@@ -28,8 +28,10 @@ const el = (tag, props = {}, ...children) => {
 // ---------- state ----------
 const src = new URLSearchParams(location.search).get("twin") || "data/site.twin.json";
 const twin = await (await fetch(src)).json();
-const baseline = twin.site;
-let site = clone(baseline);
+// A twin may carry the existing state separately (e.g. SiteTwin's retain/remove
+// antennas); the plan starts from the proposed site and is compared with it.
+const baseline = twin.baseline ?? twin.site;
+let site = clone(twin.site);
 let selectedId = null;
 let regimeKey = "tr";
 const layers = { zones: true, coverage: false, baseline: false };

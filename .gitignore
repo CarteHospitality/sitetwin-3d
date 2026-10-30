@@ -16,3 +16,6 @@ output/
 
 # Local tool config
 .claude/
+
+# Real site twins for local viewing
+viewer/data/private/

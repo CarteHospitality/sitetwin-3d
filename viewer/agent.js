@@ -83,7 +83,7 @@ const TOOLS = [
           zones: { type: "boolean" },
           coverage: { type: "boolean" },
           baseline: { type: "boolean" },
-          coverage_band: { type: "string", enum: ["L800", "L1800", "L2100", "N3500"] },
+          coverage_band: { type: "string", description: "Band name as listed in get_site_state, e.g. L1800 or N3600" },
           select_antenna: { type: "string" },
         },
       },
