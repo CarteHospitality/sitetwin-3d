@@ -21,6 +21,7 @@ import { $, el, token, initShell, setText } from "./ui.js";
 import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
 import { crewPlan } from "./crew.js";
 import { actionPlan, openActionPlan, result } from "./actionplan.js";
+import { statusLines, planSteps } from "./overview.js";
 
 initShell();
 initCards();
@@ -316,10 +317,6 @@ const planner = {
     refreshCoverageBands();
     update({ animate: true });
     renderEditor();
-    // The engineer should see who has to go to site without asking.
-    if (crewPlan(fieldWorkOrder(baseline, site, checkSite(site, siteZones(site, REGIMES[regimeKey]))), site).visits.length) {
-      showCard("crew", { reveal: true });
-    }
     const { visits, crew } = planner.fieldWork().crew;
     return { applied: true, reason, result: summarize(site), field_crew: { visits, crew } };
   },
@@ -485,9 +482,38 @@ function renderPanels(zones, checks, changes) {
   if (changes.length) { showCard("changes"); setCardSummary("changes", `${changes.length} change(s)`); } else hideCard("changes");
 
   const order = fieldWorkOrder(baseline, site, checks);
+  const crew = crewPlan(order, site);
   renderFieldWork(order);
-  renderCrew(crewPlan(order, site));
+  renderCrew(crew);
+  renderOverview(checks, changes, crew);
 }
+
+// The overview on top of the panel: good and bad points, then the plan in plain words.
+let overviewSignature = "";
+function renderOverview(checks, changes, crew) {
+  const lines = statusLines(site, checks, populationContext(site));
+  const steps = planSteps(baseline, site);
+  // What the plan achieves; a problem it leaves is said as still open, never with a tick.
+  const after = headline(checks);
+  const outcome = !changes.length ? [] : result(headline(checkSite(baseline, siteZones(baseline, REGIMES[regimeKey]))), after)
+    .map((text) => (after.level !== "ok" && text === after.text ? `Still open: ${text}` : text)).slice(0, 2)
+    // Translated in two parts here: the page translator knows each part, not the joined line.
+    .map((text) => ({ open: text.startsWith("Still open: "), text: text.startsWith("Still open: ") ? `${tr("Still open")}: ${tr(text.slice(12))}` : text }));
+  const install = crew.visits.find((v) => v.name === "Installation visit");
+  const crewText = !changes.length || !crew.visits.length ? "" : install ? `Field work: ${crew.headcount} people · ${install.days} day(s)` : "Field work: remote only, no site visit";
+  const signature = JSON.stringify([lines, steps, outcome, crewText]);
+  if (signature === overviewSignature) return;
+  overviewSignature = signature;
+  const icon = { ok: "✓", warn: "!", bad: "✕" };
+  $("statusLines").replaceChildren(...lines.map((l) => el("li", { className: l.level }, el("span", { className: "mark", ariaHidden: "true", textContent: icon[l.level] }), el("span", { textContent: l.text }))));
+  $("overview").querySelector("h2").textContent = changes.length ? "With the plan" : "Current state";
+  $("planSteps").replaceChildren(...(steps.length
+    ? [...steps.map((t) => el("li", { textContent: t })), ...outcome.map((o) => el("li", { className: o.open ? "outcome open" : "outcome", textContent: o.text }))]
+    : [el("li", { className: "muted", textContent: "No changes yet. Ask the Expert Operator, or select an antenna to edit it." })]));
+  $("crewLine").hidden = !crewText;
+  $("crewLine").textContent = crewText ? `${crewText} ›` : "";
+}
+$("crewLine").onclick = () => showCard("crew", { reveal: true });
 
 let crewSignature = "";
 function renderCrew(plan) {
@@ -706,7 +732,7 @@ async function buildPlan() {
   };
   const entry = (await portfolioIndex().catch(() => ({ sites: [] }))).sites.find((s) => s.site_id === site.site_id);
   const plan = actionPlan({
-    site, entry, regime: regime.name, reason: lastReason, order, crew: crewPlan(order, site), changes: data.changes,
+    site, entry, regime: regime.name, reason: lastReason, order, crew: crewPlan(order, site), changes: data.changes, steps: planSteps(baseline, site),
     before: headline(checkSite(baseline, siteZones(baseline, regime))), after: headline(checks),
   });
   return { plan, data };

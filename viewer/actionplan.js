@@ -17,7 +17,7 @@ export function result(before, after) {
 }
 
 // Sections of plain English lines; the page and the e-mail translate them.
-export function actionPlan({ site, entry, before, after, changes, reason, order, crew, regime }) {
+export function actionPlan({ site, entry, before, after, changes, steps = [], reason, order, crew, regime }) {
   const where = [`Structure: ${(site.structure ?? "rooftop").replaceAll("_", " ")}`];
   if (entry?.address) where.push(`Address: ${entry.address}`);
   if (entry?.lat != null) where.push(`Coordinates: ${entry.lat}, ${entry.lon}`, `Map: https://www.google.com/maps?q=${entry.lat},${entry.lon}`);
@@ -26,6 +26,7 @@ export function actionPlan({ site, entry, before, after, changes, reason, order,
   return {
     site: site.site_id,
     sections: [
+      { heading: "In short", lines: steps },
       { heading: "Site", lines: where },
       { heading: "Why", lines: why },
       { heading: "Work to do", lines: changes },

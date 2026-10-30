@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SiteTwin 3D</title>
-<link rel="stylesheet" href="ui.css?v=flow-4">
+<link rel="stylesheet" href="ui.css?v=ui-4">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -56,6 +56,14 @@
     <section class="panel cards">
       <div class="panel-top"><button class="drawer-close" aria-label="Close inspector">Close</button></div>
 
+      <section class="overview" id="overview" aria-live="polite">
+        <h2>Current state</h2>
+        <ul class="status-lines" id="statusLines"></ul>
+        <h2>Action plan</h2>
+        <ul class="plan-steps" id="planSteps"></ul>
+        <button class="crew-line" id="crewLine" hidden></button>
+      </section>
+
       <section class="card" data-card="site" data-folded data-extra>
         <button class="card-head" aria-expanded="true"><span class="card-icon">🏢</span><span class="card-title">Site</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
         <div class="card-body">
@@ -79,7 +87,7 @@
         </div>
       </section>
 
-      <section class="card" data-card="checks">
+      <section class="card" data-card="checks" data-folded>
         <button class="card-head" aria-expanded="true"><span class="card-icon">⚠</span><span class="card-title">Checks</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
         <div class="card-body">
           <div class="headline" id="checksHeadline"></div>
@@ -87,7 +95,7 @@
         </div>
       </section>
 
-      <section class="card" data-card="changes" hidden>
+      <section class="card" data-card="changes" hidden data-folded>
         <button class="card-head" aria-expanded="true"><span class="card-icon">↔</span><span class="card-title">Changes to the plan</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
         <div class="card-body">
           <div class="muted" id="planDelta">No changes yet</div>
@@ -97,7 +105,7 @@
         </div>
       </section>
 
-      <section class="card" data-card="crew" hidden>
+      <section class="card" data-card="crew" hidden data-folded>
         <button class="card-head" aria-expanded="true"><span class="card-icon">👷</span><span class="card-title">Field crew and schedule</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
         <div class="card-body" id="crew"></div>
       </section>
@@ -147,6 +155,6 @@
 <nav class="mobile-nav" aria-label="Workspace navigation"><button data-pane="workspace" aria-pressed="true">Workspace</button><button data-pane="operator" aria-expanded="false">Operator</button><button data-pane="inspect" aria-expanded="false">Inspect</button></nav>
 <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
 <div id="liveStatus" class="sr-only" role="status" aria-live="polite"></div>
-<script type="module" src="app.js?v=flow-4"></script>
+<script type="module" src="app.js?v=ui-4"></script>
 </body>
 </html>

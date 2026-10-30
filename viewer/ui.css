@@ -378,3 +378,22 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
 
 /* Narrow screens: the inspector cards are a drawer; `.panel.cards` above would otherwise keep them on top of the 3D view. */
 @media (max-width: 1179px) { .panel.cards:not(.drawer-open) { display: none; } }
+
+/* Overview: the site at a glance, soft and plain; details sit in the cards below. */
+.overview { background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 4px 16px 14px; margin-bottom: 10px; }
+.overview h2 { margin: 14px 0 8px; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.overview ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.status-lines li { display: flex; align-items: center; gap: 10px; font-size: 14px; line-height: 20px; color: var(--text); }
+.status-lines .mark { flex: 0 0 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700;
+  color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
+.status-lines .warn .mark { color: var(--medium); background: color-mix(in srgb, var(--medium) 14%, transparent); }
+.status-lines .bad .mark { color: var(--critical); background: color-mix(in srgb, var(--critical) 12%, transparent); }
+.plan-steps li { position: relative; padding-left: 18px; font-size: 14px; line-height: 20px; }
+.plan-steps li::before { content: ""; position: absolute; left: 4px; top: 8px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+.plan-steps li.muted::before { display: none; }
+.plan-steps li.muted { padding-left: 0; }
+.plan-steps li.outcome { color: var(--ok); font-weight: 500; }
+.plan-steps li.outcome::before { content: "✓"; background: none; width: auto; height: auto; top: 0; left: 2px; font-size: 12px; }
+.plan-steps li.outcome.open { color: var(--medium); }
+.plan-steps li.outcome.open::before { content: "!"; left: 5px; }
+.crew-line { margin-top: 12px; width: 100%; text-align: left; background: var(--surface-2); border-color: var(--border); color: var(--text-secondary); font-size: 13px; }
