@@ -65,7 +65,10 @@ export function consumeHandoff(params, url = location.href) {
   if (!id) { id = handoffId(); current.searchParams.set("handoff", id); }
   const key = `handoff:${absoluteUrl(params.get("twin") || "data/site.twin.json")}:${id}`;
   if (readSession(key)) return null;
-  const instruction = params.get("ask") || "Review this site like an operator: what is the most important problem, what would you change and why? Apply the best fix and give the before/after numbers.";
+  // Shown as the engineer's message, so it is in the screen's language.
+  const instruction = params.get("ask") || (typeof document === "object" && document.documentElement.lang === "tr"
+    ? "Bu sahayı bir operatör gibi incele: en önemli sorun ne, neyi neden değiştirirsin? En iyi çözümü uygula ve önce/sonra rakamlarını ver."
+    : "Review this site like an operator: what is the most important problem, what would you change and why? Apply the best fix and give the before/after numbers.");
   // Consume before the first network call. If storage is disabled, removing the
   // command from this history entry still prevents a refresh from replaying it.
   if (!writeSession(key, { consumed: new Date().toISOString() })) {

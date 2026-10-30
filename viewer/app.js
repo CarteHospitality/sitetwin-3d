@@ -767,7 +767,8 @@ const chat = initConversation({
   onBusy: (on) => voice.setRunning(on),
   onComplete: () => { if (pendingOpen && pageActive) location.href = pendingOpen; },
   speak: (text) => voice.speak(text),
-  transcriptKey: absoluteUrl(portfolioUrl),
+  // One conversation per site: switching sites must not show another site's chat.
+  transcriptKey: `twin:${absoluteUrl(src)}`,
 });
 const agent = initAgent(planner, chat);
 const voice = initVoice({
