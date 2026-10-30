@@ -49,7 +49,7 @@ export function restoreProposed(url, source) {
   const saved = readSession(`${key}:${active}`);
   if (!saved || saved.version !== 1 || !REGIMES[active] || saved.regime !== active || saved.siteId !== source.site.site_id ||
       saved.twinUrl !== absoluteUrl(url) || saved.fingerprint !== sourceFingerprint(source) || !validPlan(saved.site, source)) {
-    return { ...original, status: "stale", message: "Stored plan context changed or is unreadable. Original assessment loaded; no stored changes applied." };
+    return { ...original, status: "stale", message: "Stored plan context changed or is unreadable. Original assessment loaded, no stored changes applied." };
   }
   return { site: saved.site, regime: saved.regime, actions: Array.isArray(saved.actions) ? saved.actions.filter((item) =>
     item && typeof item.time === "string" && Array.isArray(item.delta) && item.delta.every((value) => typeof value === "string")) : [],
@@ -82,8 +82,18 @@ export function rememberUpload(indexUrl, entry) {
   const list = readSession(uploadsKey(indexUrl), []).filter((e) => e.site_id !== entry.site_id);
   return writeSession(uploadsKey(indexUrl), [...list, entry]);
 }
+// A loaded file replaces the portfolio's own entry for the same site: it is the newer data.
 export function withUploads(indexUrl, index) {
-  const known = new Set(index.sites.map((s) => s.site_id));
-  const extra = readSession(uploadsKey(indexUrl), []).filter((e) => e && typeof e.twin === "string" && !known.has(e.site_id));
-  return { ...index, sites: [...index.sites, ...extra] };
+  const extra = readSession(uploadsKey(indexUrl), []).filter((e) => e && typeof e.twin === "string" && typeof e.site_id === "string");
+  const loaded = new Set(extra.map((e) => e.site_id));
+  return { ...index, sites: [...index.sites.filter((s) => !loaded.has(s.site_id)), ...extra] };
+}
+export const isUpload = (indexUrl, siteId) => readSession(uploadsKey(indexUrl), []).some((e) => e?.site_id === siteId);
+export function forgetUpload(indexUrl, siteId) {
+  writeSession(uploadsKey(indexUrl), readSession(uploadsKey(indexUrl), []).filter((e) => e?.site_id !== siteId));
+}
+// Drops the session plan of one twin, in every EMF regime.
+export function forgetPlan(url, siteId) {
+  const key = PREFIX + baseKey(url, siteId);
+  try { for (const k of Object.keys(sessionStorage)) if (k.startsWith(`${key}:`)) sessionStorage.removeItem(k); } catch { /* storage blocked */ }
 }

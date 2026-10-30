@@ -10,6 +10,8 @@ export const EXACT = {
   "After": "Sonra",
   "Download": "İndir",
   "Fix every site that needs action, one by one": "Sorunlu sahaların hepsini sırayla düzelt",
+  "Remove from map": "Haritadan kaldır",
+  "Click again to remove": "Kaldırmak için tekrar tıklayın",
   "Next site in a few seconds…": "Birkaç saniye içinde sıradaki saha…",
   "sites": "saha",
   "No telecom equipment recognised": "Telekom ekipmanı tanınmadı",
@@ -132,7 +134,7 @@ export const EXACT = {
   "Session storage unavailable · export the plan to keep it": "Oturum depolaması kullanılamıyor · saklamak için planı dışa aktarın",
   "Source assessment": "Kaynak değerlendirmesi",
   "Proposed plan restored for this source and regime · source file unchanged": "Bu kaynak ve limit rejimi için önerilen plan geri yüklendi · kaynak dosya değişmedi",
-  "Stored plan context changed or is unreadable. Original assessment loaded; no stored changes applied.": "Kayıtlı plan bağlamı değişmiş veya okunamıyor. Özgün değerlendirme yüklendi; kayıtlı değişiklikler uygulanmadı.",
+  "Stored plan context changed or is unreadable. Original assessment loaded, no stored changes applied.": "Kayıtlı plan bağlamı değişmiş veya okunamıyor. Özgün değerlendirme yüklendi; kayıtlı değişiklikler uygulanmadı.",
 
   // ---- Checks card
   "Checks": "Kontroller",
@@ -370,6 +372,12 @@ export const EXACT = {
 // (numbers and IDs stay). Longest phrases are applied first. Avoid very short or ambiguous phrases
 // (no single common words like "on", "to", "OK") unless they are distinctive.
 export const PHRASES = {
+  // ---- Loading a site file
+  "This file is not JSON. Choose a SiteTwin site file (.json).": "Bu dosya JSON değil. Bir SiteTwin saha dosyası (.json) seçin.",
+  "This is not a SiteTwin site file: it has no site_id.": "Bu bir SiteTwin saha dosyası değil: site_id alanı yok.",
+  "This is not a usable SiteTwin site file: missing field": "Bu dosya kullanılabilir bir SiteTwin saha dosyası değil: eksik alan",
+  "This is not a usable SiteTwin site file: ": "Bu dosya kullanılabilir bir SiteTwin saha dosyası değil: ",
+  "Import failed (HTTP ": "Yükleme başarısız (HTTP ",
   " antenna change(s)": " anten değişikliği",
   "SiteTwin revision": "SiteTwin revizyonu",
   // ---- Portfolio rows and summaries
@@ -548,6 +556,11 @@ export const PATTERNS = [
   ["^Checked (\\d+) sites automatically$", "", "$1 saha otomatik olarak kontrol edildi"],
   ["^Loaded SiteTwin file (\\S+): (.+)$", "", "SiteTwin dosyası yüklendi: $1: $2"],
   ["^Added (\\S+)$", "", "$1 eklendi"],
+  ["^Updated (\\S+)$", "", "$1 güncellendi"],
+  ["^Removed (\\S+) from the map$", "", "$1 haritadan kaldırıldı"],
+  ["^Removed the loaded file for (\\S+), the portfolio version is back$", "", "$1 için yüklenen dosya kaldırıldı, portföydeki sürüm geri geldi"],
+  ["^(\\S+): Stored plan context changed or is unreadable\\. Original assessment loaded, no stored changes applied\\.$", "",
+    "$1: Saha dosyası değiştiği için kayıtlı plan uygulanmadı, özgün değerlendirme yüklendi."],
   ["^Portfolio unavailable: (.+)$", "", "Portföy kullanılamıyor: $1"],
   ["^Site assessment failed: (.+)$", "", "Saha değerlendirmesi başarısız: $1"],
   ["^Twin unavailable \\((\\d+)\\)$", "", "İkiz kullanılamıyor ($1)"],

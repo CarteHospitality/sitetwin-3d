@@ -130,7 +130,8 @@ def import_sitetwin(doc: dict[str, Any]) -> dict:
     try:
         return import_site(doc, VIEWER / "data" / "uploads", web_root=VIEWER)
     except (KeyError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=f"not a usable SiteTwin file: {e}") from e
+        why = f"missing field {e}" if isinstance(e, KeyError) else str(e)
+        raise HTTPException(status_code=400, detail=f"not a usable SiteTwin file: {why}") from e
 
 
 app.mount("/", StaticFiles(directory=VIEWER, html=True), name="viewer")

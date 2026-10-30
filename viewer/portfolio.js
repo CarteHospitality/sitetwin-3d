@@ -8,7 +8,7 @@ import { populationContext } from "./population.js";
 import { createAgent } from "./agent.js";
 import { initVoice } from "./voice.js";
 import { initConversation } from "./conversation.js";
-import { readSession, writeSession, restoreProposed, canonical, handoffId, absoluteUrl, rememberUpload, withUploads } from "./session.js";
+import { readSession, writeSession, restoreProposed, canonical, handoffId, absoluteUrl, rememberUpload, withUploads, isUpload, forgetUpload, forgetPlan } from "./session.js";
 import { $, el, token, initShell, reducedMotion } from "./ui.js";
 import { startTour, readTour, endTour } from "./tour.js";
 import { combinePlans, openActionPlan } from "./actionplan.js";
@@ -33,8 +33,9 @@ const mapKey = `map:${absoluteUrl(indexUrl)}`;
 const storedMap = readSession(mapKey, {}) || {};
 const mapActions = Array.isArray(storedMap.actions) ? storedMap.actions.filter((a) => a && typeof a.text === "string" && typeof a.time === "string") : [];
 const seenProposals = storedMap.proposals && typeof storedMap.proposals === "object" ? storedMap.proposals : {};
-const index = withUploads(indexUrl, await fetch(indexUrl).then((r) => (r.ok ? r.json() : fetch("data/samples/portfolio.json").then((s) => s.json())))
-  .catch((e) => { $("loading").textContent = `Portfolio unavailable: ${e.message}`; throw e; }));
+const baseIndex = await fetch(indexUrl).then((r) => (r.ok ? r.json() : fetch("data/samples/portfolio.json").then((s) => s.json())))
+  .catch((e) => { $("loading").textContent = `Portfolio unavailable: ${e.message}`; throw e; });
+const index = withUploads(indexUrl, baseIndex);
 
 const map = L.map("map", { zoomControl: true, fadeAnimation: !reducedMotion.matches,
   zoomAnimation: !reducedMotion.matches, markerZoomAnimation: !reducedMotion.matches });
@@ -210,13 +211,45 @@ function renderSelected(s) {
     el("h1", { textContent: s.entry.site_id }),
     el("div", { className: `headline ${s.a.level === "critical" || s.a.level === "high" ? "bad" : s.a.level === "ok" ? "ok" : ""}`, textContent: s.a.summary }),
     el("div", { className: "row" },
-      Object.assign(el("button", { className: "primary", textContent: "Open in 3D →" }), { onclick: () => openTwin(s) })),
+      Object.assign(el("button", { className: "primary", textContent: "Open in 3D →" }), { onclick: () => openTwin(s) }),
+      ...(isUpload(indexUrl, s.entry.site_id) ? [removeButton(s)] : [])),
     el("details", { className: "more" }, el("summary", { textContent: "Details" }),
       el("div", { className: "muted", textContent: `${s.entry.structure.replaceAll("_", " ")} · ${s.regime === "tr" ? "TR 20%" : "ICNIRP"} · ${s.a.buildings} buildings · ~${s.a.people} people nearby (estimated)` }),
       el("ul", {}, ...(s.a.issues.length ? s.a.issues : ["No issues found"]).map((text) => el("li", { textContent: text })))),
   );
   showCard("selected", { reveal: shownSelected !== s });
   shownSelected = s;
+}
+
+// A loaded file can be taken off the map again: the first click asks, the second removes.
+function removeButton(s) {
+  const button = el("button", { textContent: "Remove from map" });
+  let armed;
+  button.onclick = () => {
+    if (!armed) {
+      button.textContent = "Click again to remove";
+      armed = setTimeout(() => { armed = null; button.textContent = "Remove from map"; }, 4000);
+      return;
+    }
+    clearTimeout(armed);
+    removeUpload(s);
+  };
+  return button;
+}
+// Forgets the loaded file and its session plan; a portfolio site it replaced comes back.
+async function removeUpload(s) {
+  const id = s.entry.site_id;
+  forgetUpload(indexUrl, id);
+  forgetPlan(s.entry.twin, id);
+  map.closePopup();
+  markers[id]?.remove(); delete markers[id];
+  siteRows.get(id)?.remove(); siteRows.delete(id);
+  sites.splice(sites.indexOf(s), 1);
+  delete seenProposals[id];
+  const original = baseIndex.sites.find((e) => e.site_id === id);
+  const back = original ? await add(original) : null;
+  render(back);
+  logAction(original ? `Removed the loaded file for ${id}, the portfolio version is back` : `Removed ${id} from the map`);
 }
 
 function select(s, { inspect = false, travel = true } = {}) {
@@ -347,6 +380,7 @@ const mapAgent = createAgent({
 an operator or vendor decide which base-station sites need attention and what to do.
 ${voice ? "The engineer is speaking: answer in 1-3 short spoken sentences, no lists." : "The engineer is typing: answer in at most 3 short lines, plain sentences, no headings."}
 Answer in the engineer's language (Turkish if they speak Turkish). When you open a site, pass the instruction in the engineer's own language.
+${document.documentElement.lang === "tr" ? "The engineer's screen is in Turkish: say the urgency levels and structure types in Turkish too (Critical = Kritik, Action needed = Aksiyon gerekli, Review = İnceleme, Change planned = Değişiklik planlandı, OK = Uygun; rooftop = çatı, ground = zemin)." : ""}
 Sites are ranked by automatic checks: Critical = an EMF zone reaches a sensitive building (school, kindergarten, hospital);
 Action needed = a zone reaches another building; Review = roof safety or capacity; Change planned = SiteTwin has pending antenna changes.
 Call list_sites before talking about sites; never invent sites or numbers. Site names may be spoken loosely ("Ankara", "the Izmir one"):
@@ -387,18 +421,26 @@ $("upload").onchange = async (e) => {
   setCardSummary("upload", "working…");
   $("uploadStatus").textContent = "Importing and fetching surrounding buildings…";
   try {
-    const res = await fetch("api/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: await file.text() });
-    if (!res.ok) throw new Error(await res.text());
+    // Checked here first, so a wrong file gets a plain answer instead of a parser message.
+    let doc;
+    try { doc = JSON.parse(await file.text()); } catch { throw new Error("This file is not JSON. Choose a SiteTwin site file (.json)."); }
+    if (!doc || typeof doc !== "object" || Array.isArray(doc) || !doc.site_id) throw new Error("This is not a SiteTwin site file: it has no site_id.");
+    const res = await fetch("api/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(doc) });
+    if (!res.ok) {
+      const detail = await res.json().then((b) => (typeof b.detail === "string" ? b.detail : null)).catch(() => null);
+      throw new Error(detail ? `This is not a usable SiteTwin site file: ${detail.replace(/^not a usable SiteTwin file: /, "")}` : `Import failed (HTTP ${res.status})`);
+    }
     const entry = await res.json();
+    const replaced = sites.some((x) => x.entry.site_id === entry.site_id);
     const s = await add(entry);
     rememberUpload(indexUrl, entry);
-    $("uploadStatus").textContent = `Added ${s.entry.site_id}`;
+    $("uploadStatus").textContent = `${replaced ? "Updated" : "Added"} ${s.entry.site_id}`;
     setCardSummary("upload", "done", "ok");
     setTimeout(() => hideCard("upload"), 4000);
     logAction(`Loaded SiteTwin file ${s.entry.site_id}: ${LEVELS[s.a.level].label}`);
     select(s);
   } catch (err) {
-    $("uploadStatus").textContent = `⚠️ ${String(err.message ?? err).slice(0, 200)}`;
+    $("uploadStatus").textContent = `⚠️ ${String(err.message ?? err).slice(0, 240)}`;
     setCardSummary("upload", "failed", "bad");
   }
   e.target.value = "";
