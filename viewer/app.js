@@ -5,11 +5,17 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { REGIMES, siteZones } from "./emf.js";
 import { checkSite, pointInPolygon, roofOf } from "./checks.js";
-import { coverageGrid, paintCoverage, RSRP_BINS } from "./coverage.js";
-import { initAgent, replyHtml } from "./agent.js";
+import { coverageGrid, coverageGridAsync, paintCoverage, RSRP_BINS } from "./coverage.js";
+import { initAgent } from "./agent.js";
 import { populationContext } from "./population.js";
 import { initVoice } from "./voice.js";
+import { initConversation } from "./conversation.js";
+import { createSceneMotion } from "./scene.js";
+import { restoreProposed, saveProposed, sourceFingerprint, consumeHandoff, handoffId, absoluteUrl } from "./session.js";
 import { fieldWorkOrder } from "./fieldwork.js";
+import { $, el, token, initShell, showTab, setText } from "./ui.js";
+
+initShell();
 
 const BAND_PRESETS = {
   L800: { name: "L800", frequency_mhz: 800, tx_power_w: 20, gain_dbi: 15.0, horizontal_beamwidth_deg: 65, vertical_beamwidth_deg: 9, front_to_back_db: 25, feeder_loss_db: 0 },
@@ -19,27 +25,41 @@ const BAND_PRESETS = {
 };
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
-const $ = (id) => document.getElementById(id);
-const el = (tag, props = {}, ...children) => {
-  const e = Object.assign(document.createElement(tag), props);
-  e.append(...children);
-  return e;
-};
 
 // ---------- state ----------
 const params = new URLSearchParams(location.search);
 const src = params.get("twin") || "data/site.twin.json";
 const portfolioUrl = params.get("portfolio") || "data/private/portfolio.json";
 const backTo = params.get("from") || `portfolio.html${params.get("portfolio") ? `?portfolio=${encodeURIComponent(portfolioUrl)}` : ""}`;
-const twin = await (await fetch(src)).json();
+const twin = await fetch(src).then((r) => {
+  if (!r.ok) throw new Error(`Twin unavailable (${r.status})`);
+  return r.json();
+}).catch((error) => { $("loading").textContent = error.message; throw error; });
 // A twin may carry the existing state separately (e.g. SiteTwin's retain/remove
 // antennas); the plan starts from the proposed site and is compared with it.
 const baseline = twin.baseline ?? twin.site;
-let site = clone(twin.site);
-let selectedId = null;
-let regimeKey = "tr";
+const restored = restoreProposed(src, twin);
+const fingerprint = sourceFingerprint(twin);
+let site = clone(restored.site);
+let selectedId = site.antennas.some((a) => a.id === restored.view.selected) ? restored.view.selected : null;
+let regimeKey = restored.regime;
 const layers = { zones: true, coverage: false, baseline: false };
-let coverageBand = null;
+for (const key of Object.keys(layers)) if (typeof restored.view.layers?.[key] === "boolean") layers[key] = restored.view.layers[key];
+let coverageBand = restored.view.coverageBand ?? null;
+let lastModelState = clone(site);
+const planActions = restored.actions.filter((a) => a && typeof a.time === "string" && Array.isArray(a.delta));
+let saveTimer = null;
+let pageActive = true;
+window.addEventListener("pagehide", () => { pageActive = false; });
+window.addEventListener("pageshow", () => { pageActive = true; });
+function saveSessionPlan() {
+  clearTimeout(saveTimer);
+  const saved = saveProposed(src, twin, { site, regime: regimeKey, actions: planActions,
+    view: { selected: selectedId, layers, coverageBand } }, fingerprint);
+  if (!saved) $("planSession").textContent = "Session storage unavailable · export the plan to keep it";
+}
+window.addEventListener("pagehide", saveSessionPlan);
+
 
 // ---------- scene ----------
 // x = East, y = Up, z = South; azimuth clockwise from North (-z).
@@ -47,28 +67,66 @@ let coverageBand = null;
 const azToTheta = (deg) => Math.PI - THREE.MathUtils.degToRad(deg);
 const host = $("scene");
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(devicePixelRatio);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = false;
 host.prepend(renderer.domElement);
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0f1115);
-const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 3000);
+scene.background = new THREE.Color(token("stage"));
+scene.fog = new THREE.Fog(token("stage"), 160, 420);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 3000);
 camera.position.set(55, 70, 75);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, baseline.building.height_m, 0);
-scene.add(new THREE.HemisphereLight(0xffffff, 0x334455, 1.0));
-const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-sun.position.set(30, 80, 20);
+scene.add(new THREE.HemisphereLight(0xd8ebff, 0x273744, 1.6));
+const sun = new THREE.DirectionalLight(0xfff1de, 2.2);
+sun.position.set(-60, 100, 40);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+Object.assign(sun.shadow.camera, { left: -80, right: 80, top: 80, bottom: -80, near: 1, far: 240 });
+sun.shadow.bias = -0.0001;
+sun.shadow.normalBias = 0.04;
+sun.shadow.camera.updateProjectionMatrix();
 scene.add(sun);
 
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshLambertMaterial({ color: 0x1d222b }));
+// Pinned r160 lighting chunk: retain at least 78% of direct illumination in
+// shadow. Hemisphere fill further reduces visible darkness; no extra pass.
+function softenShadow(material) {
+  material.onBeforeCompile = (shader) => {
+    const lights = THREE.ShaderChunk.lights_fragment_begin.replace(/getShadow\( directionalShadowMap[^;]+? \)/g,
+      (expression) => `mix(0.78, 1.0, ${expression})`);
+    shader.fragmentShader = shader.fragmentShader.replace("#include <lights_fragment_begin>", lights);
+  };
+  material.customProgramCacheKey = () => "sitetwin-soft-shadow-r160";
+  return material;
+}
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), softenShadow(new THREE.MeshStandardMaterial({ color: token("scene-ground"), roughness: 1 })));
 ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
 scene.add(ground);
-scene.add(new THREE.GridHelper(600, 120, 0x2c3340, 0x232833));
+for (const [divisions, opacity] of [[60, 0.06], [12, 0.12]]) {
+  const grid = new THREE.GridHelper(300, divisions / 2, token("scene-edge"), token("scene-edge"));
+  grid.position.y = 0.02;
+  grid.material.transparent = true;
+  grid.material.opacity = opacity;
+  grid.material.depthWrite = false;
+  grid.material.onBeforeCompile = (shader) => {
+    shader.vertexShader = "varying vec2 vGroundXZ;\n" + shader.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\nvGroundXZ = (modelMatrix * vec4(position, 1.0)).xz;");
+    shader.fragmentShader = "varying vec2 vGroundXZ;\n" + shader.fragmentShader.replace("#include <color_fragment>", "#include <color_fragment>\ndiffuseColor.a *= 1.0 - smoothstep(80.0, 150.0, length(vGroundXZ));");
+  };
+  grid.material.customProgramCacheKey = () => "sitetwin-grid-fade-r160";
+  scene.add(grid);
+}
 
 // A footprint is extruded to its height; without one, a box from the bounds.
 // Shape points are (x, -z) so that rotating the extrusion upright lands them back on z.
 function buildingMesh(item, height, color) {
-  const mat = new THREE.MeshLambertMaterial({ color });
+  const mat = softenShadow(new THREE.MeshStandardMaterial({ color, roughness: 0.93, metalness: 0 }));
   if (!item.footprint) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(item.width_m, height, item.depth_m), mat);
     m.position.set(item.x_m ?? 0, height / 2, item.z_m ?? 0);
@@ -86,19 +144,27 @@ const roof = roofOf(b);
 const HEIGHT_RANGE = [b.height_m + 1, Math.round(Math.max(b.height_m + 15, ...twin.site.antennas.map((a) => a.height_agl_m + 10)))];
 const roofBounds = roof.bounds;
 const onRoof = roof.contains;
-scene.add(buildingMesh(b, b.height_m, 0x8a919e));
-scene.add(new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, b.height_m + 0.1, roofBounds.z0 - 1), 6, 0x4096ff, 1.5, 1));
+const siteBuilding = buildingMesh(b, b.height_m, token("scene-site"));
+siteBuilding.castShadow = siteBuilding.receiveShadow = true;
+scene.add(siteBuilding);
+const roofEdge = new THREE.LineSegments(new THREE.EdgesGeometry(siteBuilding.geometry, 30), new THREE.LineBasicMaterial({ color: token("scene-edge"), toneMapped: false }));
+roofEdge.position.copy(siteBuilding.position); roofEdge.rotation.copy(siteBuilding.rotation);
+scene.add(roofEdge);
+scene.add(new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, b.height_m + 0.1, roofBounds.z0 - 1), 6, token("accent"), 1.5, 1));
 
 const neighbourMeshes = {};
+const shadowCasters = new Set([...(baseline.neighbours ?? [])].sort((a, b) => Math.hypot(a.x_m, a.z_m) - Math.hypot(b.x_m, b.z_m)).slice(0, 40).map((n) => n.id));
 for (const n of baseline.neighbours ?? []) {
-  const m = buildingMesh(n, n.height_m, 0x4b5263);
+  const m = buildingMesh(n, n.height_m, token("scene-building"));
+  m.castShadow = shadowCasters.has(n.id); m.receiveShadow = true;
   scene.add(m);
   neighbourMeshes[n.id] = m;
 }
 for (const e of baseline.equipment) {
   const [w, h, d] = e.size_m;
-  const box = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color: 0x597ef7 }));
+  const box = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), softenShadow(new THREE.MeshStandardMaterial({ color: token("scene-pole"), roughness: 0.93 })));
   box.position.set(e.x_m, e.height_agl_m + h / 2, e.z_m);
+  box.castShadow = box.receiveShadow = true;
   scene.add(box);
 }
 
@@ -112,50 +178,16 @@ scene.add(antennaGroup, zoneGroup, baselineGroup);
 const COVERAGE_CELLS = 150;
 const coverageCanvas = Object.assign(document.createElement("canvas"), { width: COVERAGE_CELLS, height: COVERAGE_CELLS });
 const coverageTexture = new THREE.CanvasTexture(coverageCanvas);
+coverageTexture.colorSpace = THREE.SRGBColorSpace;
 coverageTexture.magFilter = THREE.NearestFilter;
-const coveragePlane = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshBasicMaterial({ map: coverageTexture, transparent: true, depthWrite: false }));
+const coveragePlane = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshBasicMaterial({ map: coverageTexture, transparent: true, depthWrite: false, toneMapped: false }));
 coveragePlane.rotation.x = -Math.PI / 2;
 coveragePlane.position.y = 0.05;
 coveragePlane.visible = false;
 scene.add(coveragePlane);
 
-const poleMat = new THREE.MeshLambertMaterial({ color: 0x5c6370 });
-function antennaMesh(a, selected) {
-  const g = new THREE.Group();
-  const poleLen = a.height_agl_m - b.height_m + a.length_m / 2;
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, poleLen), poleMat);
-  pole.position.set(a.x_m, b.height_m + poleLen / 2, a.z_m);
-  const panel = new THREE.Mesh(new THREE.BoxGeometry(0.35, a.length_m, 0.14), new THREE.MeshLambertMaterial({ color: selected ? 0x4096ff : 0xf0f0f0 }));
-  panel.position.set(a.x_m, a.height_agl_m, a.z_m);
-  panel.rotation.y = azToTheta(a.azimuth_deg);
-  panel.translateZ(0.2);
-  panel.rotateX(-THREE.MathUtils.degToRad(a.mechanical_tilt_deg));
-  panel.userData.antennaId = a.id;
-  g.add(pole, panel);
-  return g;
-}
-
-const zoneMat = (color, wire = false) => wire
-  ? new THREE.MeshBasicMaterial({ color, wireframe: true, transparent: true, opacity: 0.12 })
-  : new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false });
-function zoneMeshes(a, z, wire) {
-  const hbw = THREE.MathUtils.degToRad(z.horizontal_beamwidth_deg);
-  const front = new THREE.Mesh(
-    new THREE.CylinderGeometry(z.front_m, z.front_m, 2 * z.half_height_m, wire ? 12 : 48, 1, false, azToTheta(a.azimuth_deg) - hbw / 2, hbw),
-    zoneMat(wire ? 0xbfbfbf : 0xff4d4f, wire),
-  );
-  front.position.set(a.x_m, a.height_agl_m, a.z_m);
-  const back = new THREE.Mesh(new THREE.CylinderGeometry(z.back_m, z.back_m, a.length_m, 24), zoneMat(wire ? 0xbfbfbf : 0xffa940, wire));
-  back.position.copy(front.position);
-  return [front, back];
-}
-
-function clearGroup(g) {
-  for (const c of [...g.children]) {
-    g.remove(c);
-    c.traverse((o) => { o.geometry?.dispose(); o.material?.dispose(); });
-  }
-}
+const sceneMotion = createSceneMotion({ THREE, scene, renderer, camera, controls, host, building: b,
+  antennaGroup, zoneGroup, baselineGroup, neighbourMeshes, onEditFrame: () => update() });
 
 // ---------- analysis ----------
 const FIELDS = { azimuth_deg: "azimuth", mechanical_tilt_deg: "mech. tilt", electrical_tilt_deg: "elec. tilt", height_agl_m: "height", x_m: "x", z_m: "z" };
@@ -256,7 +288,7 @@ const planner = {
     site = candidate;
     selectedId = changes[0]?.antenna_id ?? selectedId;
     refreshCoverageBands();
-    update();
+    update({ animate: true });
     renderEditor();
     return { applied: true, reason, result: summarize(site) };
   },
@@ -264,7 +296,7 @@ const planner = {
     if (!undoStack.length) return { error: "nothing to undo" };
     site = undoStack.pop();
     refreshCoverageBands();
-    update();
+    update({ animate: true, action: "Undo · Applied to plan" });
     renderEditor();
     return { undone: true, result: summarize(site) };
   },
@@ -274,18 +306,20 @@ const planner = {
   async openSite({ site_id, instruction }) {
     const s = (await portfolioIndex()).sites.find((x) => x.site_id.toLowerCase().includes(String(site_id).toLowerCase()));
     if (!s) return { error: `no site ${site_id} in the portfolio` };
-    const p = new URLSearchParams({ twin: s.twin, ...(instruction ? { ask: instruction } : { auto: "review" }), from: backTo, portfolio: portfolioUrl });
+    const p = new URLSearchParams({ twin: s.twin, ...(instruction ? { ask: instruction } : { auto: "review" }), from: backTo, portfolio: portfolioUrl, handoff: handoffId() });
     if (agent.voice) p.set("voice", "1");
     pendingOpen = `index.html?${p}`;
     return { opening: s.site_id, instruction: instruction ?? "full review" };
   },
   setView({ zones, coverage, baseline: showBaseline, coverage_band, select_antenna }) {
+    const previousSelection = selectedId;
     for (const [k, v] of Object.entries({ zones, coverage, baseline: showBaseline })) if (typeof v === "boolean") layers[k] = v;
     if (coverage_band && bandNames().includes(coverage_band)) coverageBand = coverage_band;
     if (select_antenna !== undefined) selectedId = site.antennas.some((a) => a.id === select_antenna) ? select_antenna : null;
     syncLayerChips();
     update();
     renderEditor();
+    if (selectedId && selectedId !== previousSelection) sceneMotion.focus(selectedId);
     return { layers, coverage_band: coverageBand, selected: selectedId };
   },
 };
@@ -298,102 +332,239 @@ async function portfolioIndex() {
 }
 
 // ---------- UI ----------
+let editSnapshot = null;
+function beginEdit() { editSnapshot ??= clone(site); }
+function finishEdit() {
+  if (editSnapshot && JSON.stringify(editSnapshot) !== JSON.stringify(site)) undoStack.push(editSnapshot);
+  editSnapshot = null;
+  update();
+  renderCoverage(true);
+}
+function pairRange(range, out, label, setter) {
+  out.hidden = true;
+  const numeric = el("input", { type: "number", className: "numeric", min: range.min, max: range.max, step: range.step, value: range.value, ariaLabel: label });
+  range.setAttribute("aria-label", label);
+  range.after(out); out.after(numeric);
+  numeric.after(el("span", { className: "unit", textContent: label.includes("degrees") ? "°" : label.includes("watts") ? "W" : "m" }));
+  range.addEventListener("pointerdown", beginEdit);
+  range.addEventListener("keydown", beginEdit);
+  const change = (value) => {
+    beginEdit(); range.value = value; numeric.value = range.value; out.textContent = range.value;
+    setter(Number(range.value)); sceneMotion.queueEdit();
+  };
+  range.oninput = () => change(range.value);
+  numeric.oninput = () => { if (numeric.value !== "" && numeric.validity.valid) change(numeric.value); };
+  range.onchange = numeric.onchange = finishEdit;
+  numeric.onblur = () => { numeric.value = range.value; };
+  range.userNumeric = numeric;
+}
 function renderEditor() {
   const a = site.antennas.find((x) => x.id === selectedId);
   $("editor").hidden = !a;
   if (!a) return;
   $("editId").textContent = a.id;
-  for (const input of document.querySelectorAll("#editor input[type=range]")) {
+  for (const input of document.querySelectorAll("#editor input[data-k]")) {
     input.value = a[input.dataset.k];
     input.nextElementSibling.textContent = a[input.dataset.k];
+    if (input.userNumeric) input.userNumeric.value = input.value;
   }
   const bands = $("bands");
   bands.replaceChildren();
   for (const band of a.bands) {
     const out = el("output", { textContent: `${band.tx_power_w} W` });
     const range = el("input", { type: "range", min: 1, max: band.frequency_mhz > 3000 ? 240 : 80, step: 1, value: band.tx_power_w });
-    range.oninput = () => { band.tx_power_w = Number(range.value); out.textContent = `${band.tx_power_w} W`; update(); };
-    const del = el("button", { textContent: "×", title: `Remove ${band.name}` });
-    del.onclick = () => { a.bands = a.bands.filter((x) => x !== band); update(); renderEditor(); };
-    bands.append(el("div", { className: "row" }, el("label", { textContent: band.name }), range, out, del));
+    const del = el("button", { textContent: "×", title: `Remove ${band.name}`, ariaLabel: `Remove band ${band.name}`, className: "destructive" });
+    del.onclick = () => { undoStack.push(clone(site)); a.bands = a.bands.filter((x) => x !== band); refreshCoverageBands(); update(); renderEditor(); };
+    bands.append(el("div", { className: "row" }, el("label", { textContent: `${band.name} W` }), range, out, del));
+    pairRange(range, out, `${a.id} ${band.name} power in watts`, (value) => { band.tx_power_w = value; });
   }
 }
 
+const antennaRows = new Map();
+let findingSignature = "", deltaSignature = "", workSignature = "", actionSignature = "";
+let previousAssessment = null;
 function renderPanels(zones, checks, changes) {
   const zoneById = Object.fromEntries(zones.map((z) => [z.antenna_id, z]));
   const tbody = $("antennas");
-  tbody.replaceChildren();
+  const ids = new Set(site.antennas.map((a) => a.id));
+  for (const [id, row] of antennaRows) if (!ids.has(id)) { row.remove(); antennaRows.delete(id); }
   for (const a of site.antennas) {
     const z = zoneById[a.id];
-    const tr = el("tr", { className: a.id === selectedId ? "sel" : "" },
-      ...[a.id, `${a.azimuth_deg}°`, `${a.mechanical_tilt_deg + a.electrical_tilt_deg}°`, a.bands.map((x) => x.name).join(" "), z ? `${z.front_m} m` : "–"].map((t) => el("td", { textContent: t })));
-    tr.style.cursor = "pointer";
-    tr.onclick = () => select(a.id);
-    tbody.append(tr);
+    let row = antennaRows.get(a.id);
+    if (!row) {
+      row = el("tr", { tabIndex: 0, role: "button", ariaLabel: `Select antenna ${a.id}` }, ...Array.from({ length: 5 }, () => el("td")));
+      row.onclick = () => select(a.id);
+      row.onkeydown = (event) => { if (["Enter", " "].includes(event.key)) { event.preventDefault(); select(a.id); } };
+      antennaRows.set(a.id, row); tbody.append(row);
+    }
+    row.classList.toggle("sel", a.id === selectedId);
+    row.setAttribute("aria-pressed", String(a.id === selectedId));
+    const values = [a.id, `${Math.round(a.azimuth_deg)}°`, `${a.mechanical_tilt_deg + a.electrical_tilt_deg}°`, a.bands.map((x) => x.name).join(" "), z ? z.front_m.toFixed(1) : "–"];
+    [...row.children].forEach((cell, i) => setText(cell, values[i]));
   }
-  $("checks").replaceChildren(...checks.findings.map((f) => el("li", { className: f.level, textContent: f.text })));
-  $("changes").replaceChildren(...(changes.length ? changes.map((c) => el("li", { textContent: c })) : [el("li", { className: "muted", textContent: "No changes yet" })]));
-  for (const [id, m] of Object.entries(neighbourMeshes)) m.material.color.set(checks.hit.has(id) ? 0x8c2f39 : 0x4b5263);
+  const nextFindingSignature = JSON.stringify(checks.findings);
+  if (findingSignature !== nextFindingSignature) {
+  findingSignature = nextFindingSignature;
+  const findingNodes = [];
+  for (const [label, filter] of [["Sensitive-building conflicts", (f) => f.sensitive], ["Other conflicts", (f) => f.level === "bad" && !f.sensitive], ["Roof restrictions", (f) => f.level === "warn"], ["Result", (f) => f.level === "ok"]]) {
+    const findings = checks.findings.filter(filter);
+    if (!findings.length) continue;
+    findingNodes.push(el("li", { className: "muted", textContent: `${label} (${findings.length})` }));
+    for (const f of findings) {
+      const row = el("li", { className: f.level, textContent: `${f.level === "ok" ? "✓" : "!"} ${f.text}` });
+      if (f.antenna) row.append(Object.assign(el("button", { textContent: "Locate", ariaLabel: `Locate ${f.building ?? f.antenna}` }), { onclick: () => select(f.antenna, f) }));
+      findingNodes.push(row);
+    }
+  }
+  $("checks").replaceChildren(...findingNodes);
+  }
+  setText($("hitCount"), checks.hit.size);
+  setText($("roofCount"), checks.findings.filter((f) => f.level === "warn").length);
+  setText($("findingCount"), `${checks.findings.filter((f) => f.level === "bad").length} conflict findings · unique buildings counted above`);
+  $("activeRegime").textContent = REGIMES[regimeKey].name;
+  $("planDelta").textContent = changes.length ? `${changes.length} delta(s) · Applied to plan` : "Plan equals baseline";
+  const nextDeltaSignature = JSON.stringify(changes);
+  if (deltaSignature !== nextDeltaSignature) {
+    deltaSignature = nextDeltaSignature;
+    $("changes").replaceChildren(...(changes.length ? changes.map((c) => el("li", { textContent: c })) : [el("li", { className: "muted", textContent: "No changes yet" })]));
+  }
+  if (actionSignature !== JSON.stringify(planActions)) {
+    actionSignature = JSON.stringify(planActions);
+    $("planActions").replaceChildren(...planActions.map((action) => el("li", {},
+      el("time", { textContent: new Date(action.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) }),
+      el("strong", { textContent: action.label ?? "Applied to plan" }),
+      el("div", { textContent: action.delta.join("; ") }), el("div", { className: "muted", textContent: action.result ?? "" }))));
+  }
+  $("undo").disabled = !undoStack.length;
+
   renderFieldWork(fieldWorkOrder(baseline, site, checks));
 }
 
 function renderFieldWork(order) {
   const box = $("fieldwork");
+  const signature = JSON.stringify(order);
+  if (workSignature === signature) return;
+  workSignature = signature;
   if (!order.items.length) return box.replaceChildren(el("div", { className: "muted", textContent: order.summary }));
   const list = (title, items) => items.length ? [el("div", { className: "muted", textContent: title }), el("ul", {}, ...items.map((t) => el("li", { textContent: t })))] : [];
   box.replaceChildren(
     el("div", { textContent: order.summary }),
-    ...order.items.flatMap((i) => [
+    ...order.items.map((i) => el("section", { className: "work-card" },
       el("div", { className: "wo-head", textContent: `${i.antenna}: ${i.change}` }),
       ...list("Work steps", i.steps), ...list("Materials", i.materials), ...list("Precautions", i.precautions),
-    ]),
-    ...list("Site-wide", order.general),
+    )),
+    ...list("Site-wide precautions and approvals", order.general),
   );
 }
 
-let coverageTimer = null;
-function renderCoverage() {
+let coverageTimer = null, coverageRequest = null, paintedCoverageKey = "", coverageComparison = null, coveragePending = false;
+function renderCoverage(immediate = false) {
   clearTimeout(coverageTimer);
-  coveragePlane.visible = layers.coverage;
-  if (!layers.coverage) return;
-  coverageTimer = setTimeout(() => {
-    paintCoverage(coverageCanvas, coverageGrid(site, coverageBand, 600, COVERAGE_CELLS));
-    coverageTexture.needsUpdate = true;
-  }, 60);
+  coverageRequest?.abort();
+  coveragePending = false;
+  if (!layers.coverage) { coveragePlane.visible = false; sceneMotion.invalidate(); return; }
+  const key = JSON.stringify([coverageBand, site.antennas]);
+  coveragePlane.visible = paintedCoverageKey === key;
+  sceneMotion.invalidate();
+  if (paintedCoverageKey === key && (!layers.baseline || coverageComparison?.key === key && coverageComparison.before !== undefined)) return;
+  coveragePending = true;
+  const controller = coverageRequest = new AbortController();
+  const calculate = async () => {
+    try {
+      const snapshot = clone(site), band = coverageBand;
+      const grid = await coverageGridAsync(snapshot, band, 600, COVERAGE_CELLS, { signal: controller.signal });
+      if (layers.baseline && !baselineCoverage.has(band)) {
+        const baseGrid = await coverageGridAsync(baseline, band, 600, COVERAGE_CELLS, { signal: controller.signal });
+        baselineCoverage.set(band, coverageArea(baseGrid));
+      }
+      if (!layers.coverage || controller.signal.aborted) return;
+      coverageComparison = { key, band, before: baselineCoverage.get(band), after: coverageArea(grid) };
+      paintCoverage(coverageCanvas, grid);
+      paintedCoverageKey = key;
+      coveragePending = false;
+      coveragePlane.visible = true;
+      renderComparison();
+      renderLegend();
+      coverageTexture.needsUpdate = true;
+      sceneMotion.invalidate();
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        coveragePending = false;
+        $("planSession").textContent = `Coverage unavailable: ${error.message}`;
+        renderLegend();
+      }
+    }
+  };
+  if (immediate) calculate(); else coverageTimer = setTimeout(calculate, 120);
 }
+window.addEventListener("pagehide", () => { clearTimeout(coverageTimer); coverageRequest?.abort(); });
 
 function renderLegend() {
   const items = [
-    ["#ff4d4f", "EMF zone, main lobe"], ["#ffa940", "EMF zone, back lobe"], ["#8c2f39", "Neighbour inside a zone"],
+    [token("emf-front"), "EMF zone, main lobe"], [token("emf-back"), "EMF zone, back lobe"], [token("building-hit"), "Neighbour inside a zone"],
   ];
-  if (layers.baseline) items.push(["#bfbfbf", "Baseline zones (wireframe)"]);
-  if (layers.coverage) items.push(...RSRP_BINS.map((b) => [`rgb(${b.color})`, `${coverageBand} ${b.label}`]));
+  if (layers.baseline) items.push([token("baseline-wire"), "Baseline zones (wireframe)"]);
+  if (layers.coverage) items.push(...RSRP_BINS.map((b) => [token(b.token), `${coverageBand ?? "No band"} ${b.label}`]));
   $("legend").replaceChildren(...items.map(([c, t]) => el("div", {}, el("span", { className: "sw", style: `background:${c}` }), t)));
-  if (layers.coverage) $("legend").append(el("div", { className: "muted", textContent: "Coverage is indicative (Hata model, no terrain)." }));
+  if (layers.coverage) $("legend").append(
+    el("div", { className: "muted", textContent: coveragePending ? "Calculating coverage…" : !coverageBand || paintedCoverageKey !== JSON.stringify([coverageBand, site.antennas]) ? "No coverage result" : "< −110 dBm · Below displayed range (transparent)" }),
+    el("div", { className: "muted", textContent: "Coverage is indicative (Hata model, no terrain)." }));
+
 }
 
-function update() {
+const baselineChecks = new Map(), baselineCoverage = new Map();
+function coverageArea({ grid, n, size }) {
+  let good = 0, finite = false;
+  for (const value of grid) { if (Number.isFinite(value)) finite = true; if (value >= -90) good++; }
+  return finite ? `${(good * (size / n) ** 2 / 1e6).toFixed(3)} km²` : "No coverage result";
+}
+function renderComparison(checks = checkSite(site, siteZones(site, REGIMES[regimeKey]))) {
+  $("comparison").hidden = !layers.baseline;
+  if (!layers.baseline) return;
+  if (!baselineChecks.has(regimeKey)) baselineChecks.set(regimeKey, checkSite(baseline, siteZones(baseline, REGIMES[regimeKey])));
+  const base = baselineChecks.get(regimeKey);
+  const items = [el("strong", { textContent: "Baseline → proposed plan" }),
+    el("div", { textContent: `Unique hit buildings: ${base.hit.size} → ${checks.hit.size}` }),
+    el("div", { textContent: `Roof restriction findings: ${base.findings.filter((f) => f.level === "warn").length} → ${checks.findings.filter((f) => f.level === "warn").length}` })];
+  if (layers.coverage && coverageBand) {
+    const key = JSON.stringify([coverageBand, site.antennas]);
+    items.push(el("div", { textContent: coverageComparison?.key === key && coverageComparison.before !== undefined
+      ? `${coverageBand}, ≥ −90 dBm: ${coverageComparison.before} → ${coverageComparison.after}`
+      : "Coverage comparison updating…" }));
+  }
+  items.push(el("div", { className: "muted", textContent: "Same band, threshold and model. Indicative coverage; field verification required." }));
+  $("comparison").replaceChildren(...items);
+}
+
+function update(options = {}) {
   const regime = REGIMES[regimeKey];
   const zones = siteZones(site, regime);
-  clearGroup(antennaGroup);
-  clearGroup(zoneGroup);
-  clearGroup(baselineGroup);
-  for (const a of site.antennas) antennaGroup.add(antennaMesh(a, a.id === selectedId));
-  const byId = Object.fromEntries(site.antennas.map((a) => [a.id, a]));
-  if (layers.zones) for (const z of zones) zoneGroup.add(...zoneMeshes(byId[z.antenna_id], z, false));
-  if (layers.baseline) {
-    const baseById = Object.fromEntries(baseline.antennas.map((a) => [a.id, a]));
-    for (const z of siteZones(baseline, regime)) baselineGroup.add(...zoneMeshes(baseById[z.antenna_id], z, true));
+  const checks = checkSite(site, zones);
+  sceneMotion.sync(site, zones, checks, layers, baseline, siteZones(baseline, regime), selectedId, options);
+  const delta = diffSites(lastModelState, site);
+  const nextAssessment = { hit: checks.hit.size, roof: checks.findings.filter((f) => f.level === "warn").length };
+  if (delta.length) {
+    planActions.push({ time: new Date().toISOString(), label: options.action ?? "Applied to plan", site: site.site_id, delta,
+      result: `Unique hit buildings: ${previousAssessment?.hit ?? nextAssessment.hit} → ${nextAssessment.hit} · roof restrictions: ${previousAssessment?.roof ?? nextAssessment.roof} → ${nextAssessment.roof}` });
+    if (planActions.length > 30) planActions.shift();
+    lastModelState = clone(site);
   }
-  renderPanels(zones, checkSite(site, zones), diffSites(baseline, site));
+  previousAssessment = nextAssessment;
+  renderPanels(zones, checks, diffSites(baseline, site));
+  renderComparison(checks);
+  clearTimeout(saveTimer); saveTimer = setTimeout(saveSessionPlan, 120);
+
   renderCoverage();
   renderLegend();
 }
 
-function select(id) {
+function select(id, finding = null) {
+  const changed = id !== selectedId || (finding?.building ?? null) !== sceneMotion.selectedBuilding;
   selectedId = id;
+  if (id && !finding) showTab("antennas");
   update();
   renderEditor();
+  if (changed && id) sceneMotion.focus(id, finding?.building ?? null);
 }
 
 function bandNames() {
@@ -406,29 +577,30 @@ function refreshCoverageBands() {
 }
 
 // ---------- wiring ----------
-for (const input of document.querySelectorAll("#editor input[type=range]")) {
+for (const input of document.querySelectorAll("#editor input[data-k]")) {
   const k = input.dataset.k;
   if (k === "height_agl_m") Object.assign(input, { min: HEIGHT_RANGE[0], max: HEIGHT_RANGE[1] });
   if (k === "x_m") Object.assign(input, { min: roofBounds.x0, max: roofBounds.x1 });
   if (k === "z_m") Object.assign(input, { min: roofBounds.z0, max: roofBounds.z1 });
-  input.oninput = () => {
+  const units = k.endsWith("_deg") ? "degrees" : "metres";
+  pairRange(input, input.nextElementSibling, `${FIELDS[k]} in ${units}`, (value) => {
     const a = site.antennas.find((x) => x.id === selectedId);
-    a[k] = Number(input.value);
-    input.nextElementSibling.textContent = a[k];
-    update();
-  };
+    if (a) a[k] = value;
+  });
 }
 $("bandPreset").replaceChildren(...Object.keys(BAND_PRESETS).map((n) => el("option", { value: n, textContent: n })));
 $("addBand").onclick = () => {
   const a = site.antennas.find((x) => x.id === selectedId);
   const preset = BAND_PRESETS[$("bandPreset").value];
   if (a.bands.some((x) => x.name === preset.name)) return;
+  undoStack.push(clone(site));
   a.bands.push(clone(preset));
   refreshCoverageBands();
   update();
   renderEditor();
 };
 $("removeAntenna").onclick = () => {
+  undoStack.push(clone(site));
   site.antennas = site.antennas.filter((x) => x.id !== selectedId);
   selectedId = null;
   refreshCoverageBands();
@@ -436,6 +608,7 @@ $("removeAntenna").onclick = () => {
   renderEditor();
 };
 $("addAntenna").onclick = () => {
+  undoStack.push(clone(site));
   let i = site.antennas.length + 1;
   while (site.antennas.some((a) => a.id === `S${i}-N`)) i++;
   site.antennas.push({
@@ -446,23 +619,28 @@ $("addAntenna").onclick = () => {
   refreshCoverageBands();
   select(`S${i}-N`);
 };
-$("reset").onclick = () => { site = clone(baseline); selectedId = null; refreshCoverageBands(); update(); renderEditor(); };
+$("reset").onclick = () => { undoStack.push(clone(site)); site = clone(baseline); selectedId = null; refreshCoverageBands(); update(); renderEditor(); };
 $("export").onclick = () => {
   const regime = REGIMES[regimeKey];
   const zones = siteZones(site, regime);
   const plan = {
     site_id: site.site_id, regime: regime.name, created: new Date().toISOString(),
     changes: diffSites(baseline, site), checks: checkSite(site, zones).findings,
-    zones, baseline, proposed: site,
+    zones, baseline, proposed: site, actions: planActions,
+    field_work_order: fieldWorkOrder(baseline, site, checkSite(site, zones)),
   };
   const a = el("a", { href: URL.createObjectURL(new Blob([JSON.stringify(plan, null, 2)], { type: "application/json" })), download: `${site.site_id}-plan.json` });
   a.click();
   URL.revokeObjectURL(a.href);
 };
 $("regime").onchange = (e) => { regimeKey = e.target.value; update(); };
-$("coverageBand").onchange = (e) => { coverageBand = e.target.value; renderCoverage(); renderLegend(); };
+$("coverageBand").onchange = (e) => { coverageBand = e.target.value; renderCoverage(); renderLegend(); saveSessionPlan(); };
+$("undo").onclick = () => planner.undo();
 function syncLayerChips() {
-  for (const chip of document.querySelectorAll(".chip[data-layer]")) chip.classList.toggle("on", layers[chip.dataset.layer]);
+  for (const chip of document.querySelectorAll(".chip[data-layer]")) {
+    chip.classList.toggle("on", layers[chip.dataset.layer]);
+    chip.setAttribute("aria-pressed", String(layers[chip.dataset.layer]));
+  }
   $("coverageRow").hidden = !layers.coverage;
   refreshCoverageBands();
 }
@@ -486,77 +664,66 @@ renderer.domElement.addEventListener("pointerup", (e) => {
 });
 
 // ---------- assistant chat ----------
-const log = $("chatLog");
-const say = (cls, text) => {
-  log.append(cls === "assistant" ? el("div", { className: `msg ${cls}`, innerHTML: replyHtml(text) }) : el("div", { className: `msg ${cls}`, textContent: text }));
-  log.scrollTop = log.scrollHeight;
-};
-const fmtChange = (c) => {
-  const parts = Object.entries(c).filter(([k]) => !["action", "antenna_id"].includes(k)).map(([k, v]) => `${k.replace(/_deg|_m$|_w$/g, "")}=${typeof v === "object" ? JSON.stringify(v) : v}`);
-  return `${c.action === "modify" ? "" : c.action + " "}${c.antenna_id} ${parts.join(" ")}`.trim();
-};
-const agent = initAgent(planner, {
-  user: (t) => say("user", t),
-  assistant: (t) => say("assistant", t),
-  model: (m) => ($("chatModel").textContent = m),
-  busy: (on) => {
-    $("chatSend").disabled = on;
-    $("chatInput").disabled = on;
-    $("chatBusy").textContent = "Thinking and testing options on the twin…";
-    $("chatBusy").hidden = !on;
-    if (!on && pendingOpen) setTimeout(() => (location.href = pendingOpen), agent.voice ? 4000 : 1500);
-  },
-  tool: (name, args, result) => {
-    if (name === "get_site_state") return say("tool", "🔎 Reading the twin…");
-    if (name === "get_population_context") return say("tool", `👥 Checking who is around the site (${result.total_people_nearby ?? "?"} people, estimated)…`);
-    if (name === "set_view") return say("tool", "👁 Adjusting the view");
-    if (name === "get_field_work_order") return say("tool", `🛠 Preparing the field work order (${result.summary ?? ""})`);
-    if (name === "list_sites") return say("tool", "🗺 Looking up the portfolio…");
-    if (name === "open_site") return say("tool", result.error ? `✖ ${result.error}` : `🧭 Opening ${result.opening}…`);
-    if (result.error) return say("tool", `✖ ${name}: ${result.error}`);
-    if (name === "undo_last_change") return say("tool", "↩ Undid the last change");
-    const what = (args.changes ?? []).map(fmtChange).join("; ");
-    if (result.errors) return say("tool", `✖ ${what}: ${result.errors.join(", ")}`);
-    const r = result.result ?? result;
-    const verdict = `${r.neighbour_conflicts.length} neighbour conflict(s), ${r.roof_restrictions.length} roof restriction(s)`;
-    say("tool", `${name === "apply_change" ? "✅ Applied" : "🧪 Tried"} ${what} → ${verdict}`);
-  },
-  speak: (t) => voice.speak(t),
+const chat = initConversation({
+  onBusy: (on) => voice.setRunning(on),
+  onComplete: () => { if (pendingOpen && pageActive) location.href = pendingOpen; },
+  speak: (text) => voice.speak(text),
+  transcriptKey: absoluteUrl(portfolioUrl),
 });
+const agent = initAgent(planner, chat);
 const voice = initVoice({
   button: $("micButton"),
-  status: (t) => ($("chatBusy").hidden = !t, t && ($("chatBusy").textContent = t)),
-  onText: (t) => agent.ask(t, { voice: true }),
+  status: (text) => { $("chatBusy").hidden = !text; $("chatBusy").textContent = text; },
+  onText: (text) => agent.ask(text, { voice: true }),
 });
 const send = () => {
+  if ($("chatInput").disabled) return;
   const text = $("chatInput").value.trim();
   if (!text) return;
   $("chatInput").value = "";
   agent.ask(text);
 };
 $("chatSend").onclick = send;
-$("chatInput").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };
-for (const s of document.querySelectorAll(".suggest")) s.onclick = () => agent.ask(s.textContent);
+$("chatInput").onkeydown = (event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(); } };
+for (const button of document.querySelectorAll(".suggest")) button.onclick = () => agent.ask(button.textContent);
 
 $("title").textContent = site.site_id;
+$("breadcrumbSite").textContent = site.site_id;
 $("subtitle").textContent = site.name ?? "";
-$("notes").textContent = site.notes.join(" ");
+$("notes").textContent = (site.notes ?? []).join(" ");
+const profileButton = el("button", { textContent: "Measure 20-second orbit / edit" });
+const profileResult = el("pre", { className: "profile-result", textContent: "No recording profile measured in this session." });
+$("notes").after(el("details", { className: "performance-details" }, el("summary", { textContent: "Recording performance" }),
+  el("p", { className: "muted", textContent: "Use a 1440×900 viewport and a 250-building case. Orbit and edit during capture. Targets: p95 ≤22ms, ≤350 draw calls, ≤180,000 triangles, estimated textures ≤96MiB. A failed frame budget lowers DPR to 1 for the next run." }), profileButton, profileResult));
+profileButton.onclick = async () => {
+  profileButton.disabled = true;
+  profileResult.textContent = "Measuring actual frames for 20 seconds. Orbit and edit; keep this tab visible.";
+  try { profileResult.textContent = JSON.stringify(await sceneMotion.startProfile(), null, 2); }
+  finally { profileButton.disabled = false; }
+};
+$("planSession").textContent = restored.message;
+$("regime").value = regimeKey;
+syncLayerChips();
 $("backToMap").href = backTo;
 refreshCoverageBands();
 update();
+$("loading").hidden = true;
+$("export").disabled = false;
 // Opened from the portfolio map: the Expert Operator carries out what was asked
 // there, or reviews the site straight away.
-if (params.get("ask")) {
-  agent.ask(params.get("ask"), { voice: params.get("voice") === "1" });
-} else if (params.get("auto") === "review") {
-  agent.ask("Review this site like an operator: what is the most important problem, what would you change and why? Apply the best fix and give the before/after numbers.");
-}
+const handoff = consumeHandoff(params);
+if (handoff) agent.ask(handoff.instruction, { voice: handoff.voice });
+
 
 function resize() {
   const { clientWidth: w, clientHeight: h } = host;
+  if (!w || !h) return;
   renderer.setSize(w, h);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
+  sceneMotion.invalidate();
 }
 new ResizeObserver(resize).observe(host);
-renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+resize();
+sceneMotion.focus(null, null, true);
+sceneMotion.invalidate();

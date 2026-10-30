@@ -5,26 +5,36 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SiteTwin Portfolio</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="ui.css?v=1">
+<link rel="stylesheet" href="ui.css?v=design-4">
 </head>
 <body>
+<header class="topbar">
+  <a class="app-brand" href="portfolio.html">SiteTwin <span>3D</span></a>
+  <div class="breadcrumb">Portfolio / Geographic workspace</div>
+  <span class="context">Planning simulation</span>
+  <label class="contrast-control"><input id="projector" type="checkbox"><span>Projector contrast</span></label>
+  <button class="drawer-trigger operator-trigger" data-pane="operator" aria-expanded="false">Operator</button>
+  <button class="drawer-trigger inspect-trigger" data-pane="inspect" aria-expanded="false">Inspect</button>
+  <button class="primary" id="loadTwin">Load SiteTwin file</button><input type="file" id="upload" accept=".json,application/json" hidden>
+</header>
 <div class="layout">
   <!-- Left: the conversation with the Expert Operator -->
   <aside class="chat">
     <header>
-      <div class="brand">SiteTwin <span>Expert Operator</span></div>
-      <div class="muted" id="chatModel"></div>
+      <button class="drawer-close" aria-label="Close Operator">Close</button>
+      <div class="brand">Expert Operator <span>Muse Spark Open</span></div>
+      <details class="model-details"><summary>Model details</summary><div id="chatModel">Waiting for first response</div></details>
     </header>
     <div id="chatLog" class="log">
-      <div class="msg assistant">Merhaba! Tüm sahaları kontrol ettim. “Hangi saha acil?” ya da “Ankara'yı aç ve okul sorununu çöz” diye yazabilir veya 🎤 ile konuşabilirsiniz.</div>
+      <div class="msg assistant">Merhaba! Sahalar yüklenip aynı model ile kontrol edilir. “Hangi saha acil?” ya da “Ankara'yı aç ve okul sorununu çöz” diye yazabilir veya 🎤 ile konuşabilirsiniz.</div>
     </div>
     <div class="composer">
       <div class="chips">
-        <span class="chip suggest">Which site is most urgent and why?</span>
-        <span class="chip suggest">Hangi sahalarda okul ya da hastane riski var?</span>
+        <button class="chip suggest">Which site is most urgent and why?</button>
+        <button class="chip suggest">Hangi sahalarda okul ya da hastane riski var?</button>
       </div>
       <div class="row">
-        <textarea id="chatInput" rows="2" placeholder="Talk or type, any language"></textarea>
+        <textarea id="chatInput" aria-label="Message to Expert Operator" rows="2" placeholder="Talk or type, any language"></textarea>
         <div class="stack">
           <button class="primary" id="chatSend">Send</button>
           <button id="micButton" title="Push to talk (Muse Voice Transcribe)">🎤 Talk</button>
@@ -39,14 +49,16 @@
 
   <!-- Right: the map, site information and actions taken -->
   <main class="work">
-    <div id="map" class="stage"></div>
+    <div id="map" class="stage" aria-label="Portfolio map"><div id="loading" class="hud loading-state" role="status">Loading and assessing sites…</div></div>
     <section class="panel">
-      <div class="panel-head">
+      <div class="inspector-summary">
+        <button class="drawer-close" aria-label="Close inspector">Close</button>
         <h1>Portfolio</h1>
-        <label class="btn">⬆ Load SiteTwin file<input type="file" id="upload" accept=".json,application/json" hidden></label>
+        <div class="muted">Shared site checks · active regime shown per site</div>
+        <div class="stats" id="stats"></div>
+        <div class="row"><span class="muted" id="filterStatus">All sites</span><button id="clearFilter" hidden>Clear filter</button></div>
       </div>
-      <div class="muted" id="uploadStatus"></div>
-      <div class="stats" id="stats"></div>
+      <div class="muted" id="uploadStatus" role="status"></div>
       <h2>Sites</h2>
       <div id="list"></div>
       <h2>Actions taken</h2>
@@ -55,6 +67,9 @@
   </main>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script type="module" src="portfolio.js?v=6"></script>
+<nav class="mobile-nav" aria-label="Workspace navigation"><button data-pane="workspace" aria-pressed="true">Workspace</button><button data-pane="operator" aria-expanded="false">Operator</button><button data-pane="inspect" aria-expanded="false">Inspect</button></nav>
+<div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
+<div id="liveStatus" class="sr-only" role="status" aria-live="polite"></div>
+<script type="module" src="portfolio.js?v=design-4"></script>
 </body>
 </html>

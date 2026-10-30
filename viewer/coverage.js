@@ -37,18 +37,39 @@ export function rsrpAt(antenna, band, x, z) {
 }
 
 // Best-server RSRP for one band (by name) on an n x n grid of `size` metres.
+function coverageRow(antenna, band, j, size, n, grid) {
+  const step = size / n;
+  const z = -size / 2 + (j + 0.5) * step;
+  for (let i = 0; i < n; i++) {
+    const x = -size / 2 + (i + 0.5) * step;
+    const v = rsrpAt(antenna, band, x, z);
+    if (v > grid[j * n + i]) grid[j * n + i] = v;
+  }
+}
 export function coverageGrid(site, bandName, size = 600, n = 150) {
   const grid = new Float32Array(n * n).fill(-Infinity);
-  const step = size / n;
+  for (const a of site.antennas) {
+    const band = a.bands.find((b) => b.name === bandName);
+    if (!band) continue;
+    for (let j = 0; j < n; j++) coverageRow(a, band, j, size, n, grid);
+  }
+  return { grid, n, size };
+}
+
+// Display-only scheduling: identical row routine, antenna order, Float32 writes
+// and thresholds. Yield between antenna rows; obsolete requests are cancelled.
+export async function coverageGridAsync(site, bandName, size = 600, n = 150, { signal } = {}) {
+  const grid = new Float32Array(n * n).fill(-Infinity);
+  let started = performance.now();
   for (const a of site.antennas) {
     const band = a.bands.find((b) => b.name === bandName);
     if (!band) continue;
     for (let j = 0; j < n; j++) {
-      const z = -size / 2 + (j + 0.5) * step;
-      for (let i = 0; i < n; i++) {
-        const x = -size / 2 + (i + 0.5) * step;
-        const v = rsrpAt(a, band, x, z);
-        if (v > grid[j * n + i]) grid[j * n + i] = v;
+      if (signal?.aborted) throw Object.assign(new Error("Coverage cancelled"), { name: "AbortError" });
+      coverageRow(a, band, j, size, n, grid);
+      if (performance.now() - started >= 3) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        started = performance.now();
       }
     }
   }
@@ -56,20 +77,24 @@ export function coverageGrid(site, bandName, size = 600, n = 150) {
 }
 
 export const RSRP_BINS = [
-  { min: -80, color: [22, 163, 74], label: "≥ -80 dBm  excellent" },
-  { min: -90, color: [132, 204, 22], label: "-80…-90  good" },
-  { min: -100, color: [234, 179, 8], label: "-90…-100  fair" },
-  { min: -110, color: [239, 68, 68], label: "-100…-110  weak" },
+  { min: -80, token: "coverage-excellent", label: "≥ −80 dBm · excellent" },
+  { min: -90, token: "coverage-good", label: "−90 to <−80 dBm · good" },
+  { min: -100, token: "coverage-fair", label: "−100 to <−90 dBm · fair" },
+  { min: -110, token: "coverage-weak", label: "−110 to <−100 dBm · weak" },
 ];
 
-export function paintCoverage(canvas, { grid, n }) {
+export function paintCoverage(canvas, { grid, n }, colors) {
   if (canvas.width !== n || canvas.height !== n) throw new Error(`coverage canvas must be ${n}x${n}`);
+  const palette = colors ?? RSRP_BINS.map((bin) => {
+    const hex = getComputedStyle(canvas.ownerDocument.documentElement).getPropertyValue(`--${bin.token}`).trim();
+    return hex.match(/[\da-f]{2}/gi).map((part) => parseInt(part, 16));
+  });
   const ctx = canvas.getContext("2d");
   const img = ctx.createImageData(n, n);
   for (let k = 0; k < n * n; k++) {
-    const bin = RSRP_BINS.find((b) => grid[k] >= b.min);
-    if (!bin) continue;
-    img.data.set([...bin.color, 150], k * 4);
+    const index = RSRP_BINS.findIndex((b) => grid[k] >= b.min);
+    if (index < 0) continue;
+    img.data.set([...palette[index], Math.round(255 * 0.48)], k * 4);
   }
   ctx.putImageData(img, 0, 0);
 }
