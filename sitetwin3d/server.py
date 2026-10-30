@@ -10,6 +10,7 @@ conflict and coverage code the engineer sees.
 from __future__ import annotations
 
 import asyncio
+import io
 import json
 import os
 import re
@@ -23,6 +24,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from openai import OpenAI, OpenAIError
+from PIL import Image
 from pydantic import BaseModel
 
 from .extract import PROVIDERS, extract
@@ -108,6 +110,10 @@ async def transcribe(request: Request) -> dict:
 async def read_photo(request: Request) -> dict:
     """Photo mode: Muse Spark 1.3 reads one site photo into equipment, labels and safety notes."""
     data = await request.body()
+    try:
+        Image.open(io.BytesIO(data)).verify()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="not an image (JPEG or PNG)") from e
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "photo.jpg"
         path.write_bytes(data)

@@ -375,3 +375,6 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
 .msg.photo img { max-width: 100%; max-height: 180px; border-radius: 10px; object-fit: cover; }
 .snapshot-dialog { width: min(1100px, calc(100vw - 32px)); }
 .snapshot-dialog img { display: block; width: 100%; border-radius: 10px; border: 1px solid var(--border); }
+
+/* Narrow screens: the inspector cards are a drawer; `.panel.cards` above would otherwise keep them on top of the 3D view. */
+@media (max-width: 1179px) { .panel.cards:not(.drawer-open) { display: none; } }

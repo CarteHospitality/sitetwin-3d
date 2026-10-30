@@ -6,6 +6,7 @@ import { el } from "./ui.js";
 import { tr } from "./i18n.js";
 
 const uniq = (items) => [...new Set(items.filter(Boolean))];
+const MAILTO_MAX = 1800;
 
 // What the change fixes first, then what is still open.
 export function result(before, after) {
@@ -81,9 +82,20 @@ export function openActionPlan(plan, { data, extra = [] } = {}) {
   const status = el("span", { className: "muted", role: "status" });
   const action = (label, onclick, primary = false) => Object.assign(el("button", { className: primary ? "primary" : "", textContent: tr(label) }), { onclick });
   const actions = [
-    action("Send by e-mail", () => { location.href = `mailto:?subject=${encodeURIComponent(titleOf(plan))}&body=${encodeURIComponent(text)}`; }, true),
+    action("Send by e-mail", async () => {
+      // Mail programs cut long mailto links (about 2000 characters on Windows), so a long
+      // plan goes to the clipboard and the mail opens with a line saying to paste it.
+      const subject = encodeURIComponent(titleOf(plan));
+      let body = encodeURIComponent(text);
+      if (body.length > MAILTO_MAX) {
+        try { await navigator.clipboard.writeText(text); } catch { /* the paste line still explains */ }
+        body = encodeURIComponent(tr("The action plan is on the clipboard: paste it here (Ctrl+V)."));
+        status.textContent = tr("Plan copied: paste it into the e-mail");
+      }
+      location.href = `mailto:?subject=${subject}&body=${body}`;
+    }, true),
     action("Copy", async () => { await navigator.clipboard.writeText(text); status.textContent = tr("Copied"); }),
-    action("Print / PDF", () => { const w = open("", "_blank"); w.document.write(printable(plan)); w.document.close(); w.focus(); w.print(); }),
+    action("Print / PDF", () => { const w = open("", "_blank"); if (!w) return; w.document.write(printable(plan)); w.document.close(); w.focus(); w.print(); }),
   ];
   actions.push(...extra.map((x) => action(x.label, x.onclick)));
   if (navigator.share) actions.push(action("Share", () => navigator.share({ title: titleOf(plan), text }).catch(() => {})));

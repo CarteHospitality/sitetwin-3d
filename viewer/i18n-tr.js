@@ -4,6 +4,8 @@ export const EXACT = {
   "Talk": "Konuş",
   "Site photo": "Saha fotoğrafı",
   "Before / after": "Önce / sonra",
+  "The action plan is on the clipboard: paste it here (Ctrl+V).": "Eylem planı panoya kopyalandı: buraya yapıştırın (Ctrl+V).",
+  "Plan copied: paste it into the e-mail": "Plan kopyalandı: e-postaya yapıştırın",
   "Before": "Önce",
   "After": "Sonra",
   "Download": "İndir",
@@ -516,6 +518,7 @@ export const PHRASES = {
 // Use capture groups for dynamic parts, e.g.
 // ["^(\\S+) zone reaches (.+?) \\[(.+)\\] \\(([\\d.]+) m from antenna, zone ([\\d.]+) m\\)$", "", "$1 bölgesi $2 binasına ulaşıyor [$3] (antenden $4 m, bölge $5 m)"],
 export const PATTERNS = [
+  ["^Photo could not be read: 400 .*not an image.*$", "", "Fotoğraf okunamadı: bu dosya bir resim değil (JPEG veya PNG seçin)."],
   ["^Photo could not be read: (.+)$", "", "Fotoğraf okunamadı: $1"],
   // ---- Checks (checks.js). Not anchored at the start: the text may carry a "! " prefix or an issue prefix.
   ["(\\S+) zone reaches (.+?) \\[SENSITIVE (\\w+), (~?)(\\d+) people\\] \\(([\\d.]+) m from antenna, zone ([\\d.]+) m\\)$", "",
