@@ -3,6 +3,9 @@
 export const EXACT = {
   "Talk": "Konuş",
   "Site photo": "Saha fotoğrafı",
+  "Fix every site that needs action, one by one": "Sorunlu sahaların hepsini sırayla düzelt",
+  "Next site in a few seconds…": "Birkaç saniye içinde sıradaki saha…",
+  "sites": "saha",
   "No telecom equipment recognised": "Telekom ekipmanı tanınmadı",
   "Reading photo with Muse Spark 1.3…": "Fotoğraf Muse Spark 1.3 ile okunuyor…",
   "panel antenna": "panel anten",

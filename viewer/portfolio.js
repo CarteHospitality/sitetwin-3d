@@ -10,6 +10,8 @@ import { initVoice } from "./voice.js";
 import { initConversation } from "./conversation.js";
 import { readSession, writeSession, restoreProposed, canonical, handoffId, absoluteUrl } from "./session.js";
 import { $, el, token, initShell, reducedMotion } from "./ui.js";
+import { startTour, readTour, endTour } from "./tour.js";
+import { combinePlans, openActionPlan } from "./actionplan.js";
 import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
 
 initShell();
@@ -292,6 +294,7 @@ let pendingOpen = null;
 const MAP_TOOLS = [
   { type: "function", function: { name: "list_sites", description: "All sites on the map, most urgent first, with urgency level, structure, estimated people nearby and the issues found by the automatic checks.", parameters: { type: "object", properties: { level: { type: "string", enum: Object.keys(LEVELS), description: "Only sites at this urgency level" } } } } },
   { type: "function", function: { name: "focus_site", description: "Zoom the map to a site and show its issues to the engineer.", parameters: { type: "object", properties: { site_id: { type: "string" } }, required: ["site_id"] } } },
+  { type: "function", function: { name: "fix_sites", description: "Fix several sites one after another: each site's 3D twin opens in turn, the Expert Operator there applies the smallest fix, and at the end the map shows one combined action plan for the field teams. Use when the engineer asks to fix all, several or every problem site.", parameters: { type: "object", properties: { site_ids: { type: "array", items: { type: "string" }, description: "Most urgent first" } }, required: ["site_ids"] } } },
   { type: "function", function: { name: "open_site", description: "Open the site's 3D twin, where the Expert Operator there carries out `instruction` (or a full review when it is omitted) and simulates the fix. Use when the engineer wants to fix, simulate, change or inspect a site in 3D.", parameters: { type: "object", properties: { site_id: { type: "string" }, instruction: { type: "string", description: "What to do on the twin, in the engineer's language, e.g. 'fix the school conflict' or 'add 5G on sector 2'" } }, required: ["site_id"] } } },
 ];
 
@@ -315,6 +318,21 @@ const mapAgent = createAgent({
       logAction(`Showed ${s.entry.site_id}: ${LEVELS[s.a.level].label}`);
       return { focused: s.entry.site_id, level: LEVELS[s.a.level].label, issues: s.a.issues };
     },
+    fix_sites: ({ site_ids }) => {
+      // Most urgent first, whatever order the model listed them in.
+      const picked = [...new Set((site_ids ?? []).map(findSite).filter(Boolean))]
+        .sort((a, b) => LEVELS[b.a.level].rank - LEVELS[a.a.level].rank || b.a.score - a.a.score);
+      if (!picked.length) return { error: "none of these sites is on the map" };
+      // Each twin gets a one-site instruction; "fix all sites" there would send its agent elsewhere.
+      const ask = document.documentElement.lang === "tr" ? "Bu sahadaki en önemli sorunu en küçük değişiklikle düzelt." : "Fix the most important problem on this site with the smallest change.";
+      const stops = picked.map((s) => ({ site_id: s.entry.site_id, url: `${twinUrl(s, ask, mapAgent.voice)}&tour=1` }));
+      startTour(stops, `${location.pathname}${location.search}`);
+      select(picked[0]);
+      pendingOpen = stops[0].url;
+      saveMapState();
+      logAction(`Fixing ${picked.length} sites in turn: ${picked.map((s) => s.entry.site_id).join(", ")}`);
+      return { fixing: picked.map((s) => s.entry.site_id), instruction: ask };
+    },
     open_site: ({ site_id, instruction }) => {
       const s = findSite(site_id);
       if (!s) return { error: `no site ${site_id}` };
@@ -332,7 +350,7 @@ Answer in the engineer's language (Turkish if they speak Turkish).
 Sites are ranked by automatic checks: Critical = an EMF zone reaches a sensitive building (school, kindergarten, hospital);
 Action needed = a zone reaches another building; Review = roof safety or capacity; Change planned = SiteTwin has pending antenna changes.
 Call list_sites before talking about sites; never invent sites or numbers. Site names may be spoken loosely ("Ankara", "the Izmir one"):
-match them to site_id. To show a site, use focus_site. To fix, simulate, change or inspect one in 3D, use open_site with an instruction
+match them to site_id. To show a site, use focus_site. To fix several or all problem sites, use fix_sites (most urgent first; skip OK sites). To fix, simulate, change or inspect one in 3D, use open_site with an instruction
 that carries over exactly what the engineer asked; then say in one sentence what will happen there.`,
   ui: chat,
 });
@@ -350,6 +368,16 @@ const send = () => {
 };
 $("chatSend").onclick = send;
 for (const c of document.querySelectorAll(".suggest")) c.onclick = () => mapAgent.ask(c.textContent);
+
+// Back from a portfolio tour: one action plan for every site that was fixed.
+const tour = readTour();
+if (tour && !tour.stops.length) {
+  endTour();
+  if (tour.plans.length) {
+    logAction(`Tour finished: action plan for ${tour.plans.length} sites`);
+    openActionPlan(combinePlans(tour.plans));
+  }
+}
 $("chatInput").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };
 
 $("upload").onchange = async (e) => {

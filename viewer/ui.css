@@ -359,6 +359,8 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
 .plan-dialog::backdrop { background: rgb(16 24 40 / 30%); }
 .plan-dialog header { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 10px; }
 .plan-dialog header h1 { font-size: 20px; }
+.plan-dialog .plan-site { font-size: 16px; margin: 20px 0 2px; padding-top: 14px; border-top: 1px solid var(--border); }
+.plan-dialog .plan-site:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
 .plan-body { overflow: auto; padding: 0 20px 8px; }
 .plan-body h2 { margin: 16px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
 .plan-body ul { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.55; }

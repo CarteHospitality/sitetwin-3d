@@ -46,21 +46,31 @@ function trLine(line) {
   return m && tr(m[1]) !== m[1] ? `${tr(m[1])}: ${tr(m[2])}` : tr(line);
 }
 
-const titleOf = (plan) => `${tr("Action plan")} · ${plan.site}`;
+const titleOf = (plan) => `${tr("Action plan")} · ${plan.parts ? `${plan.parts.length} ${tr("sites")}` : plan.site}`;
+// A tour's plans, one after another; a single plan is one part.
+const partsOf = (plan) => plan.parts ?? [plan];
+
+export function combinePlans(plans) {
+  return { parts: plans, note: plans[0]?.note ?? "", date: new Date().toLocaleDateString() };
+}
 const footOf = (plan) => `${tr(plan.note)} ${tr("Prepared with SiteTwin 3D")} · ${plan.date}`;
 
 export function planText(plan) {
   const out = [titleOf(plan), ""];
-  for (const s of plan.sections) out.push(tr(s.heading).toLocaleUpperCase(document.documentElement.lang), ...s.lines.map((l) => `- ${trLine(l)}`), "");
+  for (const part of partsOf(plan)) {
+    if (plan.parts) out.push(`=== ${part.site} ===`, "");
+    for (const s of part.sections) out.push(tr(s.heading).toLocaleUpperCase(document.documentElement.lang), ...s.lines.map((l) => `- ${trLine(l)}`), "");
+  }
   out.push(footOf(plan));
   return out.join("\r\n");
 }
 
 function printable(plan) {
   const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-  const body = plan.sections.map((s) => `<h2>${esc(tr(s.heading))}</h2><ul>${s.lines.map((l) => `<li>${esc(trLine(l))}</li>`).join("")}</ul>`).join("");
+  const body = partsOf(plan).map((part) => (plan.parts ? `<h1 class="site">${esc(part.site)}</h1>` : "") +
+    part.sections.map((s) => `<h2>${esc(tr(s.heading))}</h2><ul>${s.lines.map((l) => `<li>${esc(trLine(l))}</li>`).join("")}</ul>`).join("")).join("");
   return `<!doctype html><meta charset="utf-8"><title>${esc(titleOf(plan))}</title>
-<style>body{font:14px/1.5 system-ui,sans-serif;max-width:720px;margin:32px auto;color:#101828}h1{font-size:22px}h2{font-size:14px;margin:20px 0 6px;text-transform:uppercase;color:#344054}ul{margin:0;padding-left:18px}p{color:#5D6B7E;font-size:12px;margin-top:24px}</style>
+<style>body{font:14px/1.5 system-ui,sans-serif;max-width:720px;margin:32px auto;color:#101828}h1{font-size:22px}h1.site{font-size:18px;margin-top:32px;border-top:1px solid #D0D5DD;padding-top:16px}h2{font-size:14px;margin:20px 0 6px;text-transform:uppercase;color:#344054}ul{margin:0;padding-left:18px}p{color:#5D6B7E;font-size:12px;margin-top:24px}</style>
 <h1>${esc(titleOf(plan))}</h1>${body}<p>${esc(footOf(plan))}</p>`;
 }
 
@@ -84,7 +94,10 @@ export function openActionPlan(plan, { data } = {}) {
   const dialog = el("dialog", { className: "plan-dialog" },
     el("header", {}, el("h1", { textContent: titleOf(plan) }), close),
     el("div", { className: "plan-body" },
-      ...plan.sections.map((s) => el("section", {}, el("h2", { textContent: tr(s.heading) }), el("ul", {}, ...s.lines.map((l) => el("li", { textContent: trLine(l) }))))),
+      ...partsOf(plan).flatMap((part) => [
+        ...(plan.parts ? [el("h1", { className: "plan-site", textContent: part.site })] : []),
+        ...part.sections.map((s) => el("section", {}, el("h2", { textContent: tr(s.heading) }), el("ul", {}, ...s.lines.map((l) => el("li", { textContent: trLine(l) }))))),
+      ]),
       el("p", { className: "muted", textContent: footOf(plan) })),
     el("footer", {}, ...actions, status));
   dialog.setAttribute("data-no-i18n", "");

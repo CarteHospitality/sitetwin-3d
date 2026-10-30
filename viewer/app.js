@@ -9,6 +9,7 @@ import { checkSite, headline, pointInPolygon, roofOf } from "./checks.js";
 import { coverageGrid, coverageGridAsync, paintCoverage, RSRP_BINS } from "./coverage.js";
 import { initAgent } from "./agent.js";
 import { initPhoto, photoRequest, seenLine } from "./photo.js";
+import { finishStop, progress } from "./tour.js";
 import { populationContext } from "./population.js";
 import { initVoice } from "./voice.js";
 import { initConversation } from "./conversation.js";
@@ -332,6 +333,7 @@ const planner = {
   },
   listSites: async () => (await portfolioIndex()).sites.map((s) => ({ site_id: s.site_id, structure: s.structure, technology: s.technology, pending_change: s.reason })),
   async openSite({ site_id, instruction }) {
+    if (progress(site.site_id)) return { error: "This site is one stop of a portfolio tour: fix this site only; the next site opens by itself." };
     const s = (await portfolioIndex()).sites.find((x) => x.site_id.toLowerCase().includes(String(site_id).toLowerCase()));
     if (!s) return { error: `no site ${site_id} in the portfolio` };
     const p = new URLSearchParams({ twin: s.twin, ...(instruction ? { ask: instruction } : { auto: "review" }), from: backTo, portfolio: portfolioUrl, handoff: handoffId() });
@@ -683,7 +685,7 @@ $("addAntenna").onclick = () => {
   select(`S${i}-N`);
 };
 $("reset").onclick = () => { undoStack.push(clone(site)); site = clone(baseline); selectedId = null; refreshCoverageBands(); update(); renderEditor(); };
-$("export").onclick = async () => {
+async function buildPlan() {
   const regime = REGIMES[regimeKey];
   const zones = siteZones(site, regime);
   const checks = checkSite(site, zones);
@@ -694,10 +696,15 @@ $("export").onclick = async () => {
     zones, baseline, proposed: site, actions: planActions, field_work_order: order,
   };
   const entry = (await portfolioIndex().catch(() => ({ sites: [] }))).sites.find((s) => s.site_id === site.site_id);
-  openActionPlan(actionPlan({
+  const plan = actionPlan({
     site, entry, regime: regime.name, reason: lastReason, order, crew: crewPlan(order, site), changes: data.changes,
     before: headline(checkSite(baseline, siteZones(baseline, regime))), after: headline(checks),
-  }), { data });
+  });
+  return { plan, data };
+}
+$("export").onclick = async () => {
+  const { plan, data } = await buildPlan();
+  openActionPlan(plan, { data });
 };
 $("regime").onchange = (e) => { regimeKey = e.target.value; update(); };
 $("coverageBand").onchange = (e) => { coverageBand = e.target.value; renderCoverage(); renderLegend(); saveSessionPlan(); };
@@ -786,7 +793,19 @@ $("loading").hidden = true;
 // Opened from the portfolio map: the Expert Operator carries out what was asked
 // there, or reviews the site straight away.
 const handoff = consumeHandoff(params);
-if (handoff) agent.ask(handoff.instruction, { voice: handoff.voice });
+const stop = progress(site.site_id);
+if (stop) $("breadcrumbSite").textContent = `${site.site_id} · ${stop.done}/${stop.total}`;
+if (handoff) {
+  agent.ask(handoff.instruction, { voice: handoff.voice }).then(async () => {
+    // On a portfolio tour: keep this site's action plan, then open the next site.
+    if (!stop || pendingOpen) return;
+    const { plan, data } = await buildPlan();
+    const next = finishStop(site.site_id, data.changes.length ? plan : null);
+    $("chatBusy").hidden = false;
+    $("chatBusy").textContent = tr("Next site in a few seconds…");
+    setTimeout(() => { if (pageActive) location.href = next; }, 4000);
+  });
+}
 
 
 function resize() {
