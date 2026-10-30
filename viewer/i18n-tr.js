@@ -3,6 +3,10 @@
 export const EXACT = {
   "Talk": "Konuş",
   "Site photo": "Saha fotoğrafı",
+  "Before / after": "Önce / sonra",
+  "Before": "Önce",
+  "After": "Sonra",
+  "Download": "İndir",
   "Fix every site that needs action, one by one": "Sorunlu sahaların hepsini sırayla düzelt",
   "Next site in a few seconds…": "Birkaç saniye içinde sıradaki saha…",
   "sites": "saha",

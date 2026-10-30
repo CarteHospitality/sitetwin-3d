@@ -29,6 +29,7 @@ Bu bilerek iyi bir şey: "mühendis kendi dilinde konuşuyor" mesajı.
 | 2:05–2:20 | Sağda "Saha ekibi ve takvim" kartı belirir | "Then it plans the field work: who goes, what they carry, how long it takes." |
 | 2:20–2:35 | 📷 simgesi → çatı/anten fotoğrafı seçilir → küçük resim + "3 × panel anten…" → ajan ikizle karşılaştırır | "On site, a photo is enough. Muse Spark 1.3 reads the equipment and labels, and the agent checks it against the twin." |
 | 2:35–2:55 | "Eylem planı" → plan açılır → "E-postayla gönder" | "One click turns it into an action plan for the site chief: where, why, what to do, crew, tools, materials, precautions." |
+| (yedek) | Haritada "Sorunlu sahaların hepsini sırayla düzelt" → sahalar sırayla açılıp düzelir → "Eylem planı · 4 saha" | Best Agentic için ayrı kısa klip ya da X paylaşımı (tur ~2 dk sürer, hızlandırılmalı). |
 | 2:55–3:00 | Logo + repo adresi | "SiteTwin 3D. Open source, built on Meta's open models." |
 
 ## Kayıt öncesi kontrol listesi
@@ -58,4 +59,4 @@ Bu bilerek iyi bir şey: "mühendis kendi dilinde konuşuyor" mesajı.
 - [ ] Kısa açıklama (1 paragraf) ve problem tanımı.
 - [ ] Kullanılan Meta araçları listesi.
 - [ ] Repoda gerçek veri olmadığının kontrolü (`data/private`, `viewer/data/private`, `viewer/data/uploads` gitignore'da).
-- [ ] İsteğe bağlı: X paylaşımı (Most Viral ödülü için).
+- [ ] İsteğe bağlı: X paylaşımı (Most Viral ödülü için): Eylem planı → "Önce / sonra" görseli + 20 sn klip.

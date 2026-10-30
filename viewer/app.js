@@ -10,6 +10,7 @@ import { coverageGrid, coverageGridAsync, paintCoverage, RSRP_BINS } from "./cov
 import { initAgent } from "./agent.js";
 import { initPhoto, photoRequest, seenLine } from "./photo.js";
 import { finishStop, progress } from "./tour.js";
+import { composeBeforeAfter, openSnapshot } from "./snapshot.js";
 import { populationContext } from "./population.js";
 import { initVoice } from "./voice.js";
 import { initConversation } from "./conversation.js";
@@ -19,7 +20,7 @@ import { fieldWorkOrder } from "./fieldwork.js";
 import { $, el, token, initShell, setText } from "./ui.js";
 import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
 import { crewPlan } from "./crew.js";
-import { actionPlan, openActionPlan } from "./actionplan.js";
+import { actionPlan, openActionPlan, result } from "./actionplan.js";
 
 initShell();
 initCards();
@@ -702,9 +703,26 @@ async function buildPlan() {
   });
   return { plan, data };
 }
+// The current camera view drawn once with the source plan and once with the proposed one.
+function captureScene(s) {
+  const regime = REGIMES[regimeKey];
+  const zones = siteZones(s, regime);
+  sceneMotion.sync(s, zones, checkSite(s, zones), layers, baseline, siteZones(baseline, regime), null);
+  renderer.shadowMap.needsUpdate = true;
+  renderer.render(scene, camera);
+  return { image: renderer.domElement.toDataURL("image/png"), headline: headline(checkSite(s, zones)) };
+}
+async function beforeAfter() {
+  const after = captureScene(site), before = captureScene(baseline);
+  update();
+  // Lead with what the change fixed ("School no longer inside an EMF zone"), as the action plan does.
+  const fixed = result(before.headline, after.headline)[0];
+  if (fixed !== after.headline.text) after.headline = { level: "ok", text: fixed };
+  openSnapshot(await composeBeforeAfter({ site: site.site_id, before, after }), site.site_id);
+}
 $("export").onclick = async () => {
   const { plan, data } = await buildPlan();
-  openActionPlan(plan, { data });
+  openActionPlan(plan, { data, extra: [{ label: "Before / after", onclick: beforeAfter }] });
 };
 $("regime").onchange = (e) => { regimeKey = e.target.value; update(); };
 $("coverageBand").onchange = (e) => { coverageBand = e.target.value; renderCoverage(); renderLegend(); saveSessionPlan(); };

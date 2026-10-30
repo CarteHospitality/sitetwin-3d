@@ -8,7 +8,7 @@ import { tr } from "./i18n.js";
 const uniq = (items) => [...new Set(items.filter(Boolean))];
 
 // What the change fixes first, then what is still open.
-function result(before, after) {
+export function result(before, after) {
   if (after.text === before.text) return [after.text];
   const fixed = before.text.replace(" inside an EMF zone", " no longer inside an EMF zone");
   return after.level === "ok" ? [fixed !== before.text ? fixed : after.text, after.text].filter((v, i, a) => a.indexOf(v) === i)
@@ -75,7 +75,8 @@ function printable(plan) {
 }
 
 // The dialog: the plan to read, and one row of ways to send it.
-export function openActionPlan(plan, { data } = {}) {
+// `extra`: more ways to share, as { label, onclick }.
+export function openActionPlan(plan, { data, extra = [] } = {}) {
   const text = planText(plan);
   const status = el("span", { className: "muted", role: "status" });
   const action = (label, onclick, primary = false) => Object.assign(el("button", { className: primary ? "primary" : "", textContent: tr(label) }), { onclick });
@@ -84,6 +85,7 @@ export function openActionPlan(plan, { data } = {}) {
     action("Copy", async () => { await navigator.clipboard.writeText(text); status.textContent = tr("Copied"); }),
     action("Print / PDF", () => { const w = open("", "_blank"); w.document.write(printable(plan)); w.document.close(); w.focus(); w.print(); }),
   ];
+  actions.push(...extra.map((x) => action(x.label, x.onclick)));
   if (navigator.share) actions.push(action("Share", () => navigator.share({ title: titleOf(plan), text }).catch(() => {})));
   if (data) actions.push(action("Data (JSON)", () => {
     const a = el("a", { href: URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })), download: `${data.site_id}-plan.json` });
