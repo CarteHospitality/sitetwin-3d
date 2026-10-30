@@ -183,11 +183,14 @@
     "neighbours": [
       {
         "id": "N1 apartment",
-        "x_m": 17.0,
-        "z_m": -21.0,
-        "width_m": 10.0,
-        "depth_m": 8.0,
-        "height_m": 27.0
+        "x_m": 18.0,
+        "z_m": -22.0,
+        "width_m": 16.0,
+        "depth_m": 12.0,
+        "height_m": 27.0,
+        "use": "residential",
+        "storeys": 9,
+        "population": null
       },
       {
         "id": "N2 school",
@@ -195,15 +198,43 @@
         "z_m": 24.0,
         "width_m": 16.0,
         "depth_m": 12.0,
-        "height_m": 12.0
+        "height_m": 12.0,
+        "use": "school",
+        "storeys": 3,
+        "population": 620
       },
       {
         "id": "N3 office",
-        "x_m": -30.0,
+        "x_m": -31.0,
         "z_m": -8.0,
-        "width_m": 9.0,
-        "depth_m": 14.0,
-        "height_m": 30.0
+        "width_m": 12.0,
+        "depth_m": 20.0,
+        "height_m": 30.0,
+        "use": "office",
+        "storeys": 10,
+        "population": null
+      },
+      {
+        "id": "N4 apartments",
+        "x_m": 30.0,
+        "z_m": 22.0,
+        "width_m": 22.0,
+        "depth_m": 12.0,
+        "height_m": 18.0,
+        "use": "residential",
+        "storeys": 6,
+        "population": null
+      },
+      {
+        "id": "N5 clinic",
+        "x_m": 4.0,
+        "z_m": 38.0,
+        "width_m": 14.0,
+        "depth_m": 10.0,
+        "height_m": 9.0,
+        "use": "hospital",
+        "storeys": 3,
+        "population": null
       }
     ],
     "notes": [

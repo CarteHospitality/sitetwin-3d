@@ -70,6 +70,9 @@ class Neighbour(BaseModel):
     width_m: float
     depth_m: float
     height_m: float
+    use: Literal["residential", "office", "commercial", "school", "kindergarten", "hospital", "other"] = "residential"
+    storeys: int | None = None
+    population: int | None = Field(default=None, description="Known occupancy; estimated from floor area when missing")
 
 
 class SiteModel(BaseModel):

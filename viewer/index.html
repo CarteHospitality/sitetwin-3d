@@ -39,6 +39,7 @@
   .msg.tool { color:var(--muted); font-size:12px; padding:2px 4px; }
   textarea { flex:1; background:#0f1115; color:var(--text); border:1px solid #333a48; border-radius:5px; padding:6px; font:inherit; resize:vertical; }
   button:disabled { opacity:.5; cursor:default; }
+  button.recording { background:var(--bad); border-color:var(--bad); color:#fff; }
   .sw { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; vertical-align:-1px; }
   @media (max-width: 760px) { #app { flex-direction:column; } aside { width:auto; height:45%; border-left:0; border-top:1px solid var(--line); } }
 </style>
@@ -71,16 +72,21 @@
     </section>
 
     <section>
-      <h2>Planning assistant <span class="muted" id="chatModel" style="text-transform:none;letter-spacing:0"></span></h2>
+      <h2>Expert Operator <span class="muted" id="chatModel" style="text-transform:none;letter-spacing:0"></span></h2>
       <div id="chatLog"></div>
       <div class="chips" style="margin:8px 0">
+        <span class="chip suggest">Review this site like an operator: what would you change and why?</span>
         <span class="chip suggest">Fix the neighbour conflicts with the smallest change</span>
         <span class="chip suggest">Add 5G N3500 to sector 2 without new conflicts</span>
       </div>
       <div class="row">
-        <textarea id="chatInput" rows="2" placeholder="Ask in any language, e.g. “S1 reaches the apartment, fix it”"></textarea>
-        <button class="primary" id="chatSend">Send</button>
+        <textarea id="chatInput" rows="2" placeholder="Type or talk, any language: “remove S2-A”, “add 5G on sector 1”, “undo”"></textarea>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <button class="primary" id="chatSend">Send</button>
+          <button id="micButton" title="Push to talk (Muse Voice Transcribe)">🎤 Talk</button>
+        </div>
       </div>
+      <label class="muted"><input type="checkbox" id="speakReplies" checked> Read replies aloud</label>
       <div class="muted" id="chatBusy" hidden>Thinking and testing options on the twin…</div>
     </section>
 

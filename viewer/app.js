@@ -6,6 +6,8 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { REGIMES, siteZones, insideZone } from "./emf.js";
 import { coverageGrid, paintCoverage, RSRP_BINS } from "./coverage.js";
 import { initAgent } from "./agent.js";
+import { populationContext, occupancy, SENSITIVE_USES } from "./population.js";
+import { initVoice } from "./voice.js";
 
 const BAND_PRESETS = {
   L800: { name: "L800", frequency_mhz: 800, tx_power_w: 20, gain_dbi: 15.0, horizontal_beamwidth_deg: 65, vertical_beamwidth_deg: 9, front_to_back_db: 25, feeder_loss_db: 0 },
@@ -144,7 +146,9 @@ function checkSite(s, zones) {
             if (insideZone(a, z, x, y, zz)) closest = Math.min(closest, Math.hypot(x - a.x_m, y - a.height_agl_m, zz - a.z_m));
       if (closest < Infinity) {
         hit.add(n.id);
-        findings.push({ level: "bad", antenna: a.id, text: `${a.id} zone reaches ${n.id} (${closest.toFixed(1)} m from antenna, zone ${z.front_m} m)` });
+        const occ = occupancy(n);
+        const who = `${SENSITIVE_USES.has(n.use) ? `SENSITIVE ${n.use}, ` : ""}${occ.estimated ? "~" : ""}${occ.people} people`;
+        findings.push({ level: "bad", antenna: a.id, text: `${a.id} zone reaches ${n.id} [${who}] (${closest.toFixed(1)} m from antenna, zone ${z.front_m} m)` });
       }
     }
     let roofCells = 0;
@@ -251,6 +255,7 @@ const planner = {
   apply(changes, reason) {
     const { site: candidate, errors } = applyChanges(site, changes);
     if (errors.length) return { errors };
+    undoStack.push(site);
     site = candidate;
     selectedId = changes[0]?.antenna_id ?? selectedId;
     refreshCoverageBands();
@@ -258,7 +263,26 @@ const planner = {
     renderEditor();
     return { applied: true, reason, result: summarize(site) };
   },
+  undo() {
+    if (!undoStack.length) return { error: "nothing to undo" };
+    site = undoStack.pop();
+    refreshCoverageBands();
+    update();
+    renderEditor();
+    return { undone: true, result: summarize(site) };
+  },
+  population: () => populationContext(site),
+  setView({ zones, coverage, baseline: showBaseline, coverage_band, select_antenna }) {
+    for (const [k, v] of Object.entries({ zones, coverage, baseline: showBaseline })) if (typeof v === "boolean") layers[k] = v;
+    if (coverage_band && bandNames().includes(coverage_band)) coverageBand = coverage_band;
+    if (select_antenna !== undefined) selectedId = site.antennas.some((a) => a.id === select_antenna) ? select_antenna : null;
+    syncLayerChips();
+    update();
+    renderEditor();
+    return { layers, coverage_band: coverageBand, selected: selectedId };
+  },
 };
+const undoStack = [];
 
 // ---------- UI ----------
 function renderEditor() {
@@ -409,12 +433,15 @@ $("export").onclick = () => {
 };
 $("regime").onchange = (e) => { regimeKey = e.target.value; update(); };
 $("coverageBand").onchange = (e) => { coverageBand = e.target.value; renderCoverage(); renderLegend(); };
-for (const chip of document.querySelectorAll(".chip")) {
+function syncLayerChips() {
+  for (const chip of document.querySelectorAll(".chip[data-layer]")) chip.classList.toggle("on", layers[chip.dataset.layer]);
+  $("coverageRow").hidden = !layers.coverage;
+  refreshCoverageBands();
+}
+for (const chip of document.querySelectorAll(".chip[data-layer]")) {
   chip.onclick = () => {
-    const k = chip.dataset.layer;
-    layers[k] = !layers[k];
-    chip.classList.toggle("on", layers[k]);
-    $("coverageRow").hidden = !layers.coverage;
+    layers[chip.dataset.layer] = !layers[chip.dataset.layer];
+    syncLayerChips();
     update();
   };
 }
@@ -441,15 +468,31 @@ const agent = initAgent(planner, {
   user: (t) => say("user", t),
   assistant: (t) => say("assistant", t),
   model: (m) => ($("chatModel").textContent = m),
-  busy: (on) => { $("chatSend").disabled = on; $("chatInput").disabled = on; $("chatBusy").hidden = !on; },
+  busy: (on) => {
+    $("chatSend").disabled = on;
+    $("chatInput").disabled = on;
+    $("chatBusy").textContent = "Thinking and testing options on the twin…";
+    $("chatBusy").hidden = !on;
+  },
   tool: (name, args, result) => {
     if (name === "get_site_state") return say("tool", "🔎 Reading the twin…");
+    if (name === "get_population_context") return say("tool", `👥 Checking who is around the site (${result.total_people_nearby ?? "?"} people, estimated)…`);
+    if (name === "set_view") return say("tool", "👁 Adjusting the view");
+    if (result.error) return say("tool", `✖ ${name}: ${result.error}`);
+    if (name === "undo_last_change") return say("tool", "↩ Undid the last change");
     const what = (args.changes ?? []).map(fmtChange).join("; ");
     if (result.errors) return say("tool", `✖ ${what}: ${result.errors.join(", ")}`);
     const r = result.result ?? result;
     const verdict = `${r.neighbour_conflicts.length} neighbour conflict(s), ${r.roof_restrictions.length} roof restriction(s)`;
     say("tool", `${name === "apply_change" ? "✅ Applied" : "🧪 Tried"} ${what} → ${verdict}`);
   },
+  speak: (t) => voice.speak(t),
+});
+const voice = initVoice({
+  button: $("micButton"),
+  status: (t) => ($("chatBusy").hidden = !t, t && ($("chatBusy").textContent = t)),
+  onText: (t) => agent.ask(t),
+  speakToggle: $("speakReplies"),
 });
 const send = () => {
   const text = $("chatInput").value.trim();

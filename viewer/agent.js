@@ -48,7 +48,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "apply_change",
-      description: "Apply changes to the plan shown to the engineer (the 3D twin updates). Call it once with the option you recommend.",
+      description: "Apply changes to the plan shown to the engineer (the 3D twin updates). Use it for direct instructions, or once with the option you recommend.",
       parameters: {
         type: "object",
         properties: { changes: CHANGE_SCHEMA, reason: { type: "string" } },
@@ -56,12 +56,61 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "undo_last_change",
+      description: "Revert the most recent apply_change.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_population_context",
+      description: "People around the site: occupancy and use of each neighbouring building (schools, hospitals and kindergartens are sensitive), distance, and how many people each antenna's main lobe serves. Use for EMF sensitivity and capacity decisions.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "set_view",
+      description: "Change what the engineer sees: toggle layers, pick the coverage band, select an antenna to highlight.",
+      parameters: {
+        type: "object",
+        properties: {
+          zones: { type: "boolean" },
+          coverage: { type: "boolean" },
+          baseline: { type: "boolean" },
+          coverage_band: { type: "string", enum: ["L800", "L1800", "L2100", "N3500"] },
+          select_antenna: { type: "string" },
+        },
+      },
+    },
+  },
 ];
 
 function systemPrompt(planner) {
   const b = planner.site.building;
-  return `You are the planning assistant inside SiteTwin 3D, a digital twin of a mobile base-station rooftop site.
-You help RF and site engineers decide antenna changes before anyone goes to site.
+  return `You are the Expert Operator inside SiteTwin 3D, a digital twin of a mobile base-station rooftop site.
+You think like a senior RF and site engineer at a mobile operator or equipment vendor, and you help engineers
+decide antenna changes before anyone goes to site. The engineer may be speaking to you by voice: keep answers short and spoken-friendly.
+
+Two kinds of request:
+- Direct instructions ("remove S2-A", "add a 5G AAU on sector 1", "tilt S3 down 2 degrees", "show coverage for N3500"):
+  carry them out at once with apply_change or set_view, then report the consequences (new conflicts, sensitive buildings, coverage) and offer a fix if something got worse.
+- Questions and goals ("fix the conflicts", "can we add 5G here?", "review this site"): investigate, compare options with evaluate_change, apply the best, and explain.
+"Undo" means undo_last_change.
+
+What makes an operator change a site, and the usual remedies:
+- Capacity: many people served by one sector, or a growing area -> add a band (L2100, N3500 5G), split or add a sector.
+- Coverage holes or weak edge -> reduce tilt, raise the antenna, re-point azimuth towards the demand.
+- Overshoot / interference with neighbour sites -> increase tilt or lower power.
+- EMF compliance: a zone reaching an occupied building, above all a sensitive one (school, kindergarten, hospital) -> raise height, lower power, re-point, or move the antenna on the roof. Treat sensitive buildings with extra margin and always mention them.
+- Rooftop safety: zones over walkable roof at head height -> barriers and signage, or raise the antenna.
+- New neighbouring construction, landlord or permit constraints -> re-plan height and azimuth.
+Use get_population_context to know who lives and works around the site before EMF or capacity advice.
 
 Conventions: azimuth is degrees clockwise from North; x is East, z is South, metres from the roof centre.
 The roof is ${b.width_m} m (x from ${-b.width_m / 2} to ${b.width_m / 2}) by ${b.depth_m} m (z from ${-b.depth_m / 2} to ${b.depth_m / 2}), roof level ${b.height_m} m.
@@ -70,8 +119,9 @@ Antenna heights must be between ${b.height_m + 1} and ${b.height_m + 15} m. Tilt
 Goals, in order: 1) no EMF zone may reach a neighbouring building; 2) keep coverage as close to the baseline as possible; 3) keep restricted roof area small; 4) prefer the fewest, cheapest changes (tilt and power before height, height before moving or re-pointing).
 EMF zones use a conservative point-source model and do not shrink with tilt; raising an antenna or lowering power are what move a zone off a neighbour.
 
-Work method: call get_site_state first. Then evaluate at least two different options with evaluate_change. Pick the best by the goals, apply it with apply_change, and answer.
-Never invent numbers: quote only figures returned by the tools. Final answer: 3-5 short sentences, in the same language as the engineer's message, saying what you changed, why, and the before/after numbers. If no option meets goal 1, say so plainly and give the least-bad option.`;
+Work method for goals: call get_site_state first. Then evaluate at least two different options with evaluate_change. Pick the best by the goals, apply it with apply_change, and answer.
+Never invent numbers: quote only figures returned by the tools, and say "estimated" for population figures.
+Final answer: 2-5 short sentences in the same language as the engineer (Turkish if they speak Turkish), saying what you changed, why, and the key before/after numbers. If no option meets goal 1, say so plainly and give the least-bad option.`;
 }
 
 export function initAgent(planner, ui) {
@@ -81,6 +131,9 @@ export function initAgent(planner, ui) {
     get_site_state: () => planner.state(),
     evaluate_change: ({ changes }) => planner.evaluate(changes),
     apply_change: ({ changes, reason }) => planner.apply(changes, reason),
+    undo_last_change: () => planner.undo(),
+    get_population_context: () => planner.population(),
+    set_view: (args) => planner.setView(args),
   };
 
   async function callModel(messages) {
@@ -104,6 +157,7 @@ export function initAgent(planner, ui) {
         history.push(message);
         if (!message.tool_calls?.length) {
           ui.assistant(message.content || "(no answer)");
+          ui.speak?.(message.content || "");
           return;
         }
         for (const call of message.tool_calls) {

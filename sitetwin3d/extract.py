@@ -1,4 +1,4 @@
-﻿"""Per-photo extraction: one survey photo -> structured observation (JSON).
+"""Per-photo extraction: one survey photo -> structured observation (JSON).
 
     python -m sitetwin3d.extract PHOTO_OR_DIR [...] --provider meta|baseten --out obs.jsonl
 

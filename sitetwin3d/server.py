@@ -9,13 +9,15 @@ conflict and coverage code the engineer sees.
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from typing import Any
 
+import httpx
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from openai import OpenAI, OpenAIError
 from pydantic import BaseModel
@@ -48,6 +50,27 @@ def chat(req: ChatRequest) -> dict:
     message = response.choices[0].message.model_dump(exclude_none=True)
     message.setdefault("content", "")
     return {"message": message, "model": cfg["model"]}
+
+
+TRANSCRIBE_URL = "https://api.meta.ai/v1/asr/transcribe"
+
+
+@app.post("/api/transcribe")
+async def transcribe(request: Request) -> dict:
+    """Voice mode: the browser posts a 16 kHz mono WAV; Muse Voice Transcribe returns the text."""
+    wav = await request.body()
+    async with httpx.AsyncClient(timeout=60) as client:
+        r = await client.post(
+            TRANSCRIBE_URL,
+            headers={"Authorization": f"Bearer {os.environ['MODEL_API_KEY']}", "Accept": "text/plain"},
+            files={
+                "request": (None, json.dumps({"model": "muse-voice-transcribe-1.0", "audioEncoding": "WAV", "mode": "PUSH_TO_TALK"}), "application/json"),
+                "audio": ("speech.wav", wav, "audio/wav"),
+            },
+        )
+    if r.status_code != 200:
+        raise HTTPException(status_code=502, detail=r.text[:500])
+    return {"text": " ".join(line.strip() for line in r.text.splitlines() if line.strip())}
 
 
 app.mount("/", StaticFiles(directory=VIEWER, html=True), name="viewer")
