@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { REGIMES, siteZones, insideZone } from "./emf.js";
 import { coverageGrid, paintCoverage, RSRP_BINS } from "./coverage.js";
+import { initAgent } from "./agent.js";
 
 const BAND_PRESETS = {
   L800: { name: "L800", frequency_mhz: 800, tx_power_w: 20, gain_dbi: 15.0, horizontal_beamwidth_deg: 65, vertical_beamwidth_deg: 9, front_to_back_db: 25, feeder_loss_db: 0 },
@@ -179,6 +180,86 @@ function diffSites(before, after) {
   return changes;
 }
 
+// ---------- planner API used by the assistant ----------
+const EDITABLE = ["azimuth_deg", "mechanical_tilt_deg", "electrical_tilt_deg", "height_agl_m", "x_m", "z_m"];
+function applyChanges(s, changes) {
+  const out = clone(s);
+  const errors = [];
+  const bld = out.building;
+  for (const c of changes ?? []) {
+    if (c.action === "add_antenna") {
+      if (out.antennas.some((a) => a.id === c.antenna_id)) { errors.push(`${c.antenna_id} already exists`); continue; }
+      out.antennas.push({
+        id: c.antenna_id, sector: null, azimuth_deg: 0, mechanical_tilt_deg: 0, electrical_tilt_deg: 6,
+        height_agl_m: bld.height_m + 4, x_m: 0, z_m: 0, manufacturer: null, model: "5G AAU", length_m: 0.9,
+        bands: [], source_photos: [], confidence: null,
+      });
+    }
+    const a = out.antennas.find((x) => x.id === c.antenna_id);
+    if (!a) { errors.push(`no antenna ${c.antenna_id}`); continue; }
+    if (c.action === "remove_antenna") { out.antennas = out.antennas.filter((x) => x !== a); continue; }
+    for (const k of EDITABLE) if (typeof c[k] === "number") a[k] = c[k];
+    for (const name of c.add_bands ?? []) if (BAND_PRESETS[name] && !a.bands.some((x) => x.name === name)) a.bands.push(clone(BAND_PRESETS[name]));
+    a.bands = a.bands.filter((x) => !(c.remove_bands ?? []).includes(x.name));
+    for (const [name, w] of Object.entries(c.band_power_w ?? {})) {
+      const band = a.bands.find((x) => x.name === name);
+      if (band) band.tx_power_w = w; else errors.push(`${a.id} has no band ${name}`);
+    }
+    if (c.action === "add_antenna" && !a.bands.length) a.bands.push(clone(BAND_PRESETS.N3500));
+    if (Math.abs(a.x_m) > bld.width_m / 2 || Math.abs(a.z_m) > bld.depth_m / 2) errors.push(`${a.id} is off the roof`);
+    if (a.height_agl_m < bld.height_m + 1 || a.height_agl_m > bld.height_m + 15) errors.push(`${a.id} height out of range`);
+    if (a.bands.some((x) => x.tx_power_w < 1 || x.tx_power_w > 240)) errors.push(`${a.id} power out of range`);
+  }
+  return { site: out, errors };
+}
+
+function coverageMetric(s) {
+  const result = {};
+  for (const name of [...new Set(s.antennas.flatMap((a) => a.bands.map((x) => x.name)))]) {
+    const { grid, n, size } = coverageGrid(s, name, 600, 60);
+    const cell = (size / n) ** 2 / 1e6;
+    let good = 0, fair = 0;
+    for (const v of grid) { if (v >= -90) good++; if (v >= -100) fair++; }
+    result[name] = { km2_above_minus90dBm: +(good * cell).toFixed(3), km2_above_minus100dBm: +(fair * cell).toFixed(3) };
+  }
+  return result;
+}
+
+function summarize(s) {
+  const zones = siteZones(s, REGIMES[regimeKey]);
+  const zoneById = Object.fromEntries(zones.map((z) => [z.antenna_id, z]));
+  const { findings } = checkSite(s, zones);
+  return {
+    antennas: s.antennas.map((a) => ({
+      id: a.id, azimuth_deg: a.azimuth_deg, mechanical_tilt_deg: a.mechanical_tilt_deg, electrical_tilt_deg: a.electrical_tilt_deg,
+      height_agl_m: a.height_agl_m, x_m: a.x_m, z_m: a.z_m,
+      bands: a.bands.map((x) => `${x.name} ${x.tx_power_w} W`), zone_front_m: zoneById[a.id]?.front_m ?? 0,
+    })),
+    neighbour_conflicts: findings.filter((f) => f.level === "bad").map((f) => f.text),
+    roof_restrictions: findings.filter((f) => f.level === "warn").map((f) => f.text),
+    coverage: coverageMetric(s),
+  };
+}
+
+const planner = {
+  get site() { return site; },
+  state: () => ({ regime: REGIMES[regimeKey].name, current_plan: summarize(site), baseline: summarize(baseline), neighbours: site.neighbours }),
+  evaluate(changes) {
+    const { site: candidate, errors } = applyChanges(site, changes);
+    return errors.length ? { errors } : summarize(candidate);
+  },
+  apply(changes, reason) {
+    const { site: candidate, errors } = applyChanges(site, changes);
+    if (errors.length) return { errors };
+    site = candidate;
+    selectedId = changes[0]?.antenna_id ?? selectedId;
+    refreshCoverageBands();
+    update();
+    renderEditor();
+    return { applied: true, reason, result: summarize(site) };
+  },
+};
+
 // ---------- UI ----------
 function renderEditor() {
   const a = site.antennas.find((x) => x.id === selectedId);
@@ -348,6 +429,37 @@ renderer.domElement.addEventListener("pointerup", (e) => {
   const hit = raycaster.intersectObjects(antennaGroup.children, true).find((h) => h.object.userData.antennaId);
   select(hit ? hit.object.userData.antennaId : null);
 });
+
+// ---------- assistant chat ----------
+const log = $("chatLog");
+const say = (cls, text) => { log.append(el("div", { className: `msg ${cls}`, textContent: text })); log.scrollTop = log.scrollHeight; };
+const fmtChange = (c) => {
+  const parts = Object.entries(c).filter(([k]) => !["action", "antenna_id"].includes(k)).map(([k, v]) => `${k.replace(/_deg|_m$|_w$/g, "")}=${typeof v === "object" ? JSON.stringify(v) : v}`);
+  return `${c.action === "modify" ? "" : c.action + " "}${c.antenna_id} ${parts.join(" ")}`.trim();
+};
+const agent = initAgent(planner, {
+  user: (t) => say("user", t),
+  assistant: (t) => say("assistant", t),
+  model: (m) => ($("chatModel").textContent = m),
+  busy: (on) => { $("chatSend").disabled = on; $("chatInput").disabled = on; $("chatBusy").hidden = !on; },
+  tool: (name, args, result) => {
+    if (name === "get_site_state") return say("tool", "🔎 Reading the twin…");
+    const what = (args.changes ?? []).map(fmtChange).join("; ");
+    if (result.errors) return say("tool", `✖ ${what}: ${result.errors.join(", ")}`);
+    const r = result.result ?? result;
+    const verdict = `${r.neighbour_conflicts.length} neighbour conflict(s), ${r.roof_restrictions.length} roof restriction(s)`;
+    say("tool", `${name === "apply_change" ? "✅ Applied" : "🧪 Tried"} ${what} → ${verdict}`);
+  },
+});
+const send = () => {
+  const text = $("chatInput").value.trim();
+  if (!text) return;
+  $("chatInput").value = "";
+  agent.ask(text);
+};
+$("chatSend").onclick = send;
+$("chatInput").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };
+for (const s of document.querySelectorAll(".suggest")) s.onclick = () => agent.ask(s.textContent);
 
 $("title").textContent = site.site_id;
 $("subtitle").textContent = site.name ?? "";

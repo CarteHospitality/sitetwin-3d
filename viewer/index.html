@@ -32,6 +32,13 @@
   table { width:100%; border-collapse:collapse; font-size:12px; }
   td, th { padding:3px 2px; text-align:left; border-bottom:1px solid var(--line); }
   tr.sel td { color:#fff; background:#1f2a3d; }
+  #chatLog { max-height:260px; overflow:auto; display:flex; flex-direction:column; gap:6px; }
+  .msg { padding:6px 9px; border-radius:8px; white-space:pre-wrap; }
+  .msg.user { background:#1f2a3d; align-self:flex-end; max-width:90%; }
+  .msg.assistant { background:#222733; }
+  .msg.tool { color:var(--muted); font-size:12px; padding:2px 4px; }
+  textarea { flex:1; background:#0f1115; color:var(--text); border:1px solid #333a48; border-radius:5px; padding:6px; font:inherit; resize:vertical; }
+  button:disabled { opacity:.5; cursor:default; }
   .sw { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; vertical-align:-1px; }
   @media (max-width: 760px) { #app { flex-direction:column; } aside { width:auto; height:45%; border-left:0; border-top:1px solid var(--line); } }
 </style>
@@ -61,6 +68,20 @@
         </div>
       </div>
       <div class="row" id="coverageRow" hidden><label for="coverageBand">Coverage band</label><select id="coverageBand"></select></div>
+    </section>
+
+    <section>
+      <h2>Planning assistant <span class="muted" id="chatModel" style="text-transform:none;letter-spacing:0"></span></h2>
+      <div id="chatLog"></div>
+      <div class="chips" style="margin:8px 0">
+        <span class="chip suggest">Fix the neighbour conflicts with the smallest change</span>
+        <span class="chip suggest">Add 5G N3500 to sector 2 without new conflicts</span>
+      </div>
+      <div class="row">
+        <textarea id="chatInput" rows="2" placeholder="Ask in any language, e.g. “S1 reaches the apartment, fix it”"></textarea>
+        <button class="primary" id="chatSend">Send</button>
+      </div>
+      <div class="muted" id="chatBusy" hidden>Thinking and testing options on the twin…</div>
     </section>
 
     <section>

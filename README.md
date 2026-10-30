@@ -22,7 +22,9 @@ Built for the Meta Global AI Developer Hackathon (Indie track).
    - an indicative coverage layer (Hata models, no terrain) compares bands and plans;
    - the baseline stays visible as a wireframe, the change list is generated, and the plan exports as JSON.
 
-Steps 1-3 are in progress. Steps 4-5 work today with the sample site.
+6. **Planning assistant (agent on open weights).** Ask in plain language: *"Fix the neighbour conflicts with the smallest change"* or *"Add 5G N3500 to sector 2 without new conflicts"*. Muse Spark Open (served on Baseten) plans the work and calls three tools that run in the browser on the live twin: `get_site_state`, `evaluate_change` (try an option on a copy) and `apply_change`. It compares options with the same EMF, conflict and coverage code the engineer sees, applies the best one and reports before/after figures taken from the tools. The API key stays on the server (`sitetwin3d/server.py`).
+
+Steps 1-3 are in progress. Steps 4-6 work today with the sample site.
 
 ## Quick start
 
@@ -31,10 +33,10 @@ python -m venv .venv
 .venv/Scripts/pip install -r requirements.txt     # Windows; use .venv/bin on macOS/Linux
 .venv/Scripts/python -m pytest -q
 .venv/Scripts/python -m sitetwin3d.export samples/demo-site/site.json -o viewer/data/site.twin.json
-.venv/Scripts/python -m http.server 8765 --directory viewer
+.venv/Scripts/python -m sitetwin3d.server
 ```
 
-Then open http://localhost:8765.
+Then open http://localhost:8765. The viewer and planner also work as static files (`python -m http.server --directory viewer`); only the assistant needs the server and a `BASETEN_API_KEY`.
 
 API keys go in `.env` (see `.env.example`), never in the repo.
 
