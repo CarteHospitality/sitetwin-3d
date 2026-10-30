@@ -6,7 +6,9 @@
     "name": "Synthetic sample site",
     "operator": "DEMO",
     "latitude_dms": "N 39° 55' 17,40''",
-    "longitude_dms": "E 32° 49' 22,80''"
+    "longitude_dms": "E 32° 49' 22,80''",
+    "district": "Çankaya",
+    "province": "Ankara"
   },
   "application": {
     "type": "revision",

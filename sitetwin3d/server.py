@@ -9,9 +9,11 @@ conflict and coverage code the engineer sees.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import re
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -23,7 +25,7 @@ from fastapi.staticfiles import StaticFiles
 from openai import OpenAI, OpenAIError
 from pydantic import BaseModel
 
-from .extract import PROVIDERS
+from .extract import PROVIDERS, extract
 from .portfolio import import_site
 
 VIEWER = Path(__file__).resolve().parents[1] / "viewer"
@@ -100,6 +102,20 @@ async def transcribe(request: Request) -> dict:
     if r.status_code != 200:
         raise HTTPException(status_code=502, detail=r.text[:500])
     return {"text": " ".join(line.strip() for line in r.text.splitlines() if line.strip())}
+
+
+@app.post("/api/photo")
+async def read_photo(request: Request) -> dict:
+    """Photo mode: Muse Spark 1.3 reads one site photo into equipment, labels and safety notes."""
+    data = await request.body()
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "photo.jpg"
+        path.write_bytes(data)
+        try:
+            record = await asyncio.to_thread(extract, path, "meta")
+        except Exception as e:  # unreadable image or model error: tell the page, keep the server up
+            raise HTTPException(status_code=502, detail=str(e)[:500]) from e
+    return record.model_dump(exclude_none=True)
 
 
 @app.post("/api/import")

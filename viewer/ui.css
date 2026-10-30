@@ -364,3 +364,10 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
 .plan-body ul { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.55; }
 .plan-dialog footer { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 12px 20px 18px; border-top: 1px solid var(--border); }
 .icon-btn.close { color: var(--muted); --icon: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m6.4 19-1.4-1.4 5.6-5.6L5 6.4 6.4 5l5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6Z"/></svg>'); }
+
+/* Photo mode: a camera icon beside the mic; the photo shows as a thumbnail in the conversation. */
+#photoButton { color: var(--muted); --icon: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 3 7.2 5H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.2L15 3H9Zm3 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg>'); }
+#photoButton:hover { color: var(--accent); }
+.input-pill:not(:has(textarea:placeholder-shown)) #photoButton { display: none; }
+.msg.photo { display: grid; gap: 6px; white-space: pre-line; }
+.msg.photo img { max-width: 100%; max-height: 180px; border-radius: 10px; object-fit: cover; }

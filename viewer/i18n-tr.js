@@ -2,6 +2,19 @@
 // EXACT: whole trimmed text of a node or attribute equals the key.
 export const EXACT = {
   "Talk": "Konuş",
+  "Site photo": "Saha fotoğrafı",
+  "No telecom equipment recognised": "Telekom ekipmanı tanınmadı",
+  "Reading photo with Muse Spark 1.3…": "Fotoğraf Muse Spark 1.3 ile okunuyor…",
+  "panel antenna": "panel anten",
+  "aau 5g": "5G AAU",
+  "microwave dish": "mikrodalga çanak",
+  "radio unit": "radyo ünitesi",
+  "cabinet": "kabinet",
+  "power unit": "güç ünitesi",
+  "battery": "akü",
+  "cable tray": "kablo tavası",
+  "mast or pole": "direk",
+  "other": "diğer",
   "Listening… tap to stop": "Dinliyorum… durdurmak için dokunun",
   "Cancel mic": "Mikrofonu iptal et",
   "TR single device": "TR tek cihaz",
@@ -496,6 +509,7 @@ export const PHRASES = {
 // Use capture groups for dynamic parts, e.g.
 // ["^(\\S+) zone reaches (.+?) \\[(.+)\\] \\(([\\d.]+) m from antenna, zone ([\\d.]+) m\\)$", "", "$1 bölgesi $2 binasına ulaşıyor [$3] (antenden $4 m, bölge $5 m)"],
 export const PATTERNS = [
+  ["^Photo could not be read: (.+)$", "", "Fotoğraf okunamadı: $1"],
   // ---- Checks (checks.js). Not anchored at the start: the text may carry a "! " prefix or an issue prefix.
   ["(\\S+) zone reaches (.+?) \\[SENSITIVE (\\w+), (~?)(\\d+) people\\] \\(([\\d.]+) m from antenna, zone ([\\d.]+) m\\)$", "",
     "$1 bölgesi $2 binasına ulaşıyor [SENSITIVE $3, $4$5 kişi] (antenden $6 m, bölge $7 m)"],

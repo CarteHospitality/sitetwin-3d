@@ -6,7 +6,9 @@
     "name": "Synthetic sample site",
     "operator": "DEMO",
     "latitude_dms": "N 40° 11' 34,80''",
-    "longitude_dms": "E 29° 3' 36,00''"
+    "longitude_dms": "E 29° 3' 36,00''",
+    "district": "Osmangazi",
+    "province": "Bursa"
   },
   "application": {
     "type": "revision",

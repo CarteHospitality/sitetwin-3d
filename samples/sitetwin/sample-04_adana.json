@@ -6,7 +6,9 @@
     "name": "Synthetic sample site",
     "operator": "DEMO",
     "latitude_dms": "N 36° 59' 45,60''",
-    "longitude_dms": "E 35° 17' 60,00''"
+    "longitude_dms": "E 35° 17' 60,00''",
+    "district": "Seyhan",
+    "province": "Adana"
   },
   "application": {
     "type": "new",

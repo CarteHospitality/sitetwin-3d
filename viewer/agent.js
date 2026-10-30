@@ -3,9 +3,10 @@
 // tool to call; the tools run here on the live twin, so every option it
 // tries is scored by the same EMF, conflict and coverage code as the UI.
 
-const MAX_STEPS = 24;
+// A goal usually takes three model calls: compare options, apply one, answer.
+const MAX_STEPS = 12;
 // Steps left at which the agent is told to stop exploring and commit to its best option.
-const DECIDE_AT = 6;
+const DECIDE_AT = 4;
 
 const CHANGE_SCHEMA = {
   type: "array",
@@ -42,15 +43,24 @@ const TOOLS = [
     type: "function",
     function: {
       name: "evaluate_change",
-      description: "Try changes on a copy of the current plan without showing them. Returns the resulting zones, conflicts, roof restriction and coverage. Use it to compare options.",
-      parameters: { type: "object", properties: { changes: CHANGE_SCHEMA }, required: ["changes"] },
+      description: "Try 2-4 alternative options at once, each on its own copy of the current plan, without showing them. Returns per option the resulting zones, conflicts, roof restriction and coverage. Put every option you want to compare in one call.",
+      parameters: {
+        type: "object",
+        properties: {
+          options: {
+            type: "array", maxItems: 4,
+            items: { type: "object", properties: { label: { type: "string", description: "Short name, e.g. 'S3 power 18 W'" }, changes: CHANGE_SCHEMA }, required: ["label", "changes"] },
+          },
+        },
+        required: ["options"],
+      },
     },
   },
   {
     type: "function",
     function: {
       name: "apply_change",
-      description: "Apply changes to the plan shown to the engineer (the 3D twin updates). Use it for direct instructions, or once with the option you recommend.",
+      description: "Apply changes to the plan shown to the engineer (the 3D twin updates). Use it for direct instructions, or once with the option you recommend. The result includes the field crew the change needs.",
       parameters: {
         type: "object",
         properties: { changes: CHANGE_SCHEMA, reason: { type: "string" } },
@@ -95,7 +105,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "get_field_work_order",
-      description: "The physical work the current plan needs on site, derived from plan vs baseline: per antenna the work steps, materials and precautions, site-wide steps (permits, RF shutdown, EMF re-measurement, roof barriers), and `crew`: who goes to site, headcount, visits with estimated hours and days, tools to bring. Call it after every apply_change.",
+      description: "Full detail of the physical work the current plan needs on site: per antenna the work steps, materials and precautions, site-wide steps (permits, RF shutdown, EMF re-measurement, roof barriers), and `crew`. apply_change already returns the crew; call this only when the engineer asks for the details.",
       parameters: { type: "object", properties: {} },
     },
   },
@@ -139,7 +149,7 @@ What makes an operator change a site, and the usual remedies:
 - EMF compliance: a zone reaching an occupied building, above all a sensitive one (school, kindergarten, hospital) -> raise height, lower power, re-point, or move the antenna on the roof. Treat sensitive buildings with extra margin and always mention them.
 - Rooftop safety: zones over walkable roof at head height -> barriers and signage, or raise the antenna.
 - New neighbouring construction, landlord or permit constraints -> re-plan height and azimuth.
-Use get_population_context to know who lives and works around the site before EMF or capacity advice.
+The briefing at the end already gives the site state and who lives and works around it.
 
 Turkish rules to keep in mind (BTK safety-certificate regulation; see docs/research/operator-change-planning.md):
 - A single device may produce about 20% of the ICNIRP field strength (12.3 V/m above 2 GHz); the zones in this tool use that limit.
@@ -155,14 +165,18 @@ This is a ${planner.site.structure ?? "rooftop"} site. Antenna heights must be b
 Goals, in order: 1) no EMF zone may reach a neighbouring building; 2) keep coverage as close to the baseline as possible; 3) keep restricted roof area small; 4) prefer the fewest, cheapest changes (tilt and power before height, height before moving or re-pointing).
 EMF zones use a conservative point-source model and do not shrink with tilt; raising an antenna or lowering power are what move a zone off a neighbour.
 
-Work method for goals: call get_site_state first. Then evaluate at least two different options with evaluate_change. Pick the best by the goals, apply it with apply_change, and answer.
+Work method for goals, in as few turns as possible: read the briefing (do not call get_site_state or get_population_context for it).
+Compare two to four different options in ONE evaluate_change call. Pick the best by the goals, apply it with apply_change, and answer.
 Never invent numbers: quote only figures returned by the tools, and say "estimated" for population figures.
 Final answer, in the same language as the engineer (Turkish if they speak Turkish): what you changed, why, and the key before/after numbers. If no option meets goal 1, say so plainly and give the least-bad option.
-After every apply_change, call get_field_work_order and, without being asked, finish with what has to happen physically:
+After every apply_change, without being asked, finish with what has to happen physically, using the field_crew it returned:
 ${voice
     ? "in two or three spoken sentences: how many people go to site and for how long (from crew), the main work and materials, the key precaution and the EMF re-measurement; say the crew plan is in the panel."
     : "one last line with the field work: who goes and for how long (estimated, from the work order's crew), and that the details are in the crew card."}
-If the engineer asks about or names another site, use list_sites and open_site; you cannot change other sites from here.`;
+If the engineer asks about or names another site, use list_sites and open_site; you cannot change other sites from here.
+
+Briefing (current figures, refreshed every turn):
+${JSON.stringify(planner.briefing())}`;
 }
 
 export function initAgent(planner, ui) {
@@ -170,7 +184,9 @@ export function initAgent(planner, ui) {
     definitions: TOOLS,
     handlers: {
       get_site_state: () => planner.state(),
-      evaluate_change: ({ changes }) => planner.evaluate(changes),
+      evaluate_change: ({ options, changes }) => options?.length
+        ? { options: options.slice(0, 4).map((o) => ({ label: o.label, ...planner.evaluate(o.changes ?? []) })) }
+        : planner.evaluate(changes ?? []),
       apply_change: ({ changes, reason }) => planner.apply(changes, reason),
       undo_last_change: () => planner.undo(),
       get_population_context: () => planner.population(),
@@ -218,18 +234,19 @@ export function createAgent({ definitions, handlers, systemPrompt, ui }) {
   }
 
   // `voice`: the request was spoken, so the answer is spoken back; typed requests get text only.
-  async function runAsk(text, { voice = false } = {}, requestId) {
+  // `silent`: the page already showed the request its own way (e.g. a photo).
+  async function runAsk(text, { voice = false, silent = false } = {}, requestId) {
     mode = { voice };
     ui.requestStart?.(requestId);
     history.push({ role: "user", content: text });
-    ui.user(text);
+    if (!silent) ui.user(text);
     ui.busy(true);
     try {
       let leaving = false;
       for (let step = 0; step < MAX_STEPS; step++) {
         // After a navigation tool (e.g. open_site) the page is about to change: one last answer, no more tools.
         const nudge = MAX_STEPS - step <= DECIDE_AT
-          ? [{ role: "system", content: "Step budget nearly used. Stop testing: apply the best option you have evaluated (or say none is acceptable), call get_field_work_order if you applied a change, then answer." }]
+          ? [{ role: "system", content: "Step budget nearly used. Stop testing: apply the best option you have evaluated (or say none is acceptable), then answer." }]
           : [];
         const { message, model } = await callModel([{ role: "system", content: systemPrompt(mode) }, ...history, ...nudge], !leaving);
         ui.model(model);

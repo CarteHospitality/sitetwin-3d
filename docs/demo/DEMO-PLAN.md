@@ -26,7 +26,8 @@ Bu bilerek iyi bir şey: "mühendis kendi dilinde konuşuyor" mesajı.
 | 0:20–0:45 | Sağda "Aciliyete göre sahalar" kartı, en üstteki sahaya tıklama | "Each site comes from a SiteTwin survey file: antennas, bands, power, and the buildings around it, from Microsoft and OpenStreetMap data." |
 | 0:45–1:20 | 🎤 tuşuna basıp Türkçe: *"Hangi saha en acil? Onu aç ve okul sorununu en küçük değişiklikle çöz."* | "I just talk to it, in Turkish. Muse Voice Transcribe turns my voice into text, and the Expert Operator, running on Muse Spark Open, takes it from there." |
 | 1:20–2:05 | 3D ikiz açılır; ajan seçenekleri dener, EMF bölgesi küçülür, okul kırmızıdan çıkar | "The agent doesn't guess. Every option it tries runs through the same EMF model I see: tilt, azimuth, power. It picks the smallest change that clears the school." |
-| 2:05–2:35 | Sağda "Saha ekibi ve takvim" ve "İş emri" kartları belirir | "Then it plans the field work: who goes, what they carry, how long it takes." |
+| 2:05–2:20 | Sağda "Saha ekibi ve takvim" kartı belirir | "Then it plans the field work: who goes, what they carry, how long it takes." |
+| 2:20–2:35 | 📷 simgesi → çatı/anten fotoğrafı seçilir → küçük resim + "3 × panel anten…" → ajan ikizle karşılaştırır | "On site, a photo is enough. Muse Spark 1.3 reads the equipment and labels, and the agent checks it against the twin." |
 | 2:35–2:55 | "Eylem planı" → plan açılır → "E-postayla gönder" | "One click turns it into an action plan for the site chief: where, why, what to do, crew, tools, materials, precautions." |
 | 2:55–3:00 | Logo + repo adresi | "SiteTwin 3D. Open source, built on Meta's open models." |
 
@@ -37,6 +38,7 @@ Bu bilerek iyi bir şey: "mühendis kendi dilinde konuşuyor" mesajı.
 - [ ] Ankara örneğinde okul sorunu net görünmeli ve portföyde "Kritik" çıkmalı (şu an sınırda; aşağıya bak).
 - [ ] Tarayıcı tam ekran, yakınlaştırma %100, bildirimler kapalı.
 - [ ] Mikrofon testi; ajanın sesli cevabı da kayda girsin.
+- [ ] Fotoğraf sahnesindeki fotoğraf bir kez önceden yüklendi (önbellek), operatör/kişi adı görünmüyor.
 - [ ] Akışı 2–3 kez prova et; en temiz çekimi kullan. Ajan yanıtı 30–60 sn sürebilir; videoda bu kısım hızlandırılabilir.
 
 ## Bilinen eksikler (dondurmadan önce)
@@ -44,7 +46,10 @@ Bu bilerek iyi bir şey: "mühendis kendi dilinde konuşuyor" mesajı.
 1. ~~Ankara örneği zayıf~~ **Düzeltildi:** batı sektörü (S3-1) okula dönük, 40 W. Bölge 42 m, okul 29 m'de;
    portföyde "Kritik". Test çekiminde ajan gücü 40 W → 18 W yaptı, okul bölgeden çıktı.
    Not: önceki bir öneri tarayıcı oturumunda kalırsa portföy sahayı "düzeltilmiş" gösterir; kayda **yeni bir sekmede** başla.
-2. Ajanın yanıt süresi: her soruda 10–25 model çağrısı yapıyor. Kredi açısından sorun yok (100$), ama video için hızlandırma gerekebilir.
+2. ~~Ajanın yanıt süresi~~ **Düzeltildi:** ajan seçenekleri tek çağrıda karşılaştırıyor, durum ve çevre bilgisi baştan veriliyor,
+   uygulama sonucu ekip planını da döndürüyor. Ankara'da 3–4 model çağrısı, 20–30 sn (önce 10–25 çağrı, 30–60 sn).
+3. Fotoğraf sahnesi için anten görünen bir çatı fotoğrafı seç (kabin içi fotoğraf da çalışıyor ama antenli olan daha etkili).
+   Fotoğraf okuma 10–15 sn sürer; aynı fotoğraf ikinci kez anında gelir (önbellek). Kayıttan önce bir kez yükleyip önbelleğe al.
 
 ## Başvuru formu için gerekenler
 

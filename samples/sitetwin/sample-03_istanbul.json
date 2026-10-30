@@ -6,7 +6,9 @@
     "name": "Synthetic sample site",
     "operator": "DEMO",
     "latitude_dms": "N 40° 59' 02,40''",
-    "longitude_dms": "E 29° 1' 37,20''"
+    "longitude_dms": "E 29° 1' 37,20''",
+    "district": "Kadıköy",
+    "province": "İstanbul"
   },
   "application": {
     "type": "revision",

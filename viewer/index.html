@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SiteTwin 3D</title>
-<link rel="stylesheet" href="ui.css?v=simple-2">
+<link rel="stylesheet" href="ui.css?v=simple-3">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -39,6 +39,7 @@
       <div class="muted composer-status" id="chatBusy" role="status" hidden></div>
       <div class="input-pill">
         <textarea id="chatInput" aria-label="Message to Expert Operator" rows="1" placeholder="Ask or give an instruction"></textarea>
+        <button class="icon-btn" id="photoButton" title="Site photo" aria-label="Site photo"></button>
         <button class="icon-btn" id="micButton" title="Talk" aria-label="Talk"></button>
         <button class="icon-btn send" id="chatSend" title="Send" aria-label="Send"></button>
       </div>
@@ -146,6 +147,6 @@
 <nav class="mobile-nav" aria-label="Workspace navigation"><button data-pane="workspace" aria-pressed="true">Workspace</button><button data-pane="operator" aria-expanded="false">Operator</button><button data-pane="inspect" aria-expanded="false">Inspect</button></nav>
 <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
 <div id="liveStatus" class="sr-only" role="status" aria-live="polite"></div>
-<script type="module" src="app.js?v=simple-2"></script>
+<script type="module" src="app.js?v=simple-3"></script>
 </body>
 </html>

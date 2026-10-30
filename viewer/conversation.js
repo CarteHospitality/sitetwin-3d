@@ -78,12 +78,16 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
     } else {
       waiting(false);
       const failed = [...rows.values()].some((r) => r.failed);
-      if (groupTitle) groupTitle.textContent = `${runFailed ? "✕ Failed" : failed ? "✓ Done, some steps failed" : "✓ Done"} · ${rows.size} steps · ${Math.round((performance.now() - runStart) / 1000)}s`;
+      // A plain answer with no tool steps needs no activity row.
+      if (!rows.size && !runFailed) group?.remove();
+      else if (groupTitle) groupTitle.textContent =`${runFailed ? "✕ Failed" : failed ? "✓ Done, some steps failed" : "✓ Done"} · ${rows.size} steps · ${Math.round((performance.now() - runStart) / 1000)}s`;
     }
     onBusy(on, mode);
     if (!on) onComplete(mode);
   }
   function toolStart(id, name, args) {
+    // One evaluate_change call can carry several options; count each as a trial.
+    if (name === "evaluate_change") trialCount += Math.max(1, args.options?.length ?? 1) - 1;
     const heading = el("summary", { textContent: `◌ ${LABELS[name] ?? name}${name === "evaluate_change" ? ` ${++trialCount}` : ""} · Running` });
     const row = el("details", { className: "activity-step running" }, heading,
       el("pre", { textContent: JSON.stringify(args, null, 2) }));
@@ -112,10 +116,12 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
       let text = failed ? result.error ?? result.errors.join(", ")
         : name === "apply_change" ? "Applied to plan"
         : report?.summary ?? result?.opening ?? result?.focused ?? "Completed";
+      if (result?.options) text = result.options.map((o) => `${o.label}: ${o.errors?.length ? "✕" : `${o.neighbour_conflicts.length} conflict findings`}`).join(" · ");
       if (report?.neighbour_conflicts) text += ` · ${report.neighbour_conflicts.length} conflict findings · ${report.roof_restrictions.length} roof restrictions`;
       entry.row.append(el("div", { className: "activity-result", textContent: text }), el("pre", { textContent: JSON.stringify(result, null, 2) }));
       if (name === "evaluate_change") {
-        completedTrials++; if (failed) failedTrials++;
+        const n = result?.options?.length ?? 1;
+        completedTrials += n; failedTrials += failed ? n : (result?.options ?? []).filter((o) => o.errors?.length).length;
         trialTitle.textContent = `${completedTrials} options tested${failedTrials ? ` · ${failedTrials} failed` : ""}`;
       } else announce(text);
     });
@@ -126,7 +132,11 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
     for (const message of transcript) say(message.role, message.text);
     restoring = false;
   }
-  return { user: (text) => say("user", text), assistant: (text) => say("assistant", text),
+  // A photo the engineer sent: thumbnail and what the vision model read (not kept in the transcript).
+  function photo(src, caption) {
+    change(() => log.append(el("div", { className: "msg user photo" }, el("img", { src, alt: "" }), el("div", { textContent: caption }))));
+  }
+  return { user: (text) => say("user", text), assistant: (text) => say("assistant", text), photo,
     queued: (id, text) => { const row = el("div", { className: "msg tool", textContent: `◷ Queued · ${text}` }); queuedRequests.set(id, row); change(() => log.append(row)); },
     requestStart: (id) => { queuedRequests.get(id)?.remove(); queuedRequests.delete(id); },
     failed: () => { runFailed = true; },

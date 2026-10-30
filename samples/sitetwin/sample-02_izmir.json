@@ -6,7 +6,9 @@
     "name": "Synthetic sample site",
     "operator": "DEMO",
     "latitude_dms": "N 38° 26' 11,40''",
-    "longitude_dms": "E 27° 8' 38,40''"
+    "longitude_dms": "E 27° 8' 38,40''",
+    "district": "Konak",
+    "province": "İzmir"
   },
   "application": {
     "type": "revision",

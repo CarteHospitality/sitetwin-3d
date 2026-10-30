@@ -1,13 +1,14 @@
 // SiteTwin 3D change planner: edit antennas on the twin, see EMF zones,
 // conflicts and indicative coverage update live, compare with the baseline.
 
-import "./i18n.js";
+import { tr } from "./i18n.js";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { REGIMES, siteZones } from "./emf.js";
 import { checkSite, headline, pointInPolygon, roofOf } from "./checks.js";
 import { coverageGrid, coverageGridAsync, paintCoverage, RSRP_BINS } from "./coverage.js";
 import { initAgent } from "./agent.js";
+import { initPhoto, photoRequest, seenLine } from "./photo.js";
 import { populationContext } from "./population.js";
 import { initVoice } from "./voice.js";
 import { initConversation } from "./conversation.js";
@@ -289,6 +290,12 @@ const planner = {
   roofBounds,
   heightRange: HEIGHT_RANGE,
   state: () => ({ regime: REGIMES[regimeKey].name, current_plan: summarize(site), baseline: summarize(baseline), neighbours: site.neighbours }),
+  // What the agent knows before its first tool call, so a goal needs no reading turns.
+  briefing: () => {
+    const { neighbours, ...state } = planner.state();
+    const { buildings, ...people } = populationContext(site);
+    return { site_id: site.site_id, structure: site.structure, ...state, people: { ...people, buildings: buildings.filter((b) => b.sensitive || b.distance_m <= 120) } };
+  },
   evaluate(changes) {
     const { site: candidate, errors } = applyChanges(site, changes);
     return errors.length ? { errors } : summarize(candidate);
@@ -307,7 +314,8 @@ const planner = {
     if (crewPlan(fieldWorkOrder(baseline, site, checkSite(site, siteZones(site, REGIMES[regimeKey]))), site).visits.length) {
       showCard("crew", { reveal: true });
     }
-    return { applied: true, reason, result: summarize(site) };
+    const { visits, crew } = planner.fieldWork().crew;
+    return { applied: true, reason, result: summarize(site), field_crew: { visits, crew } };
   },
   undo() {
     if (!undoStack.length) return { error: "nothing to undo" };
@@ -742,6 +750,14 @@ const send = () => {
   agent.ask(text);
 };
 $("chatSend").onclick = send;
+initPhoto({
+  button: $("photoButton"),
+  status: (text) => { $("chatBusy").hidden = !text; $("chatBusy").textContent = text; },
+  onRead: (obs, src) => {
+    chat.photo(src, seenLine(obs) || tr("No telecom equipment recognised"));
+    agent.ask(photoRequest(obs, document.documentElement.lang), { silent: true });
+  },
+});
 $("chatInput").onkeydown = (event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(); } };
 for (const button of document.querySelectorAll(".suggest")) button.onclick = () => agent.ask(button.textContent);
 
