@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SiteTwin Portfolio</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="ui.css?v=design-4">
+<link rel="stylesheet" href="ui.css?v=cards-1">
 </head>
 <body>
 <header class="topbar">
@@ -50,19 +50,37 @@
   <!-- Right: the map, site information and actions taken -->
   <main class="work">
     <div id="map" class="stage" aria-label="Portfolio map"><div id="loading" class="hud loading-state" role="status">Loading and assessing sites…</div></div>
-    <section class="panel">
-      <div class="inspector-summary">
-        <button class="drawer-close" aria-label="Close inspector">Close</button>
-        <h1>Portfolio</h1>
-        <div class="muted">Shared site checks · active regime shown per site</div>
-        <div class="stats" id="stats"></div>
-        <div class="row"><span class="muted" id="filterStatus">All sites</span><button id="clearFilter" hidden>Clear filter</button></div>
-      </div>
-      <div class="muted" id="uploadStatus" role="status"></div>
-      <h2>Sites</h2>
-      <div id="list"></div>
-      <h2>Actions taken</h2>
-      <ul id="actions" class="actions"><li class="muted">Nothing yet</li></ul>
+    <section class="panel cards">
+      <div class="panel-top"><button class="drawer-close" aria-label="Close inspector">Close</button></div>
+
+      <section class="card" data-card="portfolio">
+        <button class="card-head" aria-expanded="true"><span class="card-icon">📊</span><span class="card-title">Portfolio</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
+        <div class="card-body">
+          <div class="muted">Every site checked automatically with the same code as the 3D planner.</div>
+          <div class="stats" id="stats"></div>
+          <div class="row"><span class="muted" id="filterStatus">All sites</span><button id="clearFilter" hidden>Clear filter</button></div>
+        </div>
+      </section>
+
+      <section class="card" data-card="upload" hidden>
+        <button class="card-head" aria-expanded="true"><span class="card-icon">⬆</span><span class="card-title">Loading SiteTwin file</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
+        <div class="card-body"><div class="muted" id="uploadStatus" role="status"></div></div>
+      </section>
+
+      <section class="card" data-card="selected" hidden>
+        <button class="card-head" aria-expanded="true"><span class="card-icon">📍</span><span class="card-title">Selected site</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
+        <div class="card-body" id="selectedSite"></div>
+      </section>
+
+      <section class="card" data-card="sites">
+        <button class="card-head" aria-expanded="true"><span class="card-icon">🗂</span><span class="card-title">Sites by urgency</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
+        <div class="card-body"><div id="list"></div></div>
+      </section>
+
+      <section class="card" data-card="actions">
+        <button class="card-head" aria-expanded="true"><span class="card-icon">🕘</span><span class="card-title">Actions taken</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
+        <div class="card-body"><ul id="actions" class="actions"><li class="muted">Nothing yet</li></ul></div>
+      </section>
     </section>
   </main>
 </div>
@@ -70,6 +88,6 @@
 <nav class="mobile-nav" aria-label="Workspace navigation"><button data-pane="workspace" aria-pressed="true">Workspace</button><button data-pane="operator" aria-expanded="false">Operator</button><button data-pane="inspect" aria-expanded="false">Inspect</button></nav>
 <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
 <div id="liveStatus" class="sr-only" role="status" aria-live="polite"></div>
-<script type="module" src="portfolio.js?v=design-4"></script>
+<script type="module" src="portfolio.js?v=cards-1"></script>
 </body>
 </html>

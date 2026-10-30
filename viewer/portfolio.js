@@ -9,8 +9,10 @@ import { initVoice } from "./voice.js";
 import { initConversation } from "./conversation.js";
 import { readSession, writeSession, restoreProposed, canonical, handoffId, absoluteUrl } from "./session.js";
 import { $, el, token, initShell, reducedMotion } from "./ui.js";
+import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
 
 initShell();
+initCards();
 $("loadTwin").onclick = () => $("upload").click();
 
 const LEVELS = {
@@ -75,6 +77,7 @@ function pinIcon(level, selected = false, attention = false) {
 }
 
 function renderActions() {
+  setCardSummary("actions", mapActions.length ? `${mapActions.length}` : "");
   $("actions").replaceChildren(...mapActions.map((action) => el("li", {}, el("time", { textContent: new Date(action.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }), action.text)));
 }
 function logAction(text) {
@@ -133,6 +136,10 @@ function render(selected = selectedSite, force = false) {
     button.setAttribute("aria-pressed", String(key === "all" ? !statusFilter : statusFilter === key));
   }
   $("filterStatus").textContent = statusFilter ? `Filter: ${LEVELS[statusFilter].label}` : "All sites";
+  const urgent = (counts.critical ?? 0) + (counts.high ?? 0);
+  setCardSummary("portfolio", `${sites.length} sites${urgent ? ` · ${urgent} need action` : ""}`, counts.critical ? "bad" : urgent ? "warn" : "ok");
+  setCardSummary("sites", statusFilter ? LEVELS[statusFilter].label : "All");
+  renderSelected(selected);
   $("clearFilter").hidden = !statusFilter;
   const list = $("list"), panel = list.closest(".panel");
   const before = new Map([...siteRows].map(([id, row]) => [id, row.getBoundingClientRect().top]));
@@ -159,10 +166,6 @@ function render(selected = selectedSite, force = false) {
         el("div", { className: "tag", textContent: `${s.entry.structure.replaceAll("_", " ")} · ${lv.label} · ${s.regime === "tr" ? "TR 20%" : "ICNIRP"}` }),
         el("div", { className: "muted", textContent: `${s.a.buildings} buildings · ~${s.a.people} people nearby (estimated)` }),
         el("div", { className: "issue", textContent: s.a.issues[0] ?? "No issues found" }));
-      if (s === selected) row.append(
-        el("div", { className: "muted", textContent: `${s.a.findingCount} conflict findings · ${s.a.hitBuildings} unique affected buildings` }),
-        el("ul", {}, ...s.a.issues.slice(1).map((text) => el("li", { textContent: text }))),
-        Object.assign(el("button", { className: "primary", textContent: "Open 3D twin →" }), { onclick: (event) => { event.stopPropagation(); openTwin(s); } }));
       if (restoreActionFocus) (row.querySelector("button") ?? row).focus({ preventScroll: true });
     }
     row.onclick = () => select(s);
@@ -189,6 +192,24 @@ function render(selected = selectedSite, force = false) {
   }
 }
 $("clearFilter").onclick = () => { statusFilter = null; render(); };
+let shownSelected = null;
+function renderSelected(s) {
+  if (!s) { hideCard("selected"); shownSelected = null; return; }
+  const lv = LEVELS[s.a.level];
+  setCardSummary("selected", `${s.entry.site_id} · ${lv.label}`, s.a.level === "critical" ? "bad" : s.a.level === "high" ? "warn" : s.a.level === "ok" ? "ok" : "");
+  $("selectedSite").replaceChildren(
+    el("h1", { textContent: s.entry.site_id }),
+    el("div", { className: "tag", textContent: `${s.entry.structure.replaceAll("_", " ")} · ${lv.label} · ${s.regime === "tr" ? "TR 20%" : "ICNIRP"}` }),
+    el("div", { className: "muted", textContent: `${s.a.buildings} buildings · ~${s.a.people} people nearby (estimated) · ${s.a.hitBuildings ?? 0} affected building(s)` }),
+    el("ul", {}, ...(s.a.issues.length ? s.a.issues : ["No issues found"]).map((text) => el("li", { textContent: text }))),
+    el("div", { className: "row" },
+      Object.assign(el("button", { className: "primary", textContent: "Open 3D twin and simulate the fix →" }), { onclick: () => openTwin(s) }),
+      Object.assign(el("button", { textContent: "Zoom in" }), { onclick: () => select(s, { inspect: true }) })),
+  );
+  showCard("selected", { reveal: shownSelected !== s });
+  shownSelected = s;
+}
+
 function select(s, { inspect = false, travel = true } = {}) {
   const same = selectedSite === s;
   render(s); saveMapState();
@@ -327,16 +348,21 @@ $("chatInput").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.pr
 $("upload").onchange = async (e) => {
   const file = e.target.files[0];
   if (!file) return;
+  showCard("upload", { reveal: true });
+  setCardSummary("upload", "working…");
   $("uploadStatus").textContent = "Importing and fetching surrounding buildings…";
   try {
     const res = await fetch("api/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: await file.text() });
     if (!res.ok) throw new Error(await res.text());
     const s = await add(await res.json());
     $("uploadStatus").textContent = `Added ${s.entry.site_id}`;
+    setCardSummary("upload", "done", "ok");
+    setTimeout(() => hideCard("upload"), 4000);
     logAction(`Loaded SiteTwin file ${s.entry.site_id}: ${LEVELS[s.a.level].label}`);
     select(s);
   } catch (err) {
     $("uploadStatus").textContent = `⚠️ ${String(err.message ?? err).slice(0, 200)}`;
+    setCardSummary("upload", "failed", "bad");
   }
   e.target.value = "";
 };

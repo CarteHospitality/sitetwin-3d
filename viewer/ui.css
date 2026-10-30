@@ -238,7 +238,7 @@ html.page-hidden .typing-dot { animation-play-state: paused; }
 .panel-top { position: sticky; top: 0; z-index: 4; display: flex; justify-content: flex-end; background: var(--panel); padding-top: 12px; }
 .panel-top .drawer-close { display: none; }
 .panel.drawer-open .panel-top .drawer-close { display: inline-flex; }
-.card { background: var(--surface-0); border: 1px solid var(--border); border-radius: var(--radius-card); box-shadow: var(--shadow-card); overflow: hidden; }
+.card { flex: none; background: var(--surface-0); border: 1px solid var(--border); border-radius: var(--radius-card); box-shadow: var(--shadow-card); overflow: hidden; }
 .card[hidden] { display: none; }
 .card-head { width: 100%; display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 12px; background: transparent; border: 0; border-radius: 0; text-align: left; font-weight: 600; font-size: 14px; color: var(--text); cursor: pointer; }
 .card-head:hover { background: var(--surface-hover); }
