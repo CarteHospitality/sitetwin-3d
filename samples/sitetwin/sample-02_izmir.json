@@ -1,0 +1,198 @@
+{
+  "schema": "jevbtk-digital-site@1",
+  "site_id": "SAMPLE-02_IZMIR",
+  "site": {
+    "report_site_code": "SAMPLE-02_IZMIR",
+    "name": "Synthetic sample site",
+    "operator": "DEMO",
+    "latitude_dms": "N 38° 26' 11,40''",
+    "longitude_dms": "E 27° 8' 38,40''"
+  },
+  "application": {
+    "type": "revision",
+    "technology": "5G",
+    "reason": "1800 removal, 700 and 3600 addition on all sectors"
+  },
+  "sectors": {
+    "1": {
+      "azimuth_deg": 20
+    },
+    "2": {
+      "azimuth_deg": 140
+    },
+    "3": {
+      "azimuth_deg": 250
+    }
+  },
+  "antennas": [
+    {
+      "sector": 1,
+      "slot": 1,
+      "model": "Panel 65deg",
+      "action": "remove",
+      "height_m": 24.0,
+      "azimuth_deg": 20,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 1,
+      "slot": 1,
+      "model": "Low-band panel",
+      "action": "add",
+      "height_m": 24.5,
+      "azimuth_deg": 20,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 700,
+          "operating_power_w": 40,
+          "electrical_tilt_deg": 2,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 1,
+      "slot": 2,
+      "model": "64T64R AAU",
+      "action": "add",
+      "height_m": 23.5,
+      "azimuth_deg": 20,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 3600,
+          "operating_power_w": 3.5,
+          "electrical_tilt_deg": 0,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 2,
+      "slot": 1,
+      "model": "Panel 65deg",
+      "action": "remove",
+      "height_m": 24.0,
+      "azimuth_deg": 140,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 2,
+      "slot": 1,
+      "model": "Low-band panel",
+      "action": "add",
+      "height_m": 24.5,
+      "azimuth_deg": 140,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 700,
+          "operating_power_w": 40,
+          "electrical_tilt_deg": 2,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 2,
+      "slot": 2,
+      "model": "64T64R AAU",
+      "action": "add",
+      "height_m": 23.5,
+      "azimuth_deg": 140,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 3600,
+          "operating_power_w": 3.5,
+          "electrical_tilt_deg": 0,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 3,
+      "slot": 1,
+      "model": "Panel 65deg",
+      "action": "remove",
+      "height_m": 24.0,
+      "azimuth_deg": 250,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 3,
+      "slot": 1,
+      "model": "Low-band panel",
+      "action": "add",
+      "height_m": 24.5,
+      "azimuth_deg": 250,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 700,
+          "operating_power_w": 40,
+          "electrical_tilt_deg": 2,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 3,
+      "slot": 2,
+      "model": "64T64R AAU",
+      "action": "add",
+      "height_m": 23.5,
+      "azimuth_deg": 250,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 3600,
+          "operating_power_w": 3.5,
+          "electrical_tilt_deg": 0,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    }
+  ],
+  "structure": {
+    "kind": "rooftop",
+    "building_height_m": 18.0
+  },
+  "notes": [
+    "Synthetic sample for SiteTwin 3D. Antenna data is invented; the location is an ordinary city block."
+  ]
+}

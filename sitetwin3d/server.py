@@ -23,6 +23,7 @@ from openai import OpenAI, OpenAIError
 from pydantic import BaseModel
 
 from .extract import PROVIDERS
+from .portfolio import import_site
 
 VIEWER = Path(__file__).resolve().parents[1] / "viewer"
 # The planning agent runs on the open-weight model by default.
@@ -30,6 +31,14 @@ AGENT_MODELS = {"baseten": PROVIDERS["baseten"], "meta": PROVIDERS["meta"]}
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 app = FastAPI(title="SiteTwin 3D")
+
+
+@app.middleware("http")
+async def no_stale_pages(request: Request, call_next):
+    # The viewer is plain ES modules; make browsers revalidate so edits and new twins show up.
+    response = await call_next(request)
+    response.headers.setdefault("Cache-Control", "no-cache")
+    return response
 
 
 class ChatRequest(BaseModel):
@@ -71,6 +80,15 @@ async def transcribe(request: Request) -> dict:
     if r.status_code != 200:
         raise HTTPException(status_code=502, detail=r.text[:500])
     return {"text": " ".join(line.strip() for line in r.text.splitlines() if line.strip())}
+
+
+@app.post("/api/import")
+def import_sitetwin(doc: dict[str, Any]) -> dict:
+    """Load a SiteTwin site file: build its twin with real surroundings and add it to the map."""
+    try:
+        return import_site(doc, VIEWER / "data" / "uploads", web_root=VIEWER)
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=f"not a usable SiteTwin file: {e}") from e
 
 
 app.mount("/", StaticFiles(directory=VIEWER, html=True), name="viewer")

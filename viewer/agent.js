@@ -122,7 +122,7 @@ Automate only low-risk, reversible changes that do not grow an EMF zone (tilt, r
 
 Conventions: azimuth is degrees clockwise from North; x is East, z is South, metres from the roof centre.
 The roof spans x from ${r.x0.toFixed(1)} to ${r.x1.toFixed(1)} m and z from ${r.z0.toFixed(1)} to ${r.z1.toFixed(1)} m (antennas must stand on it), roof level ${b.height_m} m.
-Antenna heights must be between ${b.height_m + 1} and ${b.height_m + 15} m. Tilts between -5 and 15 degrees. Power per band 1-240 W.
+This is a ${planner.site.structure ?? "rooftop"} site. Antenna heights must be between ${planner.heightRange[0]} and ${planner.heightRange[1]} m. Tilts between -5 and 15 degrees. Power per band 1-240 W.
 
 Goals, in order: 1) no EMF zone may reach a neighbouring building; 2) keep coverage as close to the baseline as possible; 3) keep restricted roof area small; 4) prefer the fewest, cheapest changes (tilt and power before height, height before moving or re-pointing).
 EMF zones use a conservative point-source model and do not shrink with tilt; raising an antenna or lowering power are what move a zone off a neighbour.

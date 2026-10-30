@@ -19,3 +19,4 @@ output/
 
 # Real site twins for local viewing
 viewer/data/private/
+viewer/data/uploads/

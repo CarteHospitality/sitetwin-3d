@@ -1,0 +1,111 @@
+{
+  "schema": "jevbtk-digital-site@1",
+  "site_id": "SAMPLE-04_ADANA",
+  "site": {
+    "report_site_code": "SAMPLE-04_ADANA",
+    "name": "Synthetic sample site",
+    "operator": "DEMO",
+    "latitude_dms": "N 36° 59' 45,60''",
+    "longitude_dms": "E 35° 17' 60,00''"
+  },
+  "application": {
+    "type": "new",
+    "technology": "4.5G",
+    "reason": "Greenfield tower serving a residential edge"
+  },
+  "sectors": {
+    "1": {
+      "azimuth_deg": 60
+    },
+    "2": {
+      "azimuth_deg": 180
+    },
+    "3": {
+      "azimuth_deg": 300
+    }
+  },
+  "antennas": [
+    {
+      "sector": 1,
+      "slot": 1,
+      "model": "Dual-band panel",
+      "action": "retain",
+      "height_m": 36.0,
+      "azimuth_deg": 60,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 800,
+          "operating_power_w": 40,
+          "electrical_tilt_deg": 6,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 40,
+          "electrical_tilt_deg": 6,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 2,
+      "slot": 1,
+      "model": "Dual-band panel",
+      "action": "retain",
+      "height_m": 36.0,
+      "azimuth_deg": 180,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 800,
+          "operating_power_w": 40,
+          "electrical_tilt_deg": 6,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 40,
+          "electrical_tilt_deg": 6,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 3,
+      "slot": 1,
+      "model": "Dual-band panel",
+      "action": "retain",
+      "height_m": 36.0,
+      "azimuth_deg": 300,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 800,
+          "operating_power_w": 40,
+          "electrical_tilt_deg": 6,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 40,
+          "electrical_tilt_deg": 6,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    }
+  ],
+  "structure": {
+    "kind": "lattice_tower",
+    "building_height_m": null
+  },
+  "notes": [
+    "Synthetic sample for SiteTwin 3D. Antenna data is invented; the location is an ordinary city block."
+  ]
+}

@@ -1,0 +1,186 @@
+{
+  "schema": "jevbtk-digital-site@1",
+  "site_id": "SAMPLE-03_ISTANBUL",
+  "site": {
+    "report_site_code": "SAMPLE-03_ISTANBUL",
+    "name": "Synthetic sample site",
+    "operator": "DEMO",
+    "latitude_dms": "N 40° 59' 02,40''",
+    "longitude_dms": "E 29° 1' 37,20''"
+  },
+  "application": {
+    "type": "revision",
+    "technology": "5G",
+    "reason": "n78 AAU addition in a busy district"
+  },
+  "sectors": {
+    "1": {
+      "azimuth_deg": 0
+    },
+    "2": {
+      "azimuth_deg": 120
+    },
+    "3": {
+      "azimuth_deg": 240
+    }
+  },
+  "antennas": [
+    {
+      "sector": 1,
+      "slot": 1,
+      "model": "Panel 65deg",
+      "action": "retain",
+      "height_m": 24.0,
+      "azimuth_deg": 0,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 3,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 3,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 2600,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 3,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 1,
+      "slot": 2,
+      "model": "64T64R AAU",
+      "action": "add",
+      "height_m": 24.0,
+      "azimuth_deg": 0,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 3600,
+          "operating_power_w": 3.5,
+          "electrical_tilt_deg": 0,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 2,
+      "slot": 1,
+      "model": "Panel 65deg",
+      "action": "retain",
+      "height_m": 24.0,
+      "azimuth_deg": 120,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 3,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 3,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 2600,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 3,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 2,
+      "slot": 2,
+      "model": "64T64R AAU",
+      "action": "add",
+      "height_m": 24.0,
+      "azimuth_deg": 120,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 3600,
+          "operating_power_w": 3.5,
+          "electrical_tilt_deg": 0,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 3,
+      "slot": 1,
+      "model": "Panel 65deg",
+      "action": "retain",
+      "height_m": 24.0,
+      "azimuth_deg": 240,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 3,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 3,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 2600,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 3,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 3,
+      "slot": 2,
+      "model": "64T64R AAU",
+      "action": "add",
+      "height_m": 24.0,
+      "azimuth_deg": 240,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 3600,
+          "operating_power_w": 3.5,
+          "electrical_tilt_deg": 0,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    }
+  ],
+  "structure": {
+    "kind": "rooftop",
+    "building_height_m": 21.0
+  },
+  "notes": [
+    "Synthetic sample for SiteTwin 3D. Antenna data is invented; the location is an ordinary city block."
+  ]
+}

@@ -3,10 +3,11 @@
 
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { REGIMES, siteZones, insideZone } from "./emf.js";
+import { REGIMES, siteZones } from "./emf.js";
+import { checkSite, pointInPolygon, roofOf } from "./checks.js";
 import { coverageGrid, paintCoverage, RSRP_BINS } from "./coverage.js";
 import { initAgent } from "./agent.js";
-import { populationContext, occupancy, SENSITIVE_USES } from "./population.js";
+import { populationContext } from "./population.js";
 import { initVoice } from "./voice.js";
 
 const BAND_PRESETS = {
@@ -15,17 +16,8 @@ const BAND_PRESETS = {
   L2100: { name: "L2100", frequency_mhz: 2100, tx_power_w: 20, gain_dbi: 18.0, horizontal_beamwidth_deg: 65, vertical_beamwidth_deg: 5, front_to_back_db: 25, feeder_loss_db: 0 },
   N3500: { name: "N3500", frequency_mhz: 3500, tx_power_w: 80, gain_dbi: 22.0, horizontal_beamwidth_deg: 65, vertical_beamwidth_deg: 7, front_to_back_db: 30, feeder_loss_db: 0 },
 };
-const HEAD_HEIGHT_M = 1.7;
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
-function pointInPolygon(x, z, poly) {
-  let inside = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [xi, zi] = poly[i], [xj, zj] = poly[j];
-    if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside;
-  }
-  return inside;
-}
 const $ = (id) => document.getElementById(id);
 const el = (tag, props = {}, ...children) => {
   const e = Object.assign(document.createElement(tag), props);
@@ -85,11 +77,11 @@ function buildingMesh(item, height, color) {
 }
 
 const b = baseline.building;
-const roofBounds = b.footprint
-  ? (() => { const xs = b.footprint.map((p) => p[0]), zs = b.footprint.map((p) => p[1]); return { x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) }; })()
-  : { x0: -b.width_m / 2, x1: b.width_m / 2, z0: -b.depth_m / 2, z1: b.depth_m / 2 };
-const onRoof = (x, z) => (b.footprint ? pointInPolygon(x, z, b.footprint)
-  : x >= roofBounds.x0 && x <= roofBounds.x1 && z >= roofBounds.z0 && z <= roofBounds.z1);
+const roof = roofOf(b);
+// Antennas may move between just above the roof (or compound) and 10 m above today's highest one.
+const HEIGHT_RANGE = [b.height_m + 1, Math.round(Math.max(b.height_m + 15, ...twin.site.antennas.map((a) => a.height_agl_m + 10)))];
+const roofBounds = roof.bounds;
+const onRoof = roof.contains;
 scene.add(buildingMesh(b, b.height_m, 0x8a919e));
 scene.add(new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, b.height_m + 0.1, roofBounds.z0 - 1), 6, 0x4096ff, 1.5, 1));
 
@@ -162,42 +154,6 @@ function clearGroup(g) {
 }
 
 // ---------- analysis ----------
-function checkSite(s, zones) {
-  const byId = Object.fromEntries(s.antennas.map((a) => [a.id, a]));
-  const findings = [];
-  const hit = new Set();
-  for (const z of zones) {
-    const a = byId[z.antenna_id];
-    const yLow = a.height_agl_m - z.half_height_m;
-    for (const n of s.neighbours ?? []) {
-      // Skip buildings that are too far away or too low to touch the zone slab.
-      if (n.height_m < yLow || Math.hypot(n.x_m - a.x_m, n.z_m - a.z_m) - Math.hypot(n.width_m, n.depth_m) / 2 > z.front_m) continue;
-      let closest = Infinity;
-      for (let x = n.x_m - n.width_m / 2; x <= n.x_m + n.width_m / 2; x += 1)
-        for (let zz = n.z_m - n.depth_m / 2; zz <= n.z_m + n.depth_m / 2; zz += 1) {
-          if (n.footprint && !pointInPolygon(x, zz, n.footprint)) continue;
-          for (let y = Math.max(0, Math.floor(yLow)); y <= n.height_m; y += 1)
-            if (insideZone(a, z, x, y, zz)) closest = Math.min(closest, Math.hypot(x - a.x_m, y - a.height_agl_m, zz - a.z_m));
-        }
-      if (closest < Infinity) {
-        hit.add(n.id);
-        const occ = occupancy(n);
-        const who = `${SENSITIVE_USES.has(n.use) ? `SENSITIVE ${n.use}, ` : ""}${occ.estimated ? "~" : ""}${occ.people} people`;
-        findings.push({ level: "bad", antenna: a.id, text: `${a.id} zone reaches ${n.id} [${who}] (${closest.toFixed(1)} m from antenna, zone ${z.front_m} m)` });
-      }
-    }
-    let roofCells = 0;
-    const step = 0.5;
-    const yHead = s.building.height_m + HEAD_HEIGHT_M;
-    for (let x = roofBounds.x0; x < roofBounds.x1; x += step)
-      for (let zz = roofBounds.z0; zz < roofBounds.z1; zz += step)
-        if (onRoof(x + step / 2, zz + step / 2) && insideZone(a, z, x + step / 2, yHead, zz + step / 2)) roofCells++;
-    if (roofCells) findings.push({ level: "warn", antenna: a.id, text: `${a.id}: restrict roof access, ${(roofCells * step * step).toFixed(1)} m² of roof is inside the zone at head height` });
-  }
-  if (!findings.some((f) => f.level === "bad")) findings.unshift({ level: "ok", text: "No EMF zone reaches a neighbouring building" });
-  return { findings, hit };
-}
-
 const FIELDS = { azimuth_deg: "azimuth", mechanical_tilt_deg: "mech. tilt", electrical_tilt_deg: "elec. tilt", height_agl_m: "height", x_m: "x", z_m: "z" };
 function diffSites(before, after) {
   const changes = [];
@@ -246,7 +202,7 @@ function applyChanges(s, changes) {
     }
     if (c.action === "add_antenna" && !a.bands.length) a.bands.push(clone(BAND_PRESETS.N3500));
     if (!onRoof(a.x_m, a.z_m)) errors.push(`${a.id} is off the roof`);
-    if (a.height_agl_m < bld.height_m + 1 || a.height_agl_m > bld.height_m + 15) errors.push(`${a.id} height out of range`);
+    if (a.height_agl_m < HEIGHT_RANGE[0] || a.height_agl_m > HEIGHT_RANGE[1]) errors.push(`${a.id} height out of range (${HEIGHT_RANGE.join('-')} m)`);
     if (a.bands.some((x) => x.tx_power_w < 1 || x.tx_power_w > 240)) errors.push(`${a.id} power out of range`);
   }
   return { site: out, errors };
@@ -283,6 +239,7 @@ function summarize(s) {
 const planner = {
   get site() { return site; },
   roofBounds,
+  heightRange: HEIGHT_RANGE,
   state: () => ({ regime: REGIMES[regimeKey].name, current_plan: summarize(site), baseline: summarize(baseline), neighbours: site.neighbours }),
   evaluate(changes) {
     const { site: candidate, errors } = applyChanges(site, changes);
@@ -416,7 +373,7 @@ function refreshCoverageBands() {
 // ---------- wiring ----------
 for (const input of document.querySelectorAll("#editor input[type=range]")) {
   const k = input.dataset.k;
-  if (k === "height_agl_m") input.min = b.height_m;
+  if (k === "height_agl_m") Object.assign(input, { min: HEIGHT_RANGE[0], max: HEIGHT_RANGE[1] });
   if (k === "x_m") Object.assign(input, { min: roofBounds.x0, max: roofBounds.x1 });
   if (k === "z_m") Object.assign(input, { min: roofBounds.z0, max: roofBounds.z1 });
   input.oninput = () => {
@@ -543,8 +500,14 @@ for (const s of document.querySelectorAll(".suggest")) s.onclick = () => agent.a
 $("title").textContent = site.site_id;
 $("subtitle").textContent = site.name ?? "";
 $("notes").textContent = site.notes.join(" ");
+const params = new URLSearchParams(location.search);
+$("backToMap").href = params.get("from") || "portfolio.html";
 refreshCoverageBands();
 update();
+// Opened from the portfolio map: the Expert Operator reviews the site straight away.
+if (params.get("auto") === "review") {
+  agent.ask("Review this site like an operator: what is the most important problem, what would you change and why? Apply the best fix and give the before/after numbers.");
+}
 
 function resize() {
   const { clientWidth: w, clientHeight: h } = host;

@@ -1,0 +1,132 @@
+{
+  "schema": "jevbtk-digital-site@1",
+  "site_id": "SAMPLE-01_ANKARA",
+  "site": {
+    "report_site_code": "SAMPLE-01_ANKARA",
+    "name": "Synthetic sample site",
+    "operator": "DEMO",
+    "latitude_dms": "N 39° 55' 17,40''",
+    "longitude_dms": "E 32° 49' 22,80''"
+  },
+  "application": {
+    "type": "revision",
+    "technology": "4.5G",
+    "reason": "Low poles on a dense block; zones reach the facing apartments"
+  },
+  "sectors": {
+    "1": {
+      "azimuth_deg": 30
+    },
+    "2": {
+      "azimuth_deg": 150
+    },
+    "3": {
+      "azimuth_deg": 270
+    }
+  },
+  "antennas": [
+    {
+      "sector": 1,
+      "slot": 1,
+      "model": "Panel 65deg",
+      "action": "retain",
+      "height_m": 17.5,
+      "azimuth_deg": 30,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 2100,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 2,
+      "slot": 1,
+      "model": "Panel 65deg",
+      "action": "retain",
+      "height_m": 17.5,
+      "azimuth_deg": 150,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 2100,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 3,
+      "slot": 1,
+      "model": "Panel 65deg",
+      "action": "retain",
+      "height_m": 17.5,
+      "azimuth_deg": 270,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 2100,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    }
+  ],
+  "structure": {
+    "kind": "rooftop",
+    "building_height_m": 15.0
+  },
+  "notes": [
+    "Synthetic sample for SiteTwin 3D. Antenna data is invented; the location is an ordinary city block."
+  ]
+}

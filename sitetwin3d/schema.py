@@ -80,6 +80,7 @@ class Neighbour(BaseModel):
 class SiteModel(BaseModel):
     site_id: str
     name: str | None = None
+    structure: str = Field(default="rooftop", description="rooftop, lattice_tower, monopole, pole...")
     building: Building
     antennas: list[Antenna] = Field(default_factory=list)
     equipment: list[Equipment] = Field(default_factory=list)

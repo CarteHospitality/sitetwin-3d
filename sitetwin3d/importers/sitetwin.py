@@ -34,6 +34,8 @@ DEFAULT_RF = [
     (2700, 18.0, 65, 6, 28),
     (6000, 24.0, 65, 6, 30),
 ]
+GROUND_STRUCTURES = {"lattice_tower", "monopole", "pole"}
+COMPOUND_M = 8.0
 EXISTING = {"retain", "remove", "replace"}
 PROPOSED = {"retain", "add", "replace"}
 
@@ -100,13 +102,21 @@ def from_sitetwin(doc: dict, neighbours: list[Neighbour] | None = None, host: Ne
         raise ValueError(f"expected schema {SCHEMA}, got {doc.get('schema')}")
     assumed: set[str] = set()
     structure = doc.get("structure") or {}
+    kind = structure.get("kind")
     height = structure.get("building_height_m")
-    if height is None:
-        assumed.add(f"building height ({DEFAULT_BUILDING_HEIGHT_M} m)")
-        height = DEFAULT_BUILDING_HEIGHT_M
-    if host is not None:
+    if kind in GROUND_STRUCTURES:
+        # Towers and poles stand in a fenced ground compound, not on a roof.
+        building = Building(width_m=COMPOUND_M, depth_m=COMPOUND_M, height_m=0.5)
+        assumed.add(f"ground compound ({COMPOUND_M:g} x {COMPOUND_M:g} m) around the {kind.replace('_', ' ')}")
+    elif host is not None:
+        if height is None:
+            assumed.add(f"building height ({DEFAULT_BUILDING_HEIGHT_M} m)")
+            height = DEFAULT_BUILDING_HEIGHT_M
         building = Building(width_m=host.width_m, depth_m=host.depth_m, height_m=float(height), footprint=host.footprint)
     else:
+        if height is None:
+            assumed.add(f"building height ({DEFAULT_BUILDING_HEIGHT_M} m)")
+            height = DEFAULT_BUILDING_HEIGHT_M
         assumed.add(f"roof footprint ({DEFAULT_FOOTPRINT_M[0]:g} x {DEFAULT_FOOTPRINT_M[1]:g} m)")
         building = Building(width_m=DEFAULT_FOOTPRINT_M[0], depth_m=DEFAULT_FOOTPRINT_M[1], height_m=float(height))
     app = doc.get("application") or {}
@@ -115,7 +125,7 @@ def from_sitetwin(doc: dict, neighbours: list[Neighbour] | None = None, host: Ne
     def model(actions: set[str]) -> SiteModel:
         antennas = [_antenna(a, building, technology, assumed) for a in doc.get("antennas") or [] if a.get("action") in actions]
         return SiteModel(site_id=doc["site_id"], name=f"SiteTwin {app.get('type') or 'site'}: {technology or ''}".strip(),
-                         building=building, antennas=antennas, neighbours=neighbours or [])
+                         structure=kind or "rooftop", building=building, antennas=antennas, neighbours=neighbours or [])
 
     existing, proposed = model(EXISTING), model(PROPOSED)
     notes = [f"Imported from SiteTwin ({SCHEMA})."]
@@ -150,6 +160,9 @@ def main() -> None:
         lat, lon = dms_to_deg(doc["site"]["latitude_dms"]), dms_to_deg(doc["site"]["longitude_dms"])
         host, osm_neighbours, notes = surroundings(lat, lon)
         neighbours += osm_neighbours
+        if host is not None and (doc.get("structure") or {}).get("kind") in GROUND_STRUCTURES:
+            neighbours.append(host)  # a tower next to a building: that building is a neighbour
+            host = None
     existing, proposed = from_sitetwin(doc, neighbours, host, notes)
     twin = build_twin(proposed, args.regime)
     twin["baseline"] = existing.model_dump()
