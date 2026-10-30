@@ -46,7 +46,7 @@ Only synthetic or anonymised data is committed. Real operator site data stays in
 
 ## EMF method and limits
 
-Far-field point-source model, `S = EIRP / (4πr²)`, with ICNIRP general-public reference levels. The default `tr` regime applies a quarter of the field-strength limit per device, as Turkish regulation does for a single source. This is a screening estimate and does not replace an accredited on-site measurement.
+Far-field point-source model, `S = EIRP / (4πr²)`, with ICNIRP general-public reference levels. The default `tr` regime allows a single device 20% of the ICNIRP field strength (12.3 V/m above 2 GHz), as Turkish BTK rules do. This is a screening estimate and does not replace an accredited on-site measurement.
 
 ## License
 

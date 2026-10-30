@@ -3,7 +3,7 @@
 // tests/test_emf_parity.py checks both give the same numbers.
 
 export const REGIMES = {
-  tr: { name: "TR single device (1/4 field)", fieldFraction: 0.25 },
+  tr: { name: "TR single device (20% field)", fieldFraction: 0.2 },
   icnirp: { name: "ICNIRP general public", fieldFraction: 1.0 },
 };
 

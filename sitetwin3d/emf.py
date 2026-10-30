@@ -45,9 +45,10 @@ class LimitRegime:
 
 
 ICNIRP_PUBLIC = LimitRegime("ICNIRP general public")
-# Turkish regulation applies a quarter of the field-strength limit to a single
-# device. Confirm against the current BTK regulation before relying on it.
-TR_SINGLE_DEVICE = LimitRegime("TR single device (1/4 field)", field_fraction=0.25)
+# Turkish regulation (BTK safety-certificate rules) allows a single device about
+# 20% of the ICNIRP field strength, e.g. 12.3 V/m above 2 GHz, the value SiteTwin
+# uses for its reports.
+TR_SINGLE_DEVICE = LimitRegime("TR single device (20% field)", field_fraction=0.2)
 
 
 def eirp_w(band: Band) -> float:

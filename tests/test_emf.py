@@ -37,11 +37,18 @@ def test_single_band_matches_closed_form():
     assert z.front_m == pytest.approx(expected, abs=0.01)
 
 
-def test_quarter_field_is_four_times_distance():
+def test_tr_single_device_is_five_times_icnirp_distance():
     ant = Antenna(id="A1", azimuth_deg=0, height_agl_m=20, bands=[band()])
     assert safety_zone(ant, TR_SINGLE_DEVICE).front_m == pytest.approx(
-        4 * safety_zone(ant, ICNIRP_PUBLIC).front_m, abs=0.02
+        5 * safety_zone(ant, ICNIRP_PUBLIC).front_m, abs=0.02
     )
+
+
+def test_tr_limit_is_12_3_v_per_m_above_2ghz():
+    # E = sqrt(30 * EIRP) / d  ->  at the zone edge E equals the limit
+    ant = Antenna(id="A1", azimuth_deg=0, height_agl_m=20, bands=[band(frequency_mhz=3500)])
+    d = safety_zone(ant, TR_SINGLE_DEVICE).front_m
+    assert math.sqrt(30 * eirp_w(band(frequency_mhz=3500))) / d == pytest.approx(12.3, rel=0.01)
 
 
 def test_bands_combine_and_back_lobe_is_smaller():

@@ -5,7 +5,8 @@
     "building": {
       "width_m": 18.0,
       "depth_m": 14.0,
-      "height_m": 21.0
+      "height_m": 21.0,
+      "footprint": null
     },
     "antennas": [
       {
@@ -190,7 +191,8 @@
         "height_m": 27.0,
         "use": "residential",
         "storeys": 9,
-        "population": null
+        "population": null,
+        "footprint": null
       },
       {
         "id": "N2 school",
@@ -201,7 +203,8 @@
         "height_m": 12.0,
         "use": "school",
         "storeys": 3,
-        "population": 620
+        "population": 620,
+        "footprint": null
       },
       {
         "id": "N3 office",
@@ -212,7 +215,8 @@
         "height_m": 30.0,
         "use": "office",
         "storeys": 10,
-        "population": null
+        "population": null,
+        "footprint": null
       },
       {
         "id": "N4 apartments",
@@ -223,7 +227,8 @@
         "height_m": 18.0,
         "use": "residential",
         "storeys": 6,
-        "population": null
+        "population": null,
+        "footprint": null
       },
       {
         "id": "N5 clinic",
@@ -234,41 +239,42 @@
         "height_m": 9.0,
         "use": "hospital",
         "storeys": 3,
-        "population": null
+        "population": null,
+        "footprint": null
       }
     ],
     "notes": [
       "All values are synthetic and for demonstration only."
     ]
   },
-  "regime": "TR single device (1/4 field)",
+  "regime": "TR single device (20% field)",
   "zones": [
     {
       "antenna_id": "S1-A",
-      "regime": "TR single device (1/4 field)",
-      "front_m": 22.83,
-      "back_m": 1.28,
+      "regime": "TR single device (20% field)",
+      "front_m": 28.53,
+      "back_m": 1.6,
       "horizontal_beamwidth_deg": 65.0,
       "vertical_beamwidth_deg": 9.0,
-      "half_height_m": 2.75
+      "half_height_m": 3.2
     },
     {
       "antenna_id": "S2-A",
-      "regime": "TR single device (1/4 field)",
-      "front_m": 22.83,
-      "back_m": 1.28,
+      "regime": "TR single device (20% field)",
+      "front_m": 28.53,
+      "back_m": 1.6,
       "horizontal_beamwidth_deg": 65.0,
       "vertical_beamwidth_deg": 9.0,
-      "half_height_m": 2.75
+      "half_height_m": 3.2
     },
     {
       "antenna_id": "S3-A",
-      "regime": "TR single device (1/4 field)",
-      "front_m": 22.83,
-      "back_m": 1.28,
+      "regime": "TR single device (20% field)",
+      "front_m": 28.53,
+      "back_m": 1.6,
       "horizontal_beamwidth_deg": 65.0,
       "vertical_beamwidth_deg": 9.0,
-      "half_height_m": 2.75
+      "half_height_m": 3.2
     }
   ]
 }
