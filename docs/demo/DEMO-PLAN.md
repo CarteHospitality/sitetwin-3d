@@ -41,9 +41,9 @@ Bu bilerek iyi bir şey: "mühendis kendi dilinde konuşuyor" mesajı.
 
 ## Bilinen eksikler (dondurmadan önce)
 
-1. **Ankara örneği zayıf:** okul, EMF bölgesinin tam sınırında (29.7 m / 29.71 m). Ajan çözümü "20 W → 19.8 W"
-   gibi neredeyse görünmez bir değişiklik oluyor ve portföy sahayı "Kritik" değil "Aksiyon gerekli" gösteriyor.
-   Videoda etkili olması için örnek veride okul bölgenin belirgin şekilde içinde olmalı.
+1. ~~Ankara örneği zayıf~~ **Düzeltildi:** batı sektörü (S3-1) okula dönük, 40 W. Bölge 42 m, okul 29 m'de;
+   portföyde "Kritik". Test çekiminde ajan gücü 40 W → 18 W yaptı, okul bölgeden çıktı.
+   Not: önceki bir öneri tarayıcı oturumunda kalırsa portföy sahayı "düzeltilmiş" gösterir; kayda **yeni bir sekmede** başla.
 2. Ajanın yanıt süresi: her soruda 10–25 model çağrısı yapıyor. Kredi açısından sorun yok (100$), ama video için hızlandırma gerekebilir.
 
 ## Başvuru formu için gerekenler

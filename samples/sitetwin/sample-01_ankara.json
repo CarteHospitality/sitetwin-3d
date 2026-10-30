@@ -11,7 +11,7 @@
   "application": {
     "type": "revision",
     "technology": "4.5G",
-    "reason": "Low poles on a dense block; zones reach the facing apartments"
+    "reason": "Low poles on a dense block; the west sector was boosted to 40 W and now faces a school"
   },
   "sectors": {
     "1": {
@@ -21,7 +21,7 @@
       "azimuth_deg": 150
     },
     "3": {
-      "azimuth_deg": 270
+      "azimuth_deg": 255
     }
   },
   "antennas": [
@@ -95,26 +95,26 @@
       "model": "Panel 65deg",
       "action": "retain",
       "height_m": 17.5,
-      "azimuth_deg": 270,
+      "azimuth_deg": 255,
       "mechanical_tilt_deg": 0,
       "bands": [
         {
           "frequency_mhz": 800,
-          "operating_power_w": 20,
+          "operating_power_w": 40,
           "electrical_tilt_deg": 4,
           "gain_dbi": null,
           "safety_distance_m": null
         },
         {
           "frequency_mhz": 1800,
-          "operating_power_w": 20,
+          "operating_power_w": 40,
           "electrical_tilt_deg": 4,
           "gain_dbi": null,
           "safety_distance_m": null
         },
         {
           "frequency_mhz": 2100,
-          "operating_power_w": 20,
+          "operating_power_w": 40,
           "electrical_tilt_deg": 4,
           "gain_dbi": null,
           "safety_distance_m": null

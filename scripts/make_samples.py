@@ -34,9 +34,9 @@ def antenna(sector, slot, az, h, bands, action="retain", model="Panel 65deg", mt
 
 SAMPLES = [
     dict(site_id="SAMPLE-01_ANKARA", lat=39.92150, lon=32.82300, kind="rooftop", bh=15.0,
-         app=dict(type="revision", technology="4.5G", reason="Low poles on a dense block; zones reach the facing apartments"),
-         azimuths=[30, 150, 270],
-         antennas=lambda az: [antenna(i + 1, 1, a, 17.5, [band(800, 20, 4), band(1800, 20, 4), band(2100, 20, 4)]) for i, a in enumerate(az)]),
+         app=dict(type="revision", technology="4.5G", reason="Low poles on a dense block; the west sector was boosted to 40 W and now faces a school"),
+         azimuths=[30, 150, 255],
+         antennas=lambda az: [antenna(i + 1, 1, a, 17.5, [band(f, 40 if i == 2 else 20, 4) for f in (800, 1800, 2100)]) for i, a in enumerate(az)]),
     dict(site_id="SAMPLE-02_IZMIR", lat=38.43650, lon=27.14400, kind="rooftop", bh=18.0,
          app=dict(type="revision", technology="5G", reason="1800 removal, 700 and 3600 addition on all sectors"),
          azimuths=[20, 140, 250],

@@ -6,7 +6,7 @@
    "lon": 32.823,
    "structure": "rooftop",
    "technology": "4.5G",
-   "reason": "Low poles on a dense block; zones reach the facing apartments",
+   "reason": "Low poles on a dense block; the west sector was boosted to 40 W and now faces a school",
    "antenna_actions": {
     "retain": 3
    },
