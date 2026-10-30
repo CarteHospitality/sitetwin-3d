@@ -32,7 +32,7 @@ PROMPT_VERSION = "2"
 
 PROVIDERS = {
     "meta": dict(base_url="https://api.meta.ai/v1", key_env="MODEL_API_KEY", model="muse-spark-1.3"),
-    "baseten": dict(base_url="https://inference.baseten.co/v1", key_env="BASETEN_API_KEY", model="meta-models/muse-spark-open"),
+    "baseten": dict(base_url="https://inference.baseten.co/v1", key_env="BASETEN_API_KEY", model="meta-models/muse-spark-open-1026"),
 }
 
 
