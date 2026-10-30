@@ -253,8 +253,11 @@ function applyChanges(s, changes) {
       if (band) band.tx_power_w = w; else errors.push(`${a.id} has no band ${name}`);
     }
     if (c.action === "add_antenna" && !a.bands.length) a.bands.push(clone(BAND_PRESETS.N3500));
-    if (!onRoof(a.x_m, a.z_m)) errors.push(`${a.id} is off the roof`);
-    if (a.height_agl_m < HEIGHT_RANGE[0] || a.height_agl_m > HEIGHT_RANGE[1]) errors.push(`${a.id} height out of range (${HEIGHT_RANGE.join('-')} m)`);
+    // Only a move is checked: surveyed antennas often sit on the roof edge or facade,
+    // just outside the mapped outline, and a power or tilt change must still be possible.
+    const moved = c.action === "add_antenna" || typeof c.x_m === "number" || typeof c.z_m === "number";
+    if (moved && !onRoof(a.x_m, a.z_m)) errors.push(`${a.id} is off the roof`);
+    if ((c.action === "add_antenna" || typeof c.height_agl_m === "number") && (a.height_agl_m < HEIGHT_RANGE[0] || a.height_agl_m > HEIGHT_RANGE[1])) errors.push(`${a.id} height out of range (${HEIGHT_RANGE.join('-')} m)`);
     if (a.bands.some((x) => x.tx_power_w < 1 || x.tx_power_w > 240)) errors.push(`${a.id} power out of range`);
   }
   return { site: out, errors };
