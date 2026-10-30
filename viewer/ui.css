@@ -264,3 +264,5 @@ html.page-hidden .typing-dot { animation-play-state: paused; }
 .visit { border-left: 3px solid var(--accent); padding: 6px 10px; margin: 8px 0; background: var(--surface-1); border-radius: 4px; }
 .visit.remote { border-left-color: var(--ok); }
 @media (prefers-reduced-motion: reduce) { .chev { transition: none; } }
+
+.lang-toggle { min-width: 44px; font-weight: 600; letter-spacing: .04em; }

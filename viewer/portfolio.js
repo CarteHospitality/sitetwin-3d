@@ -1,6 +1,7 @@
 // Portfolio map: every site, checked with the same code as the 3D planner,
 // ranked by how urgently it needs attention.
 
+import "./i18n.js";
 import { siteZones, REGIMES } from "./emf.js";
 import { checkSite } from "./checks.js";
 import { populationContext } from "./population.js";

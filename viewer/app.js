@@ -1,6 +1,7 @@
 // SiteTwin 3D change planner: edit antennas on the twin, see EMF zones,
 // conflicts and indicative coverage update live, compare with the baseline.
 
+import "./i18n.js";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { REGIMES, siteZones } from "./emf.js";
