@@ -4,7 +4,7 @@
 import { siteZones } from "./emf.js";
 import { checkSite } from "./checks.js";
 import { populationContext } from "./population.js";
-import { createAgent } from "./agent.js";
+import { createAgent, replyHtml } from "./agent.js";
 import { initVoice } from "./voice.js";
 
 const LEVELS = {
@@ -66,9 +66,11 @@ function logAction(text) {
   list.prepend(el("li", {}, el("time", { textContent: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }), text));
 }
 
-function twinUrl(s, instruction) {
-  const ask = instruction ? `&ask=${encodeURIComponent(instruction)}` : "&auto=review";
-  return `index.html?twin=${encodeURIComponent(s.entry.twin)}${ask}&from=${encodeURIComponent(location.pathname + location.search)}`;
+function twinUrl(s, instruction, voice = false) {
+  const p = new URLSearchParams({ twin: s.entry.twin, ...(instruction ? { ask: instruction } : { auto: "review" }),
+    from: location.pathname + location.search, portfolio: indexUrl });
+  if (voice) p.set("voice", "1");
+  return `index.html?${p}`;
 }
 function openTwin(s) {
   logAction(`Opened ${s.entry.site_id} in 3D for a full review`);
@@ -155,14 +157,15 @@ const mapAgent = createAgent({
       const s = findSite(site_id);
       if (!s) return { error: `no site ${site_id}` };
       select(s);
-      pendingOpen = twinUrl(s, instruction);
+      pendingOpen = twinUrl(s, instruction, mapAgent.voice);
       logAction(`Opening ${s.entry.site_id} in 3D: ${instruction ?? "full review"}`);
       return { opening: s.entry.site_id, instruction: instruction ?? "full review" };
     },
   },
-  systemPrompt: () => `You are the Expert Operator on the SiteTwin portfolio map: a senior RF and site engineer who helps
-an operator or vendor decide which base-station sites need attention and what to do. The engineer is often speaking by voice:
-answer in 1-3 short, spoken-friendly sentences, in the engineer's language (Turkish if they speak Turkish).
+  systemPrompt: ({ voice } = {}) => `You are the Expert Operator on the SiteTwin portfolio map: a senior RF and site engineer who helps
+an operator or vendor decide which base-station sites need attention and what to do.
+${voice ? "The engineer is speaking: answer in 1-3 short spoken sentences, no lists." : "The engineer is typing: answer in short text; a short list is fine."}
+Answer in the engineer's language (Turkish if they speak Turkish).
 Sites are ranked by automatic checks: Critical = an EMF zone reaches a sensitive building (school, kindergarten, hospital);
 Action needed = a zone reaches another building; Review = roof safety or capacity; Change planned = SiteTwin has pending antenna changes.
 Call list_sites before talking about sites; never invent sites or numbers. Site names may be spoken loosely ("Ankara", "the Izmir one"):
@@ -177,7 +180,7 @@ that carries over exactly what the engineer asked; then say in one sentence what
       $("chatInput").disabled = on;
       $("chatBusy").textContent = "Thinking…";
       $("chatBusy").hidden = !on;
-      if (!on && pendingOpen) setTimeout(() => (location.href = pendingOpen), 2500);
+      if (!on && pendingOpen) setTimeout(() => (location.href = pendingOpen), mapAgent.voice ? 4000 : 1500);
     },
     tool: (name, args, result) => say("tool", result.error ? `✖ ${result.error}`
       : name === "list_sites" ? `🔎 Checking ${result.length} sites…`
@@ -187,14 +190,13 @@ that carries over exactly what the engineer asked; then say in one sentence what
   },
 });
 function say(cls, text) {
-  $("chatLog").append(el("div", { className: `msg ${cls}`, textContent: text }));
+  $("chatLog").append(cls === "assistant" ? el("div", { className: `msg ${cls}`, innerHTML: replyHtml(text) }) : el("div", { className: `msg ${cls}`, textContent: text }));
   $("chatLog").scrollTop = $("chatLog").scrollHeight;
 }
 const voice = initVoice({
   button: $("micButton"),
   status: (t) => { $("chatBusy").hidden = !t; if (t) $("chatBusy").textContent = t; },
-  onText: (t) => mapAgent.ask(t),
-  speakToggle: $("speakReplies"),
+  onText: (t) => mapAgent.ask(t, { voice: true }),
 });
 const send = () => {
   const text = $("chatInput").value.trim();

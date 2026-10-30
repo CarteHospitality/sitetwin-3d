@@ -6,9 +6,10 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { REGIMES, siteZones } from "./emf.js";
 import { checkSite, pointInPolygon, roofOf } from "./checks.js";
 import { coverageGrid, paintCoverage, RSRP_BINS } from "./coverage.js";
-import { initAgent } from "./agent.js";
+import { initAgent, replyHtml } from "./agent.js";
 import { populationContext } from "./population.js";
 import { initVoice } from "./voice.js";
+import { fieldWorkOrder } from "./fieldwork.js";
 
 const BAND_PRESETS = {
   L800: { name: "L800", frequency_mhz: 800, tx_power_w: 20, gain_dbi: 15.0, horizontal_beamwidth_deg: 65, vertical_beamwidth_deg: 9, front_to_back_db: 25, feeder_loss_db: 0 },
@@ -26,7 +27,10 @@ const el = (tag, props = {}, ...children) => {
 };
 
 // ---------- state ----------
-const src = new URLSearchParams(location.search).get("twin") || "data/site.twin.json";
+const params = new URLSearchParams(location.search);
+const src = params.get("twin") || "data/site.twin.json";
+const portfolioUrl = params.get("portfolio") || "data/private/portfolio.json";
+const backTo = params.get("from") || `portfolio.html${params.get("portfolio") ? `?portfolio=${encodeURIComponent(portfolioUrl)}` : ""}`;
 const twin = await (await fetch(src)).json();
 // A twin may carry the existing state separately (e.g. SiteTwin's retain/remove
 // antennas); the plan starts from the proposed site and is compared with it.
@@ -265,6 +269,16 @@ const planner = {
     return { undone: true, result: summarize(site) };
   },
   population: () => populationContext(site),
+  fieldWork: () => fieldWorkOrder(baseline, site, checkSite(site, siteZones(site, REGIMES[regimeKey]))),
+  listSites: async () => (await portfolioIndex()).sites.map((s) => ({ site_id: s.site_id, structure: s.structure, technology: s.technology, pending_change: s.reason })),
+  async openSite({ site_id, instruction }) {
+    const s = (await portfolioIndex()).sites.find((x) => x.site_id.toLowerCase().includes(String(site_id).toLowerCase()));
+    if (!s) return { error: `no site ${site_id} in the portfolio` };
+    const p = new URLSearchParams({ twin: s.twin, ...(instruction ? { ask: instruction } : { auto: "review" }), from: backTo, portfolio: portfolioUrl });
+    if (agent.voice) p.set("voice", "1");
+    pendingOpen = `index.html?${p}`;
+    return { opening: s.site_id, instruction: instruction ?? "full review" };
+  },
   setView({ zones, coverage, baseline: showBaseline, coverage_band, select_antenna }) {
     for (const [k, v] of Object.entries({ zones, coverage, baseline: showBaseline })) if (typeof v === "boolean") layers[k] = v;
     if (coverage_band && bandNames().includes(coverage_band)) coverageBand = coverage_band;
@@ -276,6 +290,12 @@ const planner = {
   },
 };
 const undoStack = [];
+let pendingOpen = null;
+let portfolioCache = null;
+async function portfolioIndex() {
+  portfolioCache ??= await fetch(portfolioUrl).then((r) => (r.ok ? r.json() : fetch("data/samples/portfolio.json").then((x) => x.json())));
+  return portfolioCache;
+}
 
 // ---------- UI ----------
 function renderEditor() {
@@ -314,6 +334,21 @@ function renderPanels(zones, checks, changes) {
   $("checks").replaceChildren(...checks.findings.map((f) => el("li", { className: f.level, textContent: f.text })));
   $("changes").replaceChildren(...(changes.length ? changes.map((c) => el("li", { textContent: c })) : [el("li", { className: "muted", textContent: "No changes yet" })]));
   for (const [id, m] of Object.entries(neighbourMeshes)) m.material.color.set(checks.hit.has(id) ? 0x8c2f39 : 0x4b5263);
+  renderFieldWork(fieldWorkOrder(baseline, site, checks));
+}
+
+function renderFieldWork(order) {
+  const box = $("fieldwork");
+  if (!order.items.length) return box.replaceChildren(el("div", { className: "muted", textContent: order.summary }));
+  const list = (title, items) => items.length ? [el("div", { className: "muted", textContent: title }), el("ul", {}, ...items.map((t) => el("li", { textContent: t })))] : [];
+  box.replaceChildren(
+    el("div", { textContent: order.summary }),
+    ...order.items.flatMap((i) => [
+      el("div", { className: "wo-head", textContent: `${i.antenna}: ${i.change}` }),
+      ...list("Work steps", i.steps), ...list("Materials", i.materials), ...list("Precautions", i.precautions),
+    ]),
+    ...list("Site-wide", order.general),
+  );
 }
 
 let coverageTimer = null;
@@ -452,7 +487,10 @@ renderer.domElement.addEventListener("pointerup", (e) => {
 
 // ---------- assistant chat ----------
 const log = $("chatLog");
-const say = (cls, text) => { log.append(el("div", { className: `msg ${cls}`, textContent: text })); log.scrollTop = log.scrollHeight; };
+const say = (cls, text) => {
+  log.append(cls === "assistant" ? el("div", { className: `msg ${cls}`, innerHTML: replyHtml(text) }) : el("div", { className: `msg ${cls}`, textContent: text }));
+  log.scrollTop = log.scrollHeight;
+};
 const fmtChange = (c) => {
   const parts = Object.entries(c).filter(([k]) => !["action", "antenna_id"].includes(k)).map(([k, v]) => `${k.replace(/_deg|_m$|_w$/g, "")}=${typeof v === "object" ? JSON.stringify(v) : v}`);
   return `${c.action === "modify" ? "" : c.action + " "}${c.antenna_id} ${parts.join(" ")}`.trim();
@@ -466,11 +504,15 @@ const agent = initAgent(planner, {
     $("chatInput").disabled = on;
     $("chatBusy").textContent = "Thinking and testing options on the twin…";
     $("chatBusy").hidden = !on;
+    if (!on && pendingOpen) setTimeout(() => (location.href = pendingOpen), agent.voice ? 4000 : 1500);
   },
   tool: (name, args, result) => {
     if (name === "get_site_state") return say("tool", "🔎 Reading the twin…");
     if (name === "get_population_context") return say("tool", `👥 Checking who is around the site (${result.total_people_nearby ?? "?"} people, estimated)…`);
     if (name === "set_view") return say("tool", "👁 Adjusting the view");
+    if (name === "get_field_work_order") return say("tool", `🛠 Preparing the field work order (${result.summary ?? ""})`);
+    if (name === "list_sites") return say("tool", "🗺 Looking up the portfolio…");
+    if (name === "open_site") return say("tool", result.error ? `✖ ${result.error}` : `🧭 Opening ${result.opening}…`);
     if (result.error) return say("tool", `✖ ${name}: ${result.error}`);
     if (name === "undo_last_change") return say("tool", "↩ Undid the last change");
     const what = (args.changes ?? []).map(fmtChange).join("; ");
@@ -484,8 +526,7 @@ const agent = initAgent(planner, {
 const voice = initVoice({
   button: $("micButton"),
   status: (t) => ($("chatBusy").hidden = !t, t && ($("chatBusy").textContent = t)),
-  onText: (t) => agent.ask(t),
-  speakToggle: $("speakReplies"),
+  onText: (t) => agent.ask(t, { voice: true }),
 });
 const send = () => {
   const text = $("chatInput").value.trim();
@@ -500,14 +541,13 @@ for (const s of document.querySelectorAll(".suggest")) s.onclick = () => agent.a
 $("title").textContent = site.site_id;
 $("subtitle").textContent = site.name ?? "";
 $("notes").textContent = site.notes.join(" ");
-const params = new URLSearchParams(location.search);
-$("backToMap").href = params.get("from") || "portfolio.html";
+$("backToMap").href = backTo;
 refreshCoverageBands();
 update();
 // Opened from the portfolio map: the Expert Operator carries out what was asked
 // there, or reviews the site straight away.
 if (params.get("ask")) {
-  agent.ask(params.get("ask"));
+  agent.ask(params.get("ask"), { voice: params.get("voice") === "1" });
 } else if (params.get("auto") === "review") {
   agent.ask("Review this site like an operator: what is the most important problem, what would you change and why? Apply the best fix and give the before/after numbers.");
 }

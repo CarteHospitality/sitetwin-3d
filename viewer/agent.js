@@ -89,14 +89,40 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "get_field_work_order",
+      description: "The physical work the current plan needs on site, derived from plan vs baseline: per antenna the work steps, materials and precautions, plus site-wide steps (permits, RF shutdown, EMF re-measurement, roof barriers). Call it after every apply_change.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_sites",
+      description: "Other sites in the portfolio (id, structure, technology, pending SiteTwin change), to switch to another site.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "open_site",
+      description: "Leave this site and open another site's 3D twin, where `instruction` (or a full review) is carried out. Use when the engineer names another site.",
+      parameters: { type: "object", properties: { site_id: { type: "string" }, instruction: { type: "string" } }, required: ["site_id"] },
+    },
+  },
 ];
 
-function systemPrompt(planner) {
+function systemPrompt(planner, { voice } = {}) {
   const b = planner.site.building;
   const r = planner.roofBounds;
   return `You are the Expert Operator inside SiteTwin 3D, a digital twin of a mobile base-station rooftop site.
 You think like a senior RF and site engineer at a mobile operator or equipment vendor, and you help engineers
-decide antenna changes before anyone goes to site. The engineer may be speaking to you by voice: keep answers short and spoken-friendly.
+decide antenna changes before anyone goes to site.\n${voice
+    ? "The engineer is talking to you by voice: answer in 2-4 short spoken sentences, no lists or symbols."
+    : "The engineer is typing: answer in short text; lists are fine."}
 
 Two kinds of request:
 - Direct instructions ("remove S2-A", "add a 5G AAU on sector 1", "tilt S3 down 2 degrees", "show coverage for N3500"):
@@ -129,7 +155,12 @@ EMF zones use a conservative point-source model and do not shrink with tilt; rai
 
 Work method for goals: call get_site_state first. Then evaluate at least two different options with evaluate_change. Pick the best by the goals, apply it with apply_change, and answer.
 Never invent numbers: quote only figures returned by the tools, and say "estimated" for population figures.
-Final answer: 2-5 short sentences in the same language as the engineer (Turkish if they speak Turkish), saying what you changed, why, and the key before/after numbers. If no option meets goal 1, say so plainly and give the least-bad option.`;
+Final answer, in the same language as the engineer (Turkish if they speak Turkish): what you changed, why, and the key before/after numbers. If no option meets goal 1, say so plainly and give the least-bad option.
+After every apply_change, call get_field_work_order and, without being asked, finish with what has to happen physically:
+${voice
+    ? "in one or two spoken sentences, the main work (e.g. pole extension and longer cables, rigging team), the key precaution and the EMF re-measurement; say the full work order is in the panel."
+    : "a short 'Field work' part with three labelled lists: work steps, materials, precautions and approvals (permits, RF shutdown, EMF re-measurement and safety certificate). Use only items the work order returned."}
+If the engineer asks about or names another site, use list_sites and open_site; you cannot change other sites from here.`;
 }
 
 export function initAgent(planner, ui) {
@@ -142,10 +173,24 @@ export function initAgent(planner, ui) {
       undo_last_change: () => planner.undo(),
       get_population_context: () => planner.population(),
       set_view: (args) => planner.setView(args),
+      get_field_work_order: () => planner.fieldWork(),
+      list_sites: () => planner.listSites(),
+      open_site: (args) => planner.openSite(args),
     },
-    systemPrompt: () => systemPrompt(planner),
+    systemPrompt: (mode) => systemPrompt(planner, mode),
     ui,
   });
+}
+
+// Replies use light Markdown (bold, italics, bullet lines). Render it safely:
+// escape everything, then turn only ** and * markers into tags.
+export function replyHtml(text) {
+  const esc = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return esc
+    .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+    .replace(/(^|[\s(])\*(?!\s)(.+?)\*(?=[\s).,:;!?]|$)/gm, "$1<i>$2</i>")
+    .replace(/^- /gm, "• ")
+    .replace(/^#{1,4} (.+)$/gm, "<b>$1</b>");
 }
 
 // The agent loop itself, shared by the 3D planner and the portfolio map:
@@ -153,29 +198,34 @@ export function initAgent(planner, ui) {
 export function createAgent({ definitions, handlers, systemPrompt, ui }) {
   const history = [];
   const tools = handlers;
+  let mode = { voice: false };
 
-  async function callModel(messages) {
+  async function callModel(messages, withTools = true) {
     const res = await fetch("api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages, tools: definitions }),
+      body: JSON.stringify({ messages, tools: withTools ? definitions : [] }),
     });
     if (!res.ok) throw new Error(`assistant unavailable (${res.status}): ${await res.text()}`);
     return res.json();
   }
 
-  async function ask(text) {
+  // `voice`: the request was spoken, so the answer is spoken back; typed requests get text only.
+  async function ask(text, { voice = false } = {}) {
+    mode = { voice };
     history.push({ role: "user", content: text });
     ui.user(text);
     ui.busy(true);
     try {
+      let leaving = false;
       for (let step = 0; step < MAX_STEPS; step++) {
-        const { message, model } = await callModel([{ role: "system", content: systemPrompt() }, ...history]);
+        // After a navigation tool (e.g. open_site) the page is about to change: one last answer, no more tools.
+        const { message, model } = await callModel([{ role: "system", content: systemPrompt(mode) }, ...history], !leaving);
         ui.model(model);
         history.push(message);
         if (!message.tool_calls?.length) {
           ui.assistant(message.content || "(no answer)");
-          ui.speak?.(message.content || "");
+          if (mode.voice) ui.speak?.(message.content || "");
           return;
         }
         for (const call of message.tool_calls) {
@@ -188,6 +238,7 @@ export function createAgent({ definitions, handlers, systemPrompt, ui }) {
             result = { error: String(e.message ?? e) };
           }
           ui.tool(call.function.name, args, result);
+          if (result?.opening) leaving = true;
           history.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
         }
       }
@@ -195,9 +246,9 @@ export function createAgent({ definitions, handlers, systemPrompt, ui }) {
     } catch (e) {
       ui.assistant(`⚠️ ${e.message ?? e}`);
     } finally {
-      ui.busy(false);
+      ui.busy(false, mode);
     }
   }
 
-  return { ask, reset: () => (history.length = 0) };
+  return { ask, reset: () => (history.length = 0), get voice() { return mode.voice; } };
 }

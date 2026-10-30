@@ -33,7 +33,7 @@ export async function transcribe(wav) {
   return (await res.json()).text;
 }
 
-export function initVoice({ button, status, onText, speakToggle }) {
+export function initVoice({ button, status, onText }) {
   let recorder = null;
   let chunks = [];
 
@@ -70,7 +70,7 @@ export function initVoice({ button, status, onText, speakToggle }) {
 
   return {
     speak(text) {
-      if (!speakToggle.checked || !text || !("speechSynthesis" in window)) return;
+      if (!text || !("speechSynthesis" in window)) return;
       const u = new SpeechSynthesisUtterance(text);
       u.lang = /[çğıöşüÇĞİÖŞÜ]/.test(text) ? "tr-TR" : "en-US";
       speechSynthesis.cancel();

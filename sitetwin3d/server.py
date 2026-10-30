@@ -52,7 +52,8 @@ def chat(req: ChatRequest) -> dict:
     client = OpenAI(base_url=cfg["base_url"], api_key=os.environ[cfg["key_env"]])
     try:
         response = client.chat.completions.create(
-            model=cfg["model"], messages=req.messages, tools=req.tools, temperature=0.2,
+            model=cfg["model"], messages=req.messages, temperature=0.2,
+            **({"tools": req.tools} if req.tools else {}),
         )
     except OpenAIError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e

@@ -16,6 +16,8 @@
   td, th { padding:3px 2px; text-align:left; border-bottom:1px solid var(--line); }
   tr.sel td { color:#fff; background:#1f2a3d; }
   .sw { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; vertical-align:-1px; }
+  .fieldwork ul { margin:2px 0 6px; }
+  .wo-head { font-weight:600; margin-top:8px; }
   a.back { color:var(--muted); text-decoration:none; font-size:12px; }
   a.back:hover { color:var(--text); }
 </style>
@@ -50,7 +52,7 @@
         </div>
       </div>
       <div class="row between">
-        <label class="muted"><input type="checkbox" id="speakReplies" checked> Read replies aloud</label>
+        <span class="muted">🎤 Spoken questions get spoken answers</span>
         <span class="muted" id="chatBusy" hidden></span>
       </div>
     </div>
@@ -99,11 +101,14 @@
       <ul id="changes"></ul>
       <div class="row" style="margin-top:8px"><button id="reset">Reset</button><button class="primary" id="export">Export plan</button></div>
 
+      <h2>Field work order</h2>
+      <div id="fieldwork" class="fieldwork"></div>
+
       <h2>Data notes</h2>
       <div class="muted" id="notes"></div>
     </section>
   </main>
 </div>
-<script type="module" src="app.js?v=4"></script>
+<script type="module" src="app.js?v=6"></script>
 </body>
 </html>
