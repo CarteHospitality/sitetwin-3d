@@ -4,23 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SiteTwin 3D</title>
-<link rel="stylesheet" href="ui.css?v=1">
-<style>
-  #scene canvas { display:block; }
-  #legend { position:absolute; left:12px; bottom:12px; background:#171a21e6; padding:8px 10px; border-radius:6px; font-size:12px; }
-  .panel .row { align-items:center; }
-  .panel .row label { width:92px; color:var(--muted); }
-  .panel .row input[type=range] { flex:1; }
-  .panel .row output { width:52px; text-align:right; font-variant-numeric:tabular-nums; }
-  table { width:100%; border-collapse:collapse; font-size:12px; }
-  td, th { padding:3px 2px; text-align:left; border-bottom:1px solid var(--line); }
-  tr.sel td { color:#fff; background:#1f2a3d; }
-  .sw { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; vertical-align:-1px; }
-  .fieldwork ul { margin:2px 0 6px; }
-  .wo-head { font-weight:600; margin-top:8px; }
-  a.back { color:var(--muted); text-decoration:none; font-size:12px; }
-  a.back:hover { color:var(--text); }
-</style>
+<link rel="stylesheet" href="ui.css?v=design-4">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -29,23 +13,32 @@
 </script>
 </head>
 <body>
+<header class="topbar">
+  <a class="app-brand" href="portfolio.html">SiteTwin <span>3D</span></a>
+  <div class="breadcrumb"><a id="backToMap" href="portfolio.html">Portfolio</a> / <span id="breadcrumbSite">Loading twin</span></div>
+  <span class="context">Planning simulation</span>
+  <label class="contrast-control"><input id="projector" type="checkbox"><span>Projector contrast</span></label>
+  <button class="drawer-trigger operator-trigger" data-pane="operator" aria-expanded="false">Operator</button>
+  <button class="drawer-trigger inspect-trigger" data-pane="inspect" aria-expanded="false">Inspect</button>
+  <button class="primary" id="export" disabled>Export plan</button>
+</header>
 <div class="layout">
   <!-- Left: the conversation with the Expert Operator -->
   <aside class="chat">
     <header>
-      <a id="backToMap" class="back" href="portfolio.html">← Portfolio map</a>
-      <div class="brand">SiteTwin <span>Expert Operator</span></div>
-      <div class="muted" id="chatModel"></div>
+      <button class="drawer-close" aria-label="Close Operator">Close</button>
+      <div class="brand">Expert Operator <span>Muse Spark Open</span></div>
+      <details class="model-details"><summary>Model details</summary><div id="chatModel">Waiting for first response</div></details>
     </header>
     <div id="chatLog" class="log"></div>
     <div class="composer">
       <div class="chips">
-        <span class="chip suggest">Review this site like an operator: what would you change and why?</span>
-        <span class="chip suggest">Fix the neighbour conflicts with the smallest change</span>
-        <span class="chip suggest">Add 5G N3500 to sector 2 without new conflicts</span>
+        <button class="chip suggest">Review this site like an operator: what would you change and why?</button>
+        <button class="chip suggest">Fix the neighbour conflicts with the smallest change</button>
+        <button class="chip suggest">Add 5G N3500 to sector 2 without new conflicts</button>
       </div>
       <div class="row">
-        <textarea id="chatInput" rows="2" placeholder="Talk or type, any language: “remove S2-A”, “add 5G on sector 1”, “undo”"></textarea>
+        <textarea id="chatInput" aria-label="Message to Expert Operator" rows="2" placeholder="Talk or type, any language: “remove S2-A”, “add 5G on sector 1”, “undo”"></textarea>
         <div class="stack">
           <button class="primary" id="chatSend">Send</button>
           <button id="micButton" title="Push to talk (Muse Voice Transcribe)">🎤 Talk</button>
@@ -60,28 +53,55 @@
 
   <!-- Right: the 3D twin, site information and actions taken -->
   <main class="work">
-    <div id="scene" class="stage"><div id="legend"></div></div>
+    <div id="scene" class="stage" aria-label="3D planning workspace">
+      <div id="loading" class="hud loading-state" role="status">Loading twin…</div>
+      <div id="legend"></div>
+      <div class="hud scene-caption">Illustrative lighting · conservative EMF model</div>
+    </div>
     <section class="panel">
+      <div class="inspector-summary">
+      <button class="drawer-close" aria-label="Close inspector">Close</button>
       <h1 id="title">SiteTwin 3D</h1>
       <div class="muted" id="subtitle"></div>
+      <div class="muted" id="activeRegime">TR single device (20% field)</div>
+      <div class="summary-counts"><div><strong id="hitCount">–</strong> hit buildings</div><div><strong id="roofCount">–</strong> roof restrictions</div></div>
+      <div class="muted" id="findingCount"></div>
+      <div class="muted" id="planDelta">No changes yet</div>
+      <div class="muted" id="planSession" role="status"></div>
+      <div class="tabs" role="tablist" aria-label="Inspector">
+        <button id="tabSummary" role="tab" data-tab="summary" aria-controls="paneSummary" aria-selected="true">Summary</button>
+        <button id="tabAntennas" role="tab" data-tab="antennas" aria-controls="paneAntennas" aria-selected="false" tabindex="-1">Antennas</button>
+        <button id="tabWork" role="tab" data-tab="work" aria-controls="paneWork" aria-selected="false" tabindex="-1">Work order</button>
+      </div>
+      </div>
+      <div id="paneSummary" role="tabpanel" aria-labelledby="tabSummary">
       <div class="row" style="margin-top:10px">
         <label for="regime">EMF limit</label>
         <select id="regime"><option value="tr">TR single device (20% field)</option><option value="icnirp">ICNIRP public</option></select>
       </div>
       <div class="row"><label>Layers</label>
         <div class="chips">
-          <span class="chip on" data-layer="zones">EMF zones</span>
-          <span class="chip" data-layer="coverage">Coverage</span>
-          <span class="chip" data-layer="baseline">Baseline</span>
+          <button class="chip on" data-layer="zones" aria-pressed="true">EMF zones</button>
+          <button class="chip" data-layer="coverage" aria-pressed="false">Coverage</button>
+          <button class="chip" data-layer="baseline" aria-pressed="false">Baseline</button>
         </div>
       </div>
       <div class="row" id="coverageRow" hidden><label for="coverageBand">Coverage band</label><select id="coverageBand"></select></div>
+      <div id="comparison" class="comparison" hidden></div>
 
       <h2>Checks</h2>
       <ul id="checks"></ul>
 
+      <h2>Actions taken (vs. baseline)</h2>
+      <ul id="changes"></ul>
+      <ul id="planActions" class="actions"></ul>
+      <div class="row"><button id="reset">Reset plan</button><button id="undo">Undo last change</button></div>
+      <details class="data-notes"><summary>Data notes and model limits</summary><div class="muted" id="notes"></div><p class="muted">Planning estimates require field verification. Coverage uses Hata, without terrain or clutter. Safety envelopes do not shrink with tilt.</p></details>
+      </div>
+      <div id="paneAntennas" role="tabpanel" aria-labelledby="tabAntennas" hidden>
+
       <h2>Antennas</h2>
-      <table><thead><tr><th>ID</th><th>Az</th><th>Tilt</th><th>Bands</th><th>Zone</th></tr></thead><tbody id="antennas"></tbody></table>
+      <table><thead><tr><th>ID</th><th>Az °</th><th>Tilt °</th><th>Bands</th><th>Zone m</th></tr></thead><tbody id="antennas"></tbody></table>
       <div class="row" style="margin-top:8px"><button id="addAntenna">+ New antenna</button></div>
 
       <div id="editor" hidden>
@@ -94,21 +114,21 @@
         <div class="row"><label>South (z)</label><input type="range" min="-7" max="7" step="0.5" data-k="z_m"><output></output></div>
         <div class="muted" style="margin-top:6px">Bands (power per band)</div>
         <div id="bands"></div>
-        <div class="row"><select id="bandPreset"></select><button id="addBand">Add band</button><button id="removeAntenna" style="margin-left:auto">Delete</button></div>
+        <div class="row"><select id="bandPreset" aria-label="Band preset"></select><button id="addBand">Add band</button><button id="removeAntenna" class="destructive">Remove antenna</button></div>
       </div>
 
-      <h2>Actions taken (vs. baseline)</h2>
-      <ul id="changes"></ul>
-      <div class="row" style="margin-top:8px"><button id="reset">Reset</button><button class="primary" id="export">Export plan</button></div>
-
+      </div>
+      <div id="paneWork" role="tabpanel" aria-labelledby="tabWork" hidden>
+      <p class="muted">Derived physical follow-up · quantities are estimates. Changes are applied to the plan only.</p>
       <h2>Field work order</h2>
       <div id="fieldwork" class="fieldwork"></div>
-
-      <h2>Data notes</h2>
-      <div class="muted" id="notes"></div>
+      </div>
     </section>
   </main>
 </div>
-<script type="module" src="app.js?v=6"></script>
+<nav class="mobile-nav" aria-label="Workspace navigation"><button data-pane="workspace" aria-pressed="true">Workspace</button><button data-pane="operator" aria-expanded="false">Operator</button><button data-pane="inspect" aria-expanded="false">Inspect</button></nav>
+<div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
+<div id="liveStatus" class="sr-only" role="status" aria-live="polite"></div>
+<script type="module" src="app.js?v=design-4"></script>
 </body>
 </html>

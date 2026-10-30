@@ -199,20 +199,26 @@ export function createAgent({ definitions, handlers, systemPrompt, ui }) {
   const history = [];
   const tools = handlers;
   let mode = { voice: false };
+  let queue = Promise.resolve();
+  let requestCount = 0;
 
   async function callModel(messages, withTools = true) {
-    const res = await fetch("api/chat", {
+    ui.waiting?.(true);
+    try {
+      const res = await fetch("api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages, tools: withTools ? definitions : [] }),
-    });
-    if (!res.ok) throw new Error(`assistant unavailable (${res.status}): ${await res.text()}`);
-    return res.json();
+      });
+      if (!res.ok) throw new Error(`assistant unavailable (${res.status}): ${await res.text()}`);
+      return await res.json();
+    } finally { ui.waiting?.(false); }
   }
 
   // `voice`: the request was spoken, so the answer is spoken back; typed requests get text only.
-  async function ask(text, { voice = false } = {}) {
+  async function runAsk(text, { voice = false } = {}, requestId) {
     mode = { voice };
+    ui.requestStart?.(requestId);
     history.push({ role: "user", content: text });
     ui.user(text);
     ui.busy(true);
@@ -225,29 +231,45 @@ export function createAgent({ definitions, handlers, systemPrompt, ui }) {
         history.push(message);
         if (!message.tool_calls?.length) {
           ui.assistant(message.content || "(no answer)");
-          if (mode.voice) ui.speak?.(message.content || "");
+          if (mode.voice) await ui.speak?.(message.content || "");
           return;
         }
         for (const call of message.tool_calls) {
           let args = {};
           let result;
+          let started = false;
           try {
             args = JSON.parse(call.function.arguments || "{}");
+            ui.toolStart?.(call.id, call.function.name, args);
+            started = true;
             result = (await tools[call.function.name]?.(args)) ?? { error: `unknown tool ${call.function.name}` };
           } catch (e) {
+            if (!started) ui.toolStart?.(call.id, call.function.name, args);
             result = { error: String(e.message ?? e) };
           }
-          ui.tool(call.function.name, args, result);
+          ui.tool?.(call.function.name, args, result, call.id);
+          ui.toolEnd?.(call.id, call.function.name, args, result);
           if (result?.opening) leaving = true;
           history.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
         }
       }
+      ui.failed?.();
       ui.assistant("Stopped after too many steps.");
     } catch (e) {
+      ui.failed?.();
       ui.assistant(`⚠️ ${e.message ?? e}`);
     } finally {
       ui.busy(false, mode);
     }
+  }
+
+  // Each request owns its voice mode and tool timeline until it finishes.
+  function ask(text, options) {
+    const requestId = ++requestCount;
+    ui.queued?.(requestId, text);
+    const run = queue.then(() => runAsk(text, options, requestId));
+    queue = run.catch(() => {});
+    return run;
   }
 
   return { ask, reset: () => (history.length = 0), get voice() { return mode.voice; } };

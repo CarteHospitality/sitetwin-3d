@@ -1,41 +1,46 @@
 // Portfolio map: every site, checked with the same code as the 3D planner,
 // ranked by how urgently it needs attention.
 
-import { siteZones } from "./emf.js";
+import { siteZones, REGIMES } from "./emf.js";
 import { checkSite } from "./checks.js";
 import { populationContext } from "./population.js";
-import { createAgent, replyHtml } from "./agent.js";
+import { createAgent } from "./agent.js";
 import { initVoice } from "./voice.js";
+import { initConversation } from "./conversation.js";
+import { readSession, writeSession, restoreProposed, canonical, handoffId, absoluteUrl } from "./session.js";
+import { $, el, token, initShell, reducedMotion } from "./ui.js";
+
+initShell();
+$("loadTwin").onclick = () => $("upload").click();
 
 const LEVELS = {
-  critical: { label: "Critical", color: "var(--critical)", hex: "#ff4d4f", rank: 4 },
-  high: { label: "Action needed", color: "var(--high)", hex: "#fa8c16", rank: 3 },
-  medium: { label: "Review", color: "var(--medium)", hex: "#fadb14", rank: 2 },
-  planned: { label: "Change planned", color: "var(--planned)", hex: "#4096ff", rank: 1 },
-  ok: { label: "OK", color: "var(--ok)", hex: "#52c41a", rank: 0 },
+  critical: { label: "Critical", glyph: "!", rank: 4 },
+  high: { label: "Action needed", glyph: "▲", rank: 3 },
+  medium: { label: "Review", glyph: "•", rank: 2 },
+  planned: { label: "Change planned", glyph: "◆", rank: 1 },
+  ok: { label: "OK", glyph: "✓", rank: 0 },
 };
 // Indicative: people in the main lobes of one antenna above which capacity is worth a look.
 const CAPACITY_PEOPLE_PER_ANTENNA = 1500;
 
-const $ = (id) => document.getElementById(id);
-const el = (tag, props = {}, ...children) => {
-  const e = Object.assign(document.createElement(tag), props);
-  e.append(...children);
-  return e;
-};
-
 const indexUrl = new URLSearchParams(location.search).get("portfolio") || "data/private/portfolio.json";
-const index = await fetch(indexUrl).then((r) => (r.ok ? r.json() : fetch("data/samples/portfolio.json").then((s) => s.json())));
+const mapKey = `map:${absoluteUrl(indexUrl)}`;
+const storedMap = readSession(mapKey, {}) || {};
+const mapActions = Array.isArray(storedMap.actions) ? storedMap.actions.filter((a) => a && typeof a.text === "string" && typeof a.time === "string") : [];
+const seenProposals = storedMap.proposals && typeof storedMap.proposals === "object" ? storedMap.proposals : {};
+const index = await fetch(indexUrl).then((r) => (r.ok ? r.json() : fetch("data/samples/portfolio.json").then((s) => s.json())))
+  .catch((e) => { $("loading").textContent = `Portfolio unavailable: ${e.message}`; throw e; });
 
-const map = L.map("map", { zoomControl: true });
+const map = L.map("map", { zoomControl: true, fadeAnimation: !reducedMotion.matches,
+  zoomAnimation: !reducedMotion.matches, markerZoomAnimation: !reducedMotion.matches });
 // Standard OSM tiles, darkened with a CSS filter to match the app.
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  attribution: "&copy; OpenStreetMap contributors", maxZoom: 19, className: "dark-tiles",
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>', maxZoom: 19,
 }).addTo(map);
 
-function assess(entry, twin) {
+function assess(entry, twin, regime = "tr", proposed = false) {
   const site = twin.site;
-  const { findings } = checkSite(site, siteZones(site));
+  const { findings, hit } = checkSite(site, siteZones(site, REGIMES[regime]));
   const pop = populationContext(site);
   const issues = [];
   const bad = findings.filter((f) => f.level === "bad");
@@ -48,84 +53,207 @@ function assess(entry, twin) {
   if (capacity) issues.push(`Capacity: ${busiest[0]} serves ~${busiest[1]} people in its main lobe (estimated)`);
   const planned = Object.entries(entry.antenna_actions ?? {}).filter(([k]) => k !== "retain");
   if (planned.length) issues.push(`SiteTwin plan: ${planned.map(([k, v]) => `${v} ${k}`).join(", ")}${entry.reason ? ` (${entry.reason})` : ""}`);
-  const level = sensitive.length ? "critical" : bad.length ? "high" : findings.some((f) => f.level === "warn") || capacity ? "medium" : planned.length ? "planned" : "ok";
+  if (proposed) issues.push("Session proposal · applied to plan; source file unchanged");
+  const level = sensitive.length ? "critical" : bad.length ? "high" : findings.some((f) => f.level === "warn") || capacity ? "medium" : planned.length || proposed ? "planned" : "ok";
   const score = 100 * sensitive.length + 30 * bad.length + 5 * findings.filter((f) => f.level === "warn").length + (capacity ? 10 : 0) + planned.length;
-  return { level, score, issues, people: pop.total_people_nearby, buildings: site.neighbours.length };
+  return { level, score, issues, hitBuildings: hit.size, findingCount: bad.length, people: pop.total_people_nearby, buildings: site.neighbours.length };
 }
 
 const sites = [];
 const markers = {};
+let selectedSite = null;
+let statusFilter = LEVELS[storedMap.filter] ? storedMap.filter : null;
+let attentionCount = 0;
+let pageActive = true;
+window.addEventListener("pagehide", () => { pageActive = false; });
+window.addEventListener("pageshow", () => { pageActive = true; });
 
-function pinIcon(level) {
-  return L.divIcon({ className: "", html: `<div class="pin ${level}" style="background:${LEVELS[level].hex}"></div>`, iconSize: [16, 16], iconAnchor: [8, 8] });
+function pinIcon(level, selected = false, attention = false) {
+  const pin = el("div", { className: `pin ${level}${selected ? " selected" : ""}${attention ? " attention" : ""}` }, el("span", { textContent: LEVELS[level].glyph }));
+  pin.style.color = token(level);
+  return L.divIcon({ className: "map-pin", html: pin, iconSize: [32, 32], iconAnchor: [16, 16] });
 }
 
+function renderActions() {
+  $("actions").replaceChildren(...mapActions.map((action) => el("li", {}, el("time", { textContent: new Date(action.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }), action.text)));
+}
 function logAction(text) {
-  const list = $("actions");
-  if (list.querySelector(".muted")) list.replaceChildren();
-  list.prepend(el("li", {}, el("time", { textContent: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }), text));
+  mapActions.push({ time: new Date().toISOString(), text });
+  if (mapActions.length > 40) mapActions.shift();
+  renderActions();
+  saveMapState();
 }
+function saveMapState() {
+  if (!map.getCenter || !map._loaded) return;
+  const bounds = map.getBounds();
+  writeSession(mapKey, { selected: selectedSite?.entry.site_id, filter: statusFilter,
+    bounds: [[bounds.getSouth(), bounds.getWest()], [bounds.getNorth(), bounds.getEast()]],
+    actions: mapActions, proposals: seenProposals });
+}
+map.on("moveend", saveMapState);
+window.addEventListener("pagehide", saveMapState);
+renderActions();
 
 function twinUrl(s, instruction, voice = false) {
   const p = new URLSearchParams({ twin: s.entry.twin, ...(instruction ? { ask: instruction } : { auto: "review" }),
-    from: location.pathname + location.search, portfolio: indexUrl });
+    from: location.pathname + location.search, portfolio: indexUrl, handoff: handoffId() });
   if (voice) p.set("voice", "1");
   return `index.html?${p}`;
 }
 function openTwin(s) {
   logAction(`Opened ${s.entry.site_id} in 3D for a full review`);
+  selectedSite = s; saveMapState();
   location.href = twinUrl(s);
 }
 
-function render(selected) {
-  sites.sort((a, b) => LEVELS[b.a.level].rank - LEVELS[a.a.level].rank || b.a.score - a.a.score);
+const siteRows = new Map(), statButtons = new Map();
+let hoveredRow = null, rankPending = false, focusRequest = 0, focusedTarget = null;
+const rankingNotice = el("button", { textContent: "Ranking updated", hidden: true });
+$("list").before(rankingNotice);
+const rankingLocked = () => Boolean(hoveredRow || document.activeElement?.closest(".site"));
+function releaseRanking() { if (rankPending && !rankingLocked()) render(selectedSite, true); }
+rankingNotice.onclick = () => render(selectedSite, true);
+function render(selected = selectedSite, force = false) {
+  selectedSite = selected;
+  const ranked = [...sites].sort((a, b) => LEVELS[b.a.level].rank - LEVELS[a.a.level].rank || b.a.score - a.a.score);
+  const locked = !force && rankingLocked();
+  if (!locked) sites.splice(0, sites.length, ...ranked);
+  rankPending = locked && ranked.some((s, i) => sites[i] !== s);
+  rankingNotice.hidden = !rankPending;
   const counts = Object.fromEntries(Object.keys(LEVELS).map((k) => [k, sites.filter((s) => s.a.level === k).length]));
-  $("stats").replaceChildren(
-    el("div", { className: "stat" }, el("b", { textContent: sites.length }), "sites"),
-    ...Object.entries(LEVELS).filter(([k]) => counts[k]).map(([k, v]) => el("div", { className: "stat", style: `border-left:3px solid ${v.hex}` }, el("b", { textContent: counts[k] }), v.label)),
-  );
-  $("list").replaceChildren(...sites.map((s) => {
-    const lv = LEVELS[s.a.level];
-    const row = el("div", { className: `site${s === selected ? " sel" : ""}` },
-      el("div", { className: "head" },
-        el("span", { className: "dot", style: `background:${lv.hex}` }),
-        el("span", { className: "id", textContent: s.entry.site_id }),
-        el("span", { className: "tag", textContent: s.entry.structure.replace("_", " ") }),
-        el("span", { className: "tag", textContent: lv.label }),
-      ),
-      el("div", { className: "muted", textContent: `${s.a.buildings} buildings around, ~${s.a.people} people nearby (estimated)` }),
-    );
-    if (s === selected) {
-      row.append(
-        el("ul", {}, ...(s.a.issues.length ? s.a.issues : ["No issues found"]).map((t) => el("li", { textContent: t }))),
-        el("div", { style: "margin-top:8px" }, Object.assign(el("button", { className: "primary", textContent: "Open 3D twin and simulate the fix →" }), { onclick: (e) => { e.stopPropagation(); openTwin(s); } })),
-      );
+  for (const [key, config] of [["all", { label: "Total sites" }], ...Object.entries(LEVELS)]) {
+    let button = statButtons.get(key);
+    if (!button) {
+      button = el("button", { className: "stat" }, el("b"), el("span", { textContent: config.label }));
+      if (key !== "all") button.style.borderLeft = `3px solid ${token(key)}`;
+      button.onclick = () => { statusFilter = key === "all" || statusFilter === key ? null : key; render(); };
+      statButtons.set(key, button); $("stats").append(button);
+    }
+    button.firstChild.textContent = key === "all" ? sites.length : counts[key];
+    button.setAttribute("aria-pressed", String(key === "all" ? !statusFilter : statusFilter === key));
+  }
+  $("filterStatus").textContent = statusFilter ? `Filter: ${LEVELS[statusFilter].label}` : "All sites";
+  $("clearFilter").hidden = !statusFilter;
+  const list = $("list"), panel = list.closest(".panel");
+  const before = new Map([...siteRows].map(([id, row]) => [id, row.getBoundingClientRect().top]));
+  const anchor = [...list.children].find((row) => !row.hidden && row.getBoundingClientRect().bottom > panel.getBoundingClientRect().top + 240);
+  const anchorTop = anchor?.getBoundingClientRect().top;
+  for (const s of sites) {
+    const id = s.entry.site_id, lv = LEVELS[s.a.level];
+    let row = siteRows.get(id);
+    if (!row) {
+      row = el("div", { className: "site", tabIndex: 0, role: "group" });
+      row.onclick = () => select(s);
+      row.onkeydown = (event) => { if (event.target === row && ["Enter", " "].includes(event.key)) { event.preventDefault(); select(s); } };
+      row.onpointerenter = () => { hoveredRow = id; };
+      row.onpointerleave = () => { if (hoveredRow === id) hoveredRow = null; releaseRanking(); };
+      row.onfocusout = () => queueMicrotask(releaseRanking);
+      siteRows.set(id, row);
+    }
+    const signature = JSON.stringify([s.a, s.regime, s.planInfo, s === selected]);
+    if (row.dataset.signature !== signature) {
+      const restoreActionFocus = document.activeElement !== row && row.contains(document.activeElement);
+      row.dataset.signature = signature;
+      row.replaceChildren(
+        el("div", { className: "head" }, el("span", { className: "dot", style: `background:${token(s.a.level)}`, textContent: lv.glyph }), el("span", { className: "id", textContent: id })),
+        el("div", { className: "tag", textContent: `${s.entry.structure.replaceAll("_", " ")} · ${lv.label} · ${s.regime === "tr" ? "TR 20%" : "ICNIRP"}` }),
+        el("div", { className: "muted", textContent: `${s.a.buildings} buildings · ~${s.a.people} people nearby (estimated)` }),
+        el("div", { className: "issue", textContent: s.a.issues[0] ?? "No issues found" }));
+      if (s === selected) row.append(
+        el("div", { className: "muted", textContent: `${s.a.findingCount} conflict findings · ${s.a.hitBuildings} unique affected buildings` }),
+        el("ul", {}, ...s.a.issues.slice(1).map((text) => el("li", { textContent: text }))),
+        Object.assign(el("button", { className: "primary", textContent: "Open 3D twin →" }), { onclick: (event) => { event.stopPropagation(); openTwin(s); } }));
+      if (restoreActionFocus) (row.querySelector("button") ?? row).focus({ preventScroll: true });
     }
     row.onclick = () => select(s);
-    return row;
-  }));
+    row.onkeydown = (event) => { if (event.target === row && ["Enter", " "].includes(event.key)) { event.preventDefault(); select(s); } };
+    row.classList.toggle("sel", s === selected);
+    row.title = `${REGIMES[s.regime].name} · ${s.planInfo}`;
+    row.setAttribute("aria-label", `${id}, ${lv.label}`); row.setAttribute("aria-expanded", String(s === selected));
+    row.hidden = Boolean(statusFilter && s.a.level !== statusFilter);
+    if (!row.isConnected) list.append(row);
+    markers[id]?.getElement()?.querySelector(".pin")?.classList.toggle("selected", s === selected);
+  }
+  if (!locked) {
+    const active = document.activeElement;
+    for (let i = 0; i < sites.length; i++) {
+      const row = siteRows.get(sites[i].entry.site_id);
+      if (list.children[i] !== row) list.insertBefore(row, list.children[i] ?? null);
+    }
+    if (anchor?.isConnected && !anchor.hidden) panel.scrollTop += anchor.getBoundingClientRect().top - anchorTop;
+    if (active?.isConnected && document.activeElement !== active) active.focus({ preventScroll: true });
+    if (!reducedMotion.matches) for (const [id, row] of siteRows) {
+      const from = before.get(id), delta = from - row.getBoundingClientRect().top;
+      if (!row.hidden && Number.isFinite(delta) && Math.abs(delta) > 1) row.animate([{ transform: `translateY(${delta}px)` }, { transform: "none" }], { duration: 240, easing: "cubic-bezier(.2,0,0,1)" });
+    }
+  }
 }
-
-function select(s) {
-  map.setView([s.entry.lat, s.entry.lon], Math.max(map.getZoom(), 15));
-  render(s);
+$("clearFilter").onclick = () => { statusFilter = null; render(); };
+function select(s, { inspect = false, travel = true } = {}) {
+  const same = selectedSite === s;
+  render(s); saveMapState();
+  if (!travel || same && !inspect) { if (travel && !focusedTarget) markers[s.entry.site_id]?.openPopup(); return; }
+  const request = ++focusRequest;
+  map.stop();
+  focusedTarget = { s, zoom: inspect ? 17 : 15 };
+  const reveal = () => { if (request === focusRequest) { focusedTarget = null; markers[s.entry.site_id]?.openPopup(); } };
+  if (reducedMotion.matches) { map.setView([s.entry.lat, s.entry.lon], focusedTarget.zoom, { animate: false }); reveal(); }
+  else { map.once("moveend", reveal); map.flyTo([s.entry.lat, s.entry.lon], focusedTarget.zoom, { duration: 1.15 }); }
+}
+function stopFollowing() { focusRequest++; focusedTarget = null; map.stop(); }
+map.on("dragstart", stopFollowing);
+$("map").addEventListener("wheel", stopFollowing, { passive: true });
+document.addEventListener("keydown", (event) => { if (event.key === "Escape") map.closePopup(); });
+reducedMotion.addEventListener("change", () => {
+  map.options.fadeAnimation = map.options.zoomAnimation = map.options.markerZoomAnimation = !reducedMotion.matches;
+  for (const row of siteRows.values()) for (const animation of row.getAnimations()) animation.cancel();
+  if (reducedMotion.matches && focusedTarget) { const { s, zoom } = focusedTarget; map.stop(); map.setView([s.entry.lat, s.entry.lon], zoom, { animate: false }); }
+});
+function siteCard(s) {
+  const card = el("div", {}, el("strong", { textContent: s.entry.site_id }),
+    el("div", { textContent: LEVELS[s.a.level].label }), el("p", { textContent: s.a.issues[0] ?? "No issues found" }));
+  card.append(Object.assign(el("button", { textContent: "Open 3D twin", className: "primary" }), { onclick: () => openTwin(s) }),
+    Object.assign(el("button", { textContent: "Inspect surroundings" }), { onclick: () => select(s, { inspect: true }) }));
+  return card;
+}
+function recordProposal(s, saved) {
+  const latest = saved.actions.at(-1);
+  if (!latest || seenProposals[s.entry.site_id] === latest.time) return;
+  seenProposals[s.entry.site_id] = latest.time;
+  logAction(`${s.entry.site_id} · Applied to plan · ${latest.delta.join("; ")} · ${latest.result ?? "Reassessed"}`);
 }
 
 async function add(entry) {
   const twin = await fetch(entry.twin).then((r) => r.json());
-  const s = { entry, a: assess(entry, twin) };
-  sites.push(s);
+  const saved = restoreProposed(entry.twin, twin);
+  const proposed = saved.status === "restored" && canonical(saved.site) !== canonical(twin.site);
+  const s = { entry, source: twin, regime: saved.regime, planInfo: saved.message, a: assess(entry, { ...twin, site: saved.site }, saved.regime, proposed) };
+  if (saved.status === "stale") logAction(`${entry.site_id}: ${saved.message}`);
+  if (proposed) recordProposal(s, saved);
+
+  const existing = sites.findIndex((x) => x.entry.site_id === entry.site_id);
+  if (existing >= 0) sites.splice(existing, 1, s); else sites.push(s);
   markers[entry.site_id]?.remove();
-  markers[entry.site_id] = L.marker([entry.lat, entry.lon], { icon: pinIcon(s.a.level), title: entry.site_id })
+  markers[entry.site_id] = L.marker([entry.lat, entry.lon], { icon: pinIcon(s.a.level, false, s.a.level === "critical" && attentionCount++ < 3), title: `${entry.site_id}: ${LEVELS[s.a.level].label}`, alt: `${entry.site_id}: ${LEVELS[s.a.level].label}` })
     .addTo(map).on("click", () => select(s))
-    .bindTooltip(`${entry.site_id}: ${LEVELS[s.a.level].label}`);
+    .bindPopup(() => siteCard(s), { autoPan: false, maxWidth: 240 });
+  const marker = markers[entry.site_id];
+  let hoverTimer;
+  marker.on("mouseover", () => { hoverTimer = setTimeout(() => marker.openPopup(), 150); });
+  marker.on("mouseout", () => clearTimeout(hoverTimer));
+  marker.getElement()?.addEventListener("focus", () => { hoverTimer = setTimeout(() => marker.openPopup(), 150); });
+  marker.getElement()?.addEventListener("blur", () => clearTimeout(hoverTimer));
   return s;
 }
 
-await Promise.all(index.sites.map(add));
-map.fitBounds(L.latLngBounds(index.sites.map((s) => [s.lat, s.lon])).pad(0.2));
-render();
-new ResizeObserver(() => map.invalidateSize()).observe($("map"));
+await Promise.all(index.sites.map(add)).catch((e) => { $("loading").textContent = `Site assessment failed: ${e.message}`; throw e; });
+const validBounds = Array.isArray(storedMap.bounds) && storedMap.bounds.length === 2 && storedMap.bounds.every((pair) => Array.isArray(pair) && pair.length === 2 && pair.every(Number.isFinite));
+if (validBounds) map.fitBounds(storedMap.bounds, { animate: false });
+else map.fitBounds(L.latLngBounds(index.sites.map((s) => [s.lat, s.lon])).pad(0.2), { animate: false });
+render(sites.find((s) => s.entry.site_id === storedMap.selected) ?? null);
+$("loading").hidden = true;
+saveMapState();
+new ResizeObserver(() => map.invalidateSize({ animate: false, pan: false })).observe($("map"));
 logAction(`Checked ${sites.length} sites automatically`);
 
 // ---------- Expert Operator on the map (text or voice) ----------
@@ -139,11 +267,17 @@ const MAP_TOOLS = [
   { type: "function", function: { name: "open_site", description: "Open the site's 3D twin, where the Expert Operator there carries out `instruction` (or a full review when it is omitted) and simulates the fix. Use when the engineer wants to fix, simulate, change or inspect a site in 3D.", parameters: { type: "object", properties: { site_id: { type: "string" }, instruction: { type: "string", description: "What to do on the twin, in the engineer's language, e.g. 'fix the school conflict' or 'add 5G on sector 2'" } }, required: ["site_id"] } } },
 ];
 
+const chat = initConversation({
+  onBusy: (on) => voice.setRunning(on),
+  onComplete: () => { if (pendingOpen && pageActive) location.href = pendingOpen; },
+  speak: (text) => voice.speak(text),
+  transcriptKey: absoluteUrl(indexUrl),
+});
 const mapAgent = createAgent({
   definitions: MAP_TOOLS,
   handlers: {
-    list_sites: ({ level } = {}) => sites.filter((s) => !level || s.a.level === level).map((s) => ({
-      site_id: s.entry.site_id, level: LEVELS[s.a.level].label, structure: s.entry.structure,
+    list_sites: ({ level } = {}) => [...sites].sort((a, b) => LEVELS[b.a.level].rank - LEVELS[a.a.level].rank || b.a.score - a.a.score).filter((s) => !level || s.a.level === level).map((s) => ({
+      site_id: s.entry.site_id, level: LEVELS[s.a.level].label, regime: REGIMES[s.regime].name, assessment: s.planInfo, structure: s.entry.structure,
       technology: s.entry.technology, people_nearby_estimated: s.a.people, issues: s.a.issues.slice(0, 4),
     })),
     focus_site: ({ site_id }) => {
@@ -158,6 +292,7 @@ const mapAgent = createAgent({
       if (!s) return { error: `no site ${site_id}` };
       select(s);
       pendingOpen = twinUrl(s, instruction, mapAgent.voice);
+      saveMapState();
       logAction(`Opening ${s.entry.site_id} in 3D: ${instruction ?? "full review"}`);
       return { opening: s.entry.site_id, instruction: instruction ?? "full review" };
     },
@@ -171,34 +306,15 @@ Action needed = a zone reaches another building; Review = roof safety or capacit
 Call list_sites before talking about sites; never invent sites or numbers. Site names may be spoken loosely ("Ankara", "the Izmir one"):
 match them to site_id. To show a site, use focus_site. To fix, simulate, change or inspect one in 3D, use open_site with an instruction
 that carries over exactly what the engineer asked; then say in one sentence what will happen there.`,
-  ui: {
-    user: (t) => say("user", t),
-    assistant: (t) => say("assistant", t),
-    model: (m) => ($("chatModel").textContent = m),
-    busy: (on) => {
-      $("chatSend").disabled = on;
-      $("chatInput").disabled = on;
-      $("chatBusy").textContent = "Thinking…";
-      $("chatBusy").hidden = !on;
-      if (!on && pendingOpen) setTimeout(() => (location.href = pendingOpen), mapAgent.voice ? 4000 : 1500);
-    },
-    tool: (name, args, result) => say("tool", result.error ? `✖ ${result.error}`
-      : name === "list_sites" ? `🔎 Checking ${result.length} sites…`
-      : name === "focus_site" ? `📍 ${result.focused}`
-      : `🧭 Opening ${result.opening} in 3D…`),
-    speak: (t) => voice.speak(t),
-  },
+  ui: chat,
 });
-function say(cls, text) {
-  $("chatLog").append(cls === "assistant" ? el("div", { className: `msg ${cls}`, innerHTML: replyHtml(text) }) : el("div", { className: `msg ${cls}`, textContent: text }));
-  $("chatLog").scrollTop = $("chatLog").scrollHeight;
-}
 const voice = initVoice({
   button: $("micButton"),
   status: (t) => { $("chatBusy").hidden = !t; if (t) $("chatBusy").textContent = t; },
   onText: (t) => mapAgent.ask(t, { voice: true }),
 });
 const send = () => {
+  if ($("chatInput").disabled) return;
   const text = $("chatInput").value.trim();
   if (!text) return;
   $("chatInput").value = "";
@@ -224,3 +340,23 @@ $("upload").onchange = async (e) => {
   }
   e.target.value = "";
 };
+
+window.addEventListener("pageshow", async (event) => {
+  if (!event.persisted) return;
+  for (const s of sites) {
+    try {
+      const response = await fetch(s.entry.twin, { cache: "no-cache" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const source = await response.json(), saved = restoreProposed(s.entry.twin, source);
+      s.source = source; s.regime = saved.regime; s.planInfo = saved.message;
+      s.a = assess(s.entry, { ...source, site: saved.site }, saved.regime, saved.status === "restored" && canonical(saved.site) !== canonical(source.site));
+      if (saved.status === "restored") recordProposal(s, saved);
+      const marker = markers[s.entry.site_id];
+      marker.options.title = marker.options.alt = `${s.entry.site_id}: ${LEVELS[s.a.level].label}`;
+      marker.setIcon(pinIcon(s.a.level, s === selectedSite));
+      marker.getElement()?.setAttribute("aria-label", marker.options.title);
+      if (saved.status === "stale") logAction(`${s.entry.site_id}: ${saved.message}`);
+    } catch (error) { logAction(`${s.entry.site_id}: reassessment unavailable (${error.message}); previous displayed assessment retained`); }
+  }
+  render(); saveMapState();
+});
