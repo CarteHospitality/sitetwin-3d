@@ -1,0 +1,18 @@
+# Secrets
+.env
+
+# Real site data never goes into this public repo
+data/private/
+*.private.*
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Generated
+output/
+
+# Local tool config
+.claude/

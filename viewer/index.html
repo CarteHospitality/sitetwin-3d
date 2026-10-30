@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SiteTwin 3D</title>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --text:#e6e8ee; --muted:#9aa3b2; --front:#ff4d4f; --back:#ffa940; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font:14px/1.4 system-ui, sans-serif; }
+  #app { display:flex; height:100%; }
+  #scene { flex:1; min-width:0; }
+  aside { width:300px; padding:16px; background:var(--panel); overflow:auto; box-sizing:border-box; }
+  h1 { font-size:16px; margin:0 0 4px; }
+  .muted { color:var(--muted); font-size:12px; }
+  table { width:100%; border-collapse:collapse; margin-top:12px; font-size:13px; }
+  td, th { padding:4px 2px; text-align:left; border-bottom:1px solid #262b36; }
+  label { display:block; margin-top:12px; }
+  .sw { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; }
+  @media (max-width: 700px) { #app { flex-direction:column; } aside { width:auto; max-height:40%; } }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="app">
+  <div id="scene"></div>
+  <aside>
+    <h1 id="title">SiteTwin 3D</h1>
+    <div class="muted" id="regime"></div>
+    <label><input type="checkbox" id="showZones" checked> Show EMF safety zones</label>
+    <div class="muted" style="margin-top:8px">
+      <span class="sw" style="background:var(--front)"></span>main lobe
+      <span class="sw" style="background:var(--back);margin-left:10px"></span>back lobe
+    </div>
+    <table id="table"><thead><tr><th>Antenna</th><th>Az</th><th>Front</th><th>Back</th></tr></thead><tbody></tbody></table>
+    <p class="muted" id="notes"></p>
+  </aside>
+</div>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+const src = new URLSearchParams(location.search).get("twin") || "data/site.twin.json";
+const twin = await (await fetch(src)).json();
+const { site, zones } = twin;
+
+// Coordinates: x = East, y = Up, z = South. Azimuth is clockwise from North (-z).
+// three.js puts angle theta at (sin theta, cos theta) in x/z, so azimuth a maps to theta = PI - a.
+const azToTheta = (deg) => Math.PI - THREE.MathUtils.degToRad(deg);
+
+const host = document.getElementById("scene");
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(devicePixelRatio);
+host.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0f1115);
+const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 2000);
+camera.position.set(45, 55, 60);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, site.building.height_m, 0);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x334455, 1.0));
+const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+sun.position.set(30, 80, 20);
+scene.add(sun);
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), new THREE.MeshLambertMaterial({ color: 0x1d222b }));
+ground.rotation.x = -Math.PI / 2;
+scene.add(ground);
+scene.add(new THREE.GridHelper(300, 60, 0x2c3340, 0x232833));
+
+const b = site.building;
+const building = new THREE.Mesh(
+  new THREE.BoxGeometry(b.width_m, b.height_m, b.depth_m),
+  new THREE.MeshLambertMaterial({ color: 0x8a919e })
+);
+building.position.y = b.height_m / 2;
+scene.add(building);
+
+// North arrow on the roof edge.
+const north = new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, b.height_m + 0.1, -b.depth_m / 2 - 1), 6, 0x4096ff, 1.5, 1);
+scene.add(north);
+
+const antennaMat = new THREE.MeshLambertMaterial({ color: 0xf0f0f0 });
+const poleMat = new THREE.MeshLambertMaterial({ color: 0x5c6370 });
+for (const a of site.antennas) {
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, a.height_agl_m - b.height_m + a.length_m / 2), poleMat);
+  pole.position.set(a.x_m, (a.height_agl_m + a.length_m / 2 + b.height_m) / 2, a.z_m);
+  scene.add(pole);
+
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(0.3, a.length_m, 0.12), antennaMat);
+  panel.position.set(a.x_m, a.height_agl_m, a.z_m);
+  panel.rotation.y = azToTheta(a.azimuth_deg);
+  panel.translateZ(0.2);
+  panel.rotateX(-THREE.MathUtils.degToRad(a.mechanical_tilt_deg));
+  scene.add(panel);
+}
+
+for (const e of site.equipment) {
+  const [w, h, d] = e.size_m;
+  const box = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color: 0x597ef7 }));
+  box.position.set(e.x_m, e.height_agl_m + h / 2, e.z_m);
+  scene.add(box);
+}
+
+const zoneGroup = new THREE.Group();
+scene.add(zoneGroup);
+const zoneMat = (color) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false });
+const byId = Object.fromEntries(site.antennas.map((a) => [a.id, a]));
+for (const z of zones) {
+  const a = byId[z.antenna_id];
+  const hbw = THREE.MathUtils.degToRad(z.horizontal_beamwidth_deg);
+  const front = new THREE.Mesh(
+    new THREE.CylinderGeometry(z.front_m, z.front_m, 2 * z.half_height_m, 48, 1, false, azToTheta(a.azimuth_deg) - hbw / 2, hbw),
+    zoneMat(0xff4d4f)
+  );
+  front.position.set(a.x_m, a.height_agl_m, a.z_m);
+  zoneGroup.add(front);
+
+  const back = new THREE.Mesh(new THREE.CylinderGeometry(z.back_m, z.back_m, a.length_m, 32), zoneMat(0xffa940));
+  back.position.copy(front.position);
+  zoneGroup.add(back);
+}
+document.getElementById("showZones").onchange = (ev) => (zoneGroup.visible = ev.target.checked);
+
+document.getElementById("title").textContent = `${site.site_id} ${site.name ? "· " + site.name : ""}`;
+document.getElementById("regime").textContent = `Limit: ${twin.regime}`;
+document.getElementById("notes").textContent = site.notes.join(" ");
+const tbody = document.querySelector("#table tbody");
+for (const z of zones) {
+  const tr = document.createElement("tr");
+  for (const v of [z.antenna_id, `${byId[z.antenna_id].azimuth_deg}°`, `${z.front_m} m`, `${z.back_m} m`]) {
+    const td = document.createElement("td");
+    td.textContent = v;
+    tr.appendChild(td);
+  }
+  tbody.appendChild(tr);
+}
+
+function resize() {
+  const { clientWidth: w, clientHeight: h } = host;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(host);
+renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+</script>
+</body>
+</html>

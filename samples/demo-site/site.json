@@ -1,0 +1,39 @@
+{
+  "site_id": "DEMO-001",
+  "name": "Synthetic rooftop site (not a real location)",
+  "building": { "width_m": 18, "depth_m": 14, "height_m": 21 },
+  "antennas": [
+    {
+      "id": "S1-A", "sector": "1", "azimuth_deg": 30, "mechanical_tilt_deg": 2, "electrical_tilt_deg": 4,
+      "height_agl_m": 25, "x_m": 7, "z_m": -5, "manufacturer": "Generic", "model": "Tri-band panel 65deg", "length_m": 1.9,
+      "bands": [
+        { "name": "L800",  "frequency_mhz": 800,  "tx_power_w": 20, "gain_dbi": 15.0, "horizontal_beamwidth_deg": 65, "vertical_beamwidth_deg": 9 },
+        { "name": "L1800", "frequency_mhz": 1800, "tx_power_w": 20, "gain_dbi": 17.5, "horizontal_beamwidth_deg": 65, "vertical_beamwidth_deg": 6 },
+        { "name": "L2100", "frequency_mhz": 2100, "tx_power_w": 20, "gain_dbi": 18.0, "horizontal_beamwidth_deg": 65, "vertical_beamwidth_deg": 5 }
+      ]
+    },
+    {
+      "id": "S2-A", "sector": "2", "azimuth_deg": 150, "mechanical_tilt_deg": 2, "electrical_tilt_deg": 4,
+      "height_agl_m": 25, "x_m": 7, "z_m": 5, "manufacturer": "Generic", "model": "Tri-band panel 65deg", "length_m": 1.9,
+      "bands": [
+        { "name": "L800",  "frequency_mhz": 800,  "tx_power_w": 20, "gain_dbi": 15.0, "horizontal_beamwidth_deg": 65, "vertical_beamwidth_deg": 9 },
+        { "name": "L1800", "frequency_mhz": 1800, "tx_power_w": 20, "gain_dbi": 17.5, "horizontal_beamwidth_deg": 65, "vertical_beamwidth_deg": 6 },
+        { "name": "L2100", "frequency_mhz": 2100, "tx_power_w": 20, "gain_dbi": 18.0, "horizontal_beamwidth_deg": 65, "vertical_beamwidth_deg": 5 }
+      ]
+    },
+    {
+      "id": "S3-A", "sector": "3", "azimuth_deg": 270, "mechanical_tilt_deg": 2, "electrical_tilt_deg": 4,
+      "height_agl_m": 25, "x_m": -8, "z_m": 0, "manufacturer": "Generic", "model": "Tri-band panel 65deg", "length_m": 1.9,
+      "bands": [
+        { "name": "L800",  "frequency_mhz": 800,  "tx_power_w": 20, "gain_dbi": 15.0, "horizontal_beamwidth_deg": 65, "vertical_beamwidth_deg": 9 },
+        { "name": "L1800", "frequency_mhz": 1800, "tx_power_w": 20, "gain_dbi": 17.5, "horizontal_beamwidth_deg": 65, "vertical_beamwidth_deg": 6 },
+        { "name": "L2100", "frequency_mhz": 2100, "tx_power_w": 20, "gain_dbi": 18.0, "horizontal_beamwidth_deg": 65, "vertical_beamwidth_deg": 5 }
+      ]
+    }
+  ],
+  "equipment": [
+    { "id": "CAB-1", "kind": "cabinet", "label": "Outdoor cabinet", "x_m": -3, "z_m": 4, "height_agl_m": 21, "size_m": [0.8, 1.8, 0.7] },
+    { "id": "PWR-1", "kind": "power", "label": "Rectifier / batteries", "x_m": -1.8, "z_m": 4, "height_agl_m": 21, "size_m": [0.7, 1.6, 0.7] }
+  ],
+  "notes": ["All values are synthetic and for demonstration only."]
+}
