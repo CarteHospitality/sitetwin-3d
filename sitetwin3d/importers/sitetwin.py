@@ -21,7 +21,7 @@ import math
 from pathlib import Path
 
 from ..export import REGIMES, build_twin
-from ..osm import buildings_around, dms_to_deg
+from ..osm import dms_to_deg, surroundings
 from ..schema import Antenna, Band, Building, Neighbour, SiteModel
 
 SCHEMA = "jevbtk-digital-site@1"
@@ -139,7 +139,7 @@ def main() -> None:
     p.add_argument("site_model", type=Path)
     p.add_argument("--draft", type=Path, help="photo draft with neighbouring buildings (build_site.py output)")
     p.add_argument("-o", "--out", type=Path, required=True)
-    p.add_argument("--osm", action="store_true", help="fetch the roof outline and neighbouring buildings from OpenStreetMap")
+    p.add_argument("--osm", action="store_true", help="fetch the roof outline, neighbouring buildings and their uses (Microsoft footprints + OpenStreetMap)")
     p.add_argument("--regime", choices=REGIMES, default="tr")
     args = p.parse_args()
 
@@ -148,7 +148,7 @@ def main() -> None:
     host, notes = None, []
     if args.osm:
         lat, lon = dms_to_deg(doc["site"]["latitude_dms"]), dms_to_deg(doc["site"]["longitude_dms"])
-        host, osm_neighbours, notes = buildings_around(lat, lon)
+        host, osm_neighbours, notes = surroundings(lat, lon)
         neighbours += osm_neighbours
     existing, proposed = from_sitetwin(doc, neighbours, host, notes)
     twin = build_twin(proposed, args.regime)

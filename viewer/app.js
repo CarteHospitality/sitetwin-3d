@@ -18,6 +18,14 @@ const BAND_PRESETS = {
 const HEAD_HEIGHT_M = 1.7;
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
+function pointInPolygon(x, z, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, zi] = poly[i], [xj, zj] = poly[j];
+    if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside;
+  }
+  return inside;
+}
 const $ = (id) => document.getElementById(id);
 const el = (tag, props = {}, ...children) => {
   const e = Object.assign(document.createElement(tag), props);
@@ -61,16 +69,33 @@ ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 scene.add(new THREE.GridHelper(600, 120, 0x2c3340, 0x232833));
 
+// A footprint is extruded to its height; without one, a box from the bounds.
+// Shape points are (x, -z) so that rotating the extrusion upright lands them back on z.
+function buildingMesh(item, height, color) {
+  const mat = new THREE.MeshLambertMaterial({ color });
+  if (!item.footprint) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(item.width_m, height, item.depth_m), mat);
+    m.position.set(item.x_m ?? 0, height / 2, item.z_m ?? 0);
+    return m;
+  }
+  const shape = new THREE.Shape(item.footprint.map(([x, z]) => new THREE.Vector2(x, -z)));
+  const m = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false }), mat);
+  m.rotation.x = -Math.PI / 2;
+  return m;
+}
+
 const b = baseline.building;
-const building = new THREE.Mesh(new THREE.BoxGeometry(b.width_m, b.height_m, b.depth_m), new THREE.MeshLambertMaterial({ color: 0x8a919e }));
-building.position.y = b.height_m / 2;
-scene.add(building);
-scene.add(new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, b.height_m + 0.1, -b.depth_m / 2 - 1), 6, 0x4096ff, 1.5, 1));
+const roofBounds = b.footprint
+  ? (() => { const xs = b.footprint.map((p) => p[0]), zs = b.footprint.map((p) => p[1]); return { x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) }; })()
+  : { x0: -b.width_m / 2, x1: b.width_m / 2, z0: -b.depth_m / 2, z1: b.depth_m / 2 };
+const onRoof = (x, z) => (b.footprint ? pointInPolygon(x, z, b.footprint)
+  : x >= roofBounds.x0 && x <= roofBounds.x1 && z >= roofBounds.z0 && z <= roofBounds.z1);
+scene.add(buildingMesh(b, b.height_m, 0x8a919e));
+scene.add(new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, b.height_m + 0.1, roofBounds.z0 - 1), 6, 0x4096ff, 1.5, 1));
 
 const neighbourMeshes = {};
 for (const n of baseline.neighbours ?? []) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(n.width_m, n.height_m, n.depth_m), new THREE.MeshLambertMaterial({ color: 0x4b5263 }));
-  m.position.set(n.x_m, n.height_m / 2, n.z_m);
+  const m = buildingMesh(n, n.height_m, 0x4b5263);
   scene.add(m);
   neighbourMeshes[n.id] = m;
 }
@@ -143,12 +168,17 @@ function checkSite(s, zones) {
   const hit = new Set();
   for (const z of zones) {
     const a = byId[z.antenna_id];
+    const yLow = a.height_agl_m - z.half_height_m;
     for (const n of s.neighbours ?? []) {
+      // Skip buildings that are too far away or too low to touch the zone slab.
+      if (n.height_m < yLow || Math.hypot(n.x_m - a.x_m, n.z_m - a.z_m) - Math.hypot(n.width_m, n.depth_m) / 2 > z.front_m) continue;
       let closest = Infinity;
       for (let x = n.x_m - n.width_m / 2; x <= n.x_m + n.width_m / 2; x += 1)
-        for (let zz = n.z_m - n.depth_m / 2; zz <= n.z_m + n.depth_m / 2; zz += 1)
-          for (let y = 0; y <= n.height_m; y += 1)
+        for (let zz = n.z_m - n.depth_m / 2; zz <= n.z_m + n.depth_m / 2; zz += 1) {
+          if (n.footprint && !pointInPolygon(x, zz, n.footprint)) continue;
+          for (let y = Math.max(0, Math.floor(yLow)); y <= n.height_m; y += 1)
             if (insideZone(a, z, x, y, zz)) closest = Math.min(closest, Math.hypot(x - a.x_m, y - a.height_agl_m, zz - a.z_m));
+        }
       if (closest < Infinity) {
         hit.add(n.id);
         const occ = occupancy(n);
@@ -159,9 +189,9 @@ function checkSite(s, zones) {
     let roofCells = 0;
     const step = 0.5;
     const yHead = s.building.height_m + HEAD_HEIGHT_M;
-    for (let x = -s.building.width_m / 2; x < s.building.width_m / 2; x += step)
-      for (let zz = -s.building.depth_m / 2; zz < s.building.depth_m / 2; zz += step)
-        if (insideZone(a, z, x + step / 2, yHead, zz + step / 2)) roofCells++;
+    for (let x = roofBounds.x0; x < roofBounds.x1; x += step)
+      for (let zz = roofBounds.z0; zz < roofBounds.z1; zz += step)
+        if (onRoof(x + step / 2, zz + step / 2) && insideZone(a, z, x + step / 2, yHead, zz + step / 2)) roofCells++;
     if (roofCells) findings.push({ level: "warn", antenna: a.id, text: `${a.id}: restrict roof access, ${(roofCells * step * step).toFixed(1)} m² of roof is inside the zone at head height` });
   }
   if (!findings.some((f) => f.level === "bad")) findings.unshift({ level: "ok", text: "No EMF zone reaches a neighbouring building" });
@@ -215,7 +245,7 @@ function applyChanges(s, changes) {
       if (band) band.tx_power_w = w; else errors.push(`${a.id} has no band ${name}`);
     }
     if (c.action === "add_antenna" && !a.bands.length) a.bands.push(clone(BAND_PRESETS.N3500));
-    if (Math.abs(a.x_m) > bld.width_m / 2 || Math.abs(a.z_m) > bld.depth_m / 2) errors.push(`${a.id} is off the roof`);
+    if (!onRoof(a.x_m, a.z_m)) errors.push(`${a.id} is off the roof`);
     if (a.height_agl_m < bld.height_m + 1 || a.height_agl_m > bld.height_m + 15) errors.push(`${a.id} height out of range`);
     if (a.bands.some((x) => x.tx_power_w < 1 || x.tx_power_w > 240)) errors.push(`${a.id} power out of range`);
   }
@@ -252,6 +282,7 @@ function summarize(s) {
 
 const planner = {
   get site() { return site; },
+  roofBounds,
   state: () => ({ regime: REGIMES[regimeKey].name, current_plan: summarize(site), baseline: summarize(baseline), neighbours: site.neighbours }),
   evaluate(changes) {
     const { site: candidate, errors } = applyChanges(site, changes);
@@ -386,8 +417,8 @@ function refreshCoverageBands() {
 for (const input of document.querySelectorAll("#editor input[type=range]")) {
   const k = input.dataset.k;
   if (k === "height_agl_m") input.min = b.height_m;
-  if (k === "x_m") Object.assign(input, { min: -b.width_m / 2, max: b.width_m / 2 });
-  if (k === "z_m") Object.assign(input, { min: -b.depth_m / 2, max: b.depth_m / 2 });
+  if (k === "x_m") Object.assign(input, { min: roofBounds.x0, max: roofBounds.x1 });
+  if (k === "z_m") Object.assign(input, { min: roofBounds.z0, max: roofBounds.z1 });
   input.oninput = () => {
     const a = site.antennas.find((x) => x.id === selectedId);
     a[k] = Number(input.value);
