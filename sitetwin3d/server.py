@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -46,19 +47,37 @@ class ChatRequest(BaseModel):
     tools: list[dict[str, Any]]
 
 
+# Now and then the open model writes its raw chat-template tokens as text
+# instead of a structured tool call. Such a turn is asked again; if it still
+# leaks, the markup is stripped so the engineer only sees readable text.
+LEAK = re.compile(r"<\|[a-z_]+\|>|</?atem:[^>]*>")
+LEAK_HEADER = re.compile(r"<\|start\|>assistant to=\S+?<\|message\|>")
+
+
+def _clean(text: str) -> str:
+    text = re.sub(r"<atem:function_calls>.*?</atem:function_calls>", "", text, flags=re.S)
+    text = LEAK_HEADER.sub("", text)
+    return LEAK.sub("", text).strip()
+
+
 @app.post("/api/chat")
 def chat(req: ChatRequest) -> dict:
     cfg = AGENT_MODELS[os.environ.get("AGENT_PROVIDER", "baseten")]
     client = OpenAI(base_url=cfg["base_url"], api_key=os.environ[cfg["key_env"]])
-    try:
-        response = client.chat.completions.create(
-            model=cfg["model"], messages=req.messages, temperature=0.2,
-            **({"tools": req.tools} if req.tools else {}),
-        )
-    except OpenAIError as e:
-        raise HTTPException(status_code=502, detail=str(e)) from e
-    message = response.choices[0].message.model_dump(exclude_none=True)
-    message.setdefault("content", "")
+    for _ in range(3):
+        try:
+            response = client.chat.completions.create(
+                model=cfg["model"], messages=req.messages, temperature=0.2,
+                **({"tools": req.tools} if req.tools else {}),
+            )
+        except OpenAIError as e:
+            raise HTTPException(status_code=502, detail=str(e)) from e
+        message = response.choices[0].message.model_dump(exclude_none=True)
+        message.setdefault("content", "")
+        if not LEAK.search(message["content"] or ""):
+            break
+    message["content"] = _clean(message["content"] or "")
+    message.pop("reasoning_content", None)
     return {"message": message, "model": cfg["model"]}
 
 
