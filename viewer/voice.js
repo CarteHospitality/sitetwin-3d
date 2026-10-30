@@ -35,25 +35,27 @@ export async function transcribe(wav) {
 
 export function initVoice({ button, status, onText }) {
   let recorder = null;
-  let chunks = [];
 
   async function start() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    recorder = new MediaRecorder(stream);
-    chunks = [];
-    recorder.ondataavailable = (e) => chunks.push(e.data);
-    recorder.onstop = async () => {
+    // Keep this recording's own recorder and chunks: stop() clears the shared
+    // `recorder` before the asynchronous onstop callback runs.
+    const rec = new MediaRecorder(stream);
+    const parts = [];
+    recorder = rec;
+    rec.ondataavailable = (e) => parts.push(e.data);
+    rec.onstop = async () => {
       stream.getTracks().forEach((t) => t.stop());
       try {
         status("Transcribing with Muse Voice Transcribe…");
-        const text = (await transcribe(await toWav(new Blob(chunks, { type: recorder.mimeType })))).trim();
+        const text = (await transcribe(await toWav(new Blob(parts, { type: rec.mimeType })))).trim();
         status("");
         if (text) onText(text);
       } catch (e) {
         status(`⚠️ ${e.message ?? e}`);
       }
     };
-    recorder.start();
+    rec.start();
     button.classList.add("recording");
     button.textContent = "■ Stop";
     status("Listening… press Stop when you are done");
