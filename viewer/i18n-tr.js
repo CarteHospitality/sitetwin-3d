@@ -1,6 +1,9 @@
 // Turkish UI dictionary. English source -> Turkish. Used by i18n.js.
 // EXACT: whole trimmed text of a node or attribute equals the key.
 export const EXACT = {
+  "Talk": "Konuş",
+  "Listening… tap to stop": "Dinliyorum… durdurmak için dokunun",
+  "Cancel mic": "Mikrofonu iptal et",
   "TR single device": "TR tek cihaz",
   "ICNIRP general public": "ICNIRP genel halk",
   "rigging team and site visit needed.": "montaj ekibi ve saha ziyareti gerekli.",

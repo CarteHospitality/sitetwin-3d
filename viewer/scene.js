@@ -55,7 +55,7 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
       transparent: true, depthWrite: false, depthTest: true,
       side: T.DoubleSide, forceSinglePass: true, toneMapped: false,
       uniforms: { tint: { value: new T.Color(token(back ? "emf-back" : "emf-front")) },
-        bodyAlpha: { value: back ? .035 : .045 }, edgeAlpha: { value: back ? .12 : .18 } },
+        bodyAlpha: { value: back ? .07 : .10 }, edgeAlpha: { value: back ? .22 : .34 } },
       vertexShader: `varying vec3 vNormalView, vEye;
         void main() {
           vec4 p = modelViewMatrix * vec4(position, 1.0);
@@ -153,7 +153,7 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
       }
       if (zone) {
         zone.group.visible = layers.zones && Boolean(value.front_m);
-        zone.group.userData.front.material.uniforms.edgeAlpha.value = a.id === selected ? .22 : .18;
+        zone.group.userData.front.material.uniforms.edgeAlpha.value = a.id === selected ? .45 : .34;
         poseZone(zone.outline, value); zone.outline.visible = false;
       }
       const signature = JSON.stringify(value);

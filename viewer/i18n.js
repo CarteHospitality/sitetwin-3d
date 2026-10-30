@@ -56,7 +56,8 @@ function text(node) {
 }
 
 function attrs(element) {
-  if (skipped(element)) return;
+  // Attributes of inputs (placeholder, labels) are UI even where their text content is not.
+  if (element.closest(".msg.user, script, style, pre, code, .leaflet-tile-pane, [data-no-i18n]")) return;
   let o = attrOriginal.get(element), w = attrWritten.get(element);
   if (!o) { attrOriginal.set(element, o = {}); attrWritten.set(element, w = {}); }
   for (const name of ATTRS) {

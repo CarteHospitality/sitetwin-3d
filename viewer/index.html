@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SiteTwin 3D</title>
-<link rel="stylesheet" href="ui.css?v=cards-1">
+<link rel="stylesheet" href="ui.css?v=light-1">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -35,13 +35,12 @@
       <div class="chips">
         <button class="chip suggest">Review this site like an operator: what would you change and why?</button>
         <button class="chip suggest">Fix the neighbour conflicts with the smallest change</button>
-        <button class="chip suggest">Add 5G N3500 to sector 2 without new conflicts</button>
-      </div>
+              </div>
       <div class="row">
         <textarea id="chatInput" aria-label="Message to Expert Operator" rows="2" placeholder="Talk or type, any language: “remove S2-A”, “add 5G on sector 1”, “undo”"></textarea>
         <div class="stack">
           <button class="primary" id="chatSend">Send</button>
-          <button id="micButton" title="Push to talk (Muse Voice Transcribe)">🎤 Talk</button>
+          <button id="micButton" title="Push to talk (Muse Voice Transcribe)">Talk</button>
         </div>
       </div>
       <div class="row between">
@@ -61,7 +60,7 @@
     <section class="panel cards">
       <div class="panel-top"><button class="drawer-close" aria-label="Close inspector">Close</button></div>
 
-      <section class="card" data-card="site">
+      <section class="card" data-card="site" data-folded>
         <button class="card-head" aria-expanded="true"><span class="card-icon">🏢</span><span class="card-title">Site</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
         <div class="card-body">
           <h1 id="title">SiteTwin 3D</h1>
@@ -108,7 +107,7 @@
         <div class="card-body" id="crew"></div>
       </section>
 
-      <section class="card" data-card="work" hidden>
+      <section class="card" data-card="work" hidden data-folded>
         <button class="card-head" aria-expanded="true"><span class="card-icon">🧰</span><span class="card-title">Work order: steps, materials, precautions</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
         <div class="card-body">
           <p class="muted">Derived physical follow-up · quantities are estimates. Changes are applied to the plan only.</p>
@@ -152,6 +151,6 @@
 <nav class="mobile-nav" aria-label="Workspace navigation"><button data-pane="workspace" aria-pressed="true">Workspace</button><button data-pane="operator" aria-expanded="false">Operator</button><button data-pane="inspect" aria-expanded="false">Inspect</button></nav>
 <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
 <div id="liveStatus" class="sr-only" role="status" aria-live="polite"></div>
-<script type="module" src="app.js?v=cards-1"></script>
+<script type="module" src="app.js?v=light-1"></script>
 </body>
 </html>
