@@ -397,6 +397,10 @@ function renderEditor() {
   showCard("antenna");
   setCardSummary("antenna", `${a.id} · ${Math.round(a.azimuth_deg)}° · ${a.height_agl_m} m`);
   $("editId").textContent = a.id;
+  // Bands the antenna already carries cannot be added again: offer only the others.
+  for (const option of $("bandPreset").options) option.disabled = a.bands.some((x) => x.name === BAND_PRESETS[option.value].name);
+  if ($("bandPreset").selectedOptions[0]?.disabled) $("bandPreset").value = [...$("bandPreset").options].find((o) => !o.disabled)?.value ?? "";
+  $("addBand").disabled = !$("bandPreset").value;
   for (const input of document.querySelectorAll("#editor input[data-k]")) {
     input.value = a[input.dataset.k];
     input.nextElementSibling.textContent = a[input.dataset.k];
