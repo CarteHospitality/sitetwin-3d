@@ -3,7 +3,7 @@
 
 import "./i18n.js";
 import { siteZones, REGIMES } from "./emf.js";
-import { checkSite } from "./checks.js";
+import { checkSite, headline } from "./checks.js";
 import { populationContext } from "./population.js";
 import { createAgent } from "./agent.js";
 import { initVoice } from "./voice.js";
@@ -43,7 +43,8 @@ L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
 
 function assess(entry, twin, regime = "tr", proposed = false) {
   const site = twin.site;
-  const { findings, hit } = checkSite(site, siteZones(site, REGIMES[regime]));
+  const checks = checkSite(site, siteZones(site, REGIMES[regime]));
+  const { findings, hit } = checks;
   const pop = populationContext(site);
   const issues = [];
   const bad = findings.filter((f) => f.level === "bad");
@@ -59,7 +60,10 @@ function assess(entry, twin, regime = "tr", proposed = false) {
   if (proposed) issues.push("Session proposal · applied to plan; source file unchanged");
   const level = sensitive.length ? "critical" : bad.length ? "high" : findings.some((f) => f.level === "warn") || capacity ? "medium" : planned.length || proposed ? "planned" : "ok";
   const score = 100 * sensitive.length + 30 * bad.length + 5 * findings.filter((f) => f.level === "warn").length + (capacity ? 10 : 0) + planned.length;
-  return { level, score, issues, hitBuildings: hit.size, findingCount: bad.length, people: pop.total_people_nearby, buildings: site.neighbours.length };
+  // One sentence for the list: the EMF state, or else the next most important thing.
+  const head = headline(checks);
+  const summary = head.level !== "ok" ? head.text : capacity ? "Busy sector: capacity to review" : planned.length ? "SiteTwin changes planned" : "No issues found";
+  return { level, score, issues, summary, hitBuildings: hit.size, findingCount: bad.length, people: pop.total_people_nearby, buildings: site.neighbours.length };
 }
 
 const sites = [];
@@ -79,6 +83,7 @@ function pinIcon(level, selected = false, attention = false) {
 
 function renderActions() {
   setCardSummary("actions", mapActions.length ? `${mapActions.length}` : "");
+  if (mapActions.length) showCard("actions"); else hideCard("actions");
   $("actions").replaceChildren(...mapActions.map((action) => el("li", {}, el("time", { textContent: new Date(action.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }), action.text)));
 }
 function logAction(text) {
@@ -134,6 +139,7 @@ function render(selected = selectedSite, force = false) {
       statButtons.set(key, button); $("stats").append(button);
     }
     button.firstChild.textContent = key === "all" ? sites.length : counts[key];
+    button.hidden = key === "all" || !counts[key];
     button.setAttribute("aria-pressed", String(key === "all" ? !statusFilter : statusFilter === key));
   }
   $("filterStatus").textContent = statusFilter ? `Filter: ${LEVELS[statusFilter].label}` : "All sites";
@@ -163,10 +169,10 @@ function render(selected = selectedSite, force = false) {
       const restoreActionFocus = document.activeElement !== row && row.contains(document.activeElement);
       row.dataset.signature = signature;
       row.replaceChildren(
-        el("div", { className: "head" }, el("span", { className: "dot", style: `background:${token(s.a.level)}`, textContent: lv.glyph }), el("span", { className: "id", textContent: id })),
+        el("div", { className: "head" }, el("span", { className: "dot", style: `background:${token(s.a.level)}`, textContent: lv.glyph }), el("span", { className: "id", textContent: id }), el("span", { className: "level", textContent: lv.label })),
         el("div", { className: "tag", textContent: `${s.entry.structure.replaceAll("_", " ")} · ${lv.label} · ${s.regime === "tr" ? "TR 20%" : "ICNIRP"}` }),
         el("div", { className: "muted", textContent: `${s.a.buildings} buildings · ~${s.a.people} people nearby (estimated)` }),
-        el("div", { className: "issue", textContent: s.a.issues[0] ?? "No issues found" }));
+        el("div", { className: "issue", textContent: s.a.summary }));
       if (restoreActionFocus) (row.querySelector("button") ?? row).focus({ preventScroll: true });
     }
     row.onclick = () => select(s);
@@ -200,12 +206,12 @@ function renderSelected(s) {
   setCardSummary("selected", `${s.entry.site_id} · ${lv.label}`, s.a.level === "critical" ? "bad" : s.a.level === "high" ? "warn" : s.a.level === "ok" ? "ok" : "");
   $("selectedSite").replaceChildren(
     el("h1", { textContent: s.entry.site_id }),
-    el("div", { className: "tag", textContent: `${s.entry.structure.replaceAll("_", " ")} · ${lv.label} · ${s.regime === "tr" ? "TR 20%" : "ICNIRP"}` }),
-    el("div", { className: "muted", textContent: `${s.a.buildings} buildings · ~${s.a.people} people nearby (estimated) · ${s.a.hitBuildings ?? 0} affected building(s)` }),
-    el("ul", {}, ...(s.a.issues.length ? s.a.issues : ["No issues found"]).map((text) => el("li", { textContent: text }))),
+    el("div", { className: `headline ${s.a.level === "critical" || s.a.level === "high" ? "bad" : s.a.level === "ok" ? "ok" : ""}`, textContent: s.a.summary }),
     el("div", { className: "row" },
-      Object.assign(el("button", { className: "primary", textContent: "Open 3D twin and simulate the fix →" }), { onclick: () => openTwin(s) }),
-      Object.assign(el("button", { textContent: "Zoom in" }), { onclick: () => select(s, { inspect: true }) })),
+      Object.assign(el("button", { className: "primary", textContent: "Open in 3D →" }), { onclick: () => openTwin(s) })),
+    el("details", { className: "more" }, el("summary", { textContent: "Details" }),
+      el("div", { className: "muted", textContent: `${s.entry.structure.replaceAll("_", " ")} · ${s.regime === "tr" ? "TR 20%" : "ICNIRP"} · ${s.a.buildings} buildings · ~${s.a.people} people nearby (estimated)` }),
+      el("ul", {}, ...(s.a.issues.length ? s.a.issues : ["No issues found"]).map((text) => el("li", { textContent: text })))),
   );
   showCard("selected", { reveal: shownSelected !== s });
   shownSelected = s;
@@ -321,7 +327,7 @@ const mapAgent = createAgent({
   },
   systemPrompt: ({ voice } = {}) => `You are the Expert Operator on the SiteTwin portfolio map: a senior RF and site engineer who helps
 an operator or vendor decide which base-station sites need attention and what to do.
-${voice ? "The engineer is speaking: answer in 1-3 short spoken sentences, no lists." : "The engineer is typing: answer in short text; a short list is fine."}
+${voice ? "The engineer is speaking: answer in 1-3 short spoken sentences, no lists." : "The engineer is typing: answer in at most 3 short lines, plain sentences, no headings."}
 Answer in the engineer's language (Turkish if they speak Turkish).
 Sites are ranked by automatic checks: Critical = an EMF zone reaches a sensitive building (school, kindergarten, hospital);
 Action needed = a zone reaches another building; Review = roof safety or capacity; Change planned = SiteTwin has pending antenna changes.

@@ -294,3 +294,31 @@ button.primary, .primary { box-shadow: none; }
 #micButton::before { content: ""; display: inline-block; width: 14px; height: 14px; margin-right: 6px; vertical-align: -2px; background: currentColor;
   -webkit-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>') center / contain no-repeat;
           mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>') center / contain no-repeat; }
+
+/* ---- Simpler still: one sentence per card, details on demand ---- */
+/* Chat: suggestions only before the first question; no read-aloud switch. */
+.chat:has(.msg.user) .composer .chips { display: none; }
+.voice-controls label, .composer .row.between { display: none; }
+.run-activity > summary { color: var(--text-secondary); font-size: 13px; }
+/* Scene: the picture, the legend, nothing else. */
+.stage-tools, .scene-reference { display: none; }
+/* Technical cards stay out of the way until asked for. */
+.cards:not(.show-extra) [data-extra] { display: none; }
+.extra-toggle { align-self: center; background: none; border: 0; color: var(--text-secondary); font-size: 13px; text-decoration: underline; cursor: pointer; padding: 8px; }
+.headline { font-size: 15px; font-weight: 600; margin: 2px 0 8px; }
+.headline.bad { color: var(--critical, #c62828); }
+.headline.ok { color: var(--ok, #2e7d32); }
+.more { margin-top: 8px; }
+.more > summary { cursor: pointer; color: var(--text-secondary); font-size: 13px; }
+#checks li { cursor: pointer; }
+.visit-line { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-top: 1px solid var(--border); font-size: 14px; }
+.visit-line:first-of-type { border-top: 0; }
+#planDelta, #planActions { display: none; }
+/* Portfolio: counts as a quiet line, one sentence per site. */
+.stats { display: flex; flex-wrap: wrap; gap: 6px; }
+.stats .stat { display: inline-flex; align-items: baseline; gap: 6px; padding: 4px 10px; min-height: 0; border-radius: 999px; font-size: 13px; }
+.stats .stat b { font-size: 14px; }
+[data-card="portfolio"] .card-body > .muted:first-child { display: none; }
+.site .tag, .site > .muted { display: none; }
+.site .level { margin-left: auto; font-size: 12px; color: var(--text-secondary); }
+.row:has(> #clearFilter[hidden]) { display: none; }

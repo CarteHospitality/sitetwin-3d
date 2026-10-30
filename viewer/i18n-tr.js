@@ -293,6 +293,22 @@ export const EXACT = {
   // ---- Data notes (whole-note matches)
   "OpenStreetMap unavailable; building uses unknown.": "OpenStreetMap kullanılamıyor; bina kullanım türleri bilinmiyor.",
   "All values are synthetic and for demonstration only.": "Tüm değerler sentetiktir ve yalnızca gösterim amaçlıdır.",
+
+  // ---- Simpler interface: one-sentence states, details on demand
+  "Technical details": "Teknik ayrıntılar",
+  "Hide technical details": "Teknik ayrıntıları gizle",
+  "School inside an EMF zone": "Okul EMF bölgesinde",
+  "Hospital inside an EMF zone": "Hastane EMF bölgesinde",
+  "Kindergarten inside an EMF zone": "Anaokulu EMF bölgesinde",
+  "Roof access must be restricted": "Çatı erişimi kısıtlanmalı",
+  "No EMF zone reaches a building": "EMF bölgesi hiçbir binaya ulaşmıyor",
+  "Busy sector: capacity to review": "Yoğun sektör: kapasite incelenmeli",
+  "SiteTwin changes planned": "SiteTwin değişikliği planlı",
+  "Open in 3D →": "3D'de aç →",
+  "Details": "Ayrıntılar",
+  "Crew, tasks and materials": "Ekip, görevler ve malzemeler",
+  "Working…": "Çalışıyor…",
+  "Show in 3D": "3D'de göster",
 };
 
 // PHRASES: fixed English phrases replaced wherever they appear inside longer, partly dynamic text
@@ -569,4 +585,10 @@ export const PATTERNS = [
   // ---- Field work order: summary
   ["^(\\d+) antenna change\\(s\\); rigging team and site visit needed\\.$", "", "$1 anten değişikliği; montaj ekibi ve saha ziyareti gerekli."],
   ["^(\\d+) antenna change\\(s\\); remote only\\.$", "", "$1 anten değişikliği; yalnızca uzaktan."],
+  ["^EMF zone reaches (\\d+) building\\(s\\)$", "", "EMF bölgesi $1 binaya ulaşıyor"],
+  ["^All findings \\((\\d+)\\)$", "", "Tüm bulgular ($1)"],
+  ["^✓ Done · (\\d+) steps · (\\d+)s$", "", "✓ Tamamlandı · $1 adım · $2 sn"],
+  ["^✓ Done, some steps failed · (\\d+) steps · (\\d+)s$", "", "✓ Tamamlandı, bazı adımlar başarısız · $1 adım · $2 sn"],
+  ["^✕ Failed · (\\d+) steps · (\\d+)s$", "", "✕ Başarısız · $1 adım · $2 sn"],
+  ["^(\\d+) engineer · ~([\\d.]+) h$", "", "$1 mühendis · ~$2 sa"],
 ];

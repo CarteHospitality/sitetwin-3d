@@ -35,9 +35,9 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
       const lines = text.split("\n");
       const message = el("div", { className: "msg assistant" });
       // Preserve all safely escaped content; long answers retain expandable detail.
-      if (lines.length > 8) {
-        message.append(el("div", { innerHTML: replyHtml(lines.slice(0, 5).join("\n")) }),
-          el("details", {}, el("summary", { textContent: "Answer details" }), el("div", { innerHTML: replyHtml(lines.slice(5).join("\n")) })));
+      if (lines.length > 5) {
+        message.append(el("div", { innerHTML: replyHtml(lines.slice(0, 3).join("\n")) }),
+          el("details", {}, el("summary", { textContent: "Answer details" }), el("div", { innerHTML: replyHtml(lines.slice(3).join("\n")) })));
       } else message.innerHTML = replyHtml(text);
       log.append(message);
     });
@@ -70,15 +70,15 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
       rows = new Map(); trialCount = completedTrials = failedTrials = 0;
       runFailed = false;
       runStart = performance.now(); trials = null;
-      groupTitle = el("summary", { textContent: "Run activity · Running" });
+      groupTitle = el("summary", { textContent: "Working…" });
       rail = el("div", { className: "activity-rail" });
-      group = el("details", { className: "run-activity", open: true }, groupTitle, rail);
+      group = el("details", { className: "run-activity" }, groupTitle, rail);
       change(() => log.append(group));
       announce("Operator running");
     } else {
       waiting(false);
       const failed = [...rows.values()].some((r) => r.failed);
-      if (groupTitle) groupTitle.textContent = `Run activity · ${runFailed ? "Failed" : failed ? "Completed with failed tools" : "Completed"} · ${((performance.now() - runStart) / 1000).toFixed(1)}s`;
+      if (groupTitle) groupTitle.textContent = `${runFailed ? "✕ Failed" : failed ? "✓ Done, some steps failed" : "✓ Done"} · ${rows.size} steps · ${Math.round((performance.now() - runStart) / 1000)}s`;
     }
     onBusy(on, mode);
     if (!on) onComplete(mode);
@@ -88,6 +88,7 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
     const row = el("details", { className: "activity-step running" }, heading,
       el("pre", { textContent: JSON.stringify(args, null, 2) }));
     rows.set(id, { row, heading, name, started: performance.now() });
+    if (groupTitle) groupTitle.textContent = `${LABELS[name] ?? name}${name === "evaluate_change" ? ` ${trialCount}` : ""}…`;
     change(() => {
       if (name === "evaluate_change") {
         if (!trials) {

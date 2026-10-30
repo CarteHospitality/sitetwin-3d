@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SiteTwin Portfolio</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="ui.css?v=light-1">
+<link rel="stylesheet" href="ui.css?v=simple-1">
 </head>
 <body>
 <header class="topbar">
   <a class="app-brand" href="portfolio.html">SiteTwin <span>3D</span></a>
-  <div class="breadcrumb">Portfolio / Geographic workspace</div>
+  <div class="breadcrumb">Portfolio</div>
   <span class="context">Planning simulation</span>
   <label class="contrast-control"><input id="projector" type="checkbox"><span>Projector contrast</span></label>
   <button class="drawer-trigger operator-trigger" data-pane="operator" aria-expanded="false">Operator</button>
@@ -77,7 +77,7 @@
         <div class="card-body"><div id="list"></div></div>
       </section>
 
-      <section class="card" data-card="actions">
+      <section class="card" data-card="actions" hidden data-folded>
         <button class="card-head" aria-expanded="true"><span class="card-icon">🕘</span><span class="card-title">Actions taken</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
         <div class="card-body"><ul id="actions" class="actions"><li class="muted">Nothing yet</li></ul></div>
       </section>
@@ -88,6 +88,6 @@
 <nav class="mobile-nav" aria-label="Workspace navigation"><button data-pane="workspace" aria-pressed="true">Workspace</button><button data-pane="operator" aria-expanded="false">Operator</button><button data-pane="inspect" aria-expanded="false">Inspect</button></nav>
 <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
 <div id="liveStatus" class="sr-only" role="status" aria-live="polite"></div>
-<script type="module" src="portfolio.js?v=light-1"></script>
+<script type="module" src="portfolio.js?v=simple-1"></script>
 </body>
 </html>

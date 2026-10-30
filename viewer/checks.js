@@ -48,7 +48,7 @@ export function checkSite(s, zones) {
         const occ = occupancy(n);
         const sensitive = SENSITIVE_USES.has(n.use);
         const who = `${sensitive ? `SENSITIVE ${n.use}, ` : ""}${occ.estimated ? "~" : ""}${occ.people} people`;
-        findings.push({ level: "bad", sensitive, antenna: a.id, building: n.id, text: `${a.id} zone reaches ${n.id} [${who}] (${closest.toFixed(1)} m from antenna, zone ${z.front_m} m)` });
+        findings.push({ level: "bad", sensitive, use: n.use, antenna: a.id, building: n.id, text: `${a.id} zone reaches ${n.id} [${who}] (${closest.toFixed(1)} m from antenna, zone ${z.front_m} m)` });
       }
     }
     let roofCells = 0;
@@ -62,4 +62,13 @@ export function checkSite(s, zones) {
   }
   if (!findings.some((f) => f.level === "bad")) findings.unshift({ level: "ok", text: "No EMF zone reaches a neighbouring building" });
   return { findings, hit };
+}
+
+// The site's state in one sentence, for card headers and the portfolio list.
+export function headline({ findings, hit }) {
+  const sensitive = findings.find((f) => f.sensitive);
+  if (sensitive) return { level: "bad", text: `${sensitive.use[0].toUpperCase()}${sensitive.use.slice(1)} inside an EMF zone` };
+  if (hit.size) return { level: "bad", text: `EMF zone reaches ${hit.size} building(s)` };
+  if (findings.some((f) => f.level === "warn")) return { level: "warn", text: "Roof access must be restricted" };
+  return { level: "ok", text: "No EMF zone reaches a building" };
 }

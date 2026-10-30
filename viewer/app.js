@@ -5,7 +5,7 @@ import "./i18n.js";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { REGIMES, siteZones } from "./emf.js";
-import { checkSite, pointInPolygon, roofOf } from "./checks.js";
+import { checkSite, headline, pointInPolygon, roofOf } from "./checks.js";
 import { coverageGrid, coverageGridAsync, paintCoverage, RSRP_BINS } from "./coverage.js";
 import { initAgent } from "./agent.js";
 import { populationContext } from "./population.js";
@@ -20,6 +20,12 @@ import { crewPlan } from "./crew.js";
 
 initShell();
 initCards();
+const extraToggle = $("extraToggle");
+extraToggle.onclick = () => {
+  const open = extraToggle.closest(".cards").classList.toggle("show-extra");
+  extraToggle.setAttribute("aria-expanded", String(open));
+  extraToggle.textContent = open ? "Hide technical details" : "Technical details";
+};
 
 const BAND_PRESETS = {
   L800: { name: "L800", frequency_mhz: 800, tx_power_w: 20, gain_dbi: 15.0, horizontal_beamwidth_deg: 65, vertical_beamwidth_deg: 9, front_to_back_db: 25, feeder_loss_db: 0 },
@@ -418,22 +424,19 @@ function renderPanels(zones, checks, changes) {
   const nextFindingSignature = JSON.stringify(checks.findings);
   if (findingSignature !== nextFindingSignature) {
   findingSignature = nextFindingSignature;
-  const findingNodes = [];
-  for (const [label, filter] of [["Sensitive-building conflicts", (f) => f.sensitive], ["Other conflicts", (f) => f.level === "bad" && !f.sensitive], ["Roof restrictions", (f) => f.level === "warn"], ["Result", (f) => f.level === "ok"]]) {
-    const findings = checks.findings.filter(filter);
-    if (!findings.length) continue;
-    findingNodes.push(el("li", { className: "muted", textContent: `${label} (${findings.length})` }));
-    for (const f of findings) {
-      const row = el("li", { className: f.level, textContent: `${f.level === "ok" ? "✓" : "!"} ${f.text}` });
-      if (f.antenna) row.append(Object.assign(el("button", { textContent: "Locate", ariaLabel: `Locate ${f.building ?? f.antenna}` }), { onclick: () => select(f.antenna, f) }));
-      findingNodes.push(row);
-    }
+  // One sentence first; sensitive buildings are listed, everything else waits behind "All findings".
+  const head = headline(checks);
+  $("checksHeadline").className = `headline ${head.level}`;
+  setText($("checksHeadline"), head.text);
+  const row = (f) => {
+    const item = el("li", { className: f.level, textContent: f.text, title: "Show in 3D" });
+    if (f.antenna) item.onclick = () => select(f.antenna, f);
+    return item;
+  };
+  const rest = checks.findings.filter((f) => !f.sensitive && f.level !== "ok");
+  $("checks").replaceChildren(...checks.findings.filter((f) => f.sensitive).map(row),
+    ...(rest.length ? [el("li", {}, el("details", { className: "more" }, el("summary", { textContent: `All findings (${rest.length})` }), el("ul", {}, ...rest.map(row))))] : []));
   }
-  $("checks").replaceChildren(...findingNodes);
-  }
-  setText($("hitCount"), checks.hit.size);
-  setText($("roofCount"), checks.findings.filter((f) => f.level === "warn").length);
-  setText($("findingCount"), `${checks.findings.filter((f) => f.level === "bad").length} conflict findings · unique buildings counted above`);
   $("activeRegime").textContent = REGIMES[regimeKey].name;
   $("planDelta").textContent = changes.length ? `${changes.length} delta(s) · Applied to plan` : "Plan equals baseline";
   const nextDeltaSignature = JSON.stringify(changes);
@@ -473,21 +476,16 @@ function renderCrew(plan) {
   const install = plan.visits.find((v) => v.name === "Installation visit");
   setCardSummary("crew", install ? `${plan.headcount} people · ${install.days} day(s)` : "Remote only", install ? "warn" : "ok");
   const list = (title, items) => items.length ? [el("h2", { textContent: title }), el("ul", {}, ...items.map((t) => el("li", { textContent: t })))] : [];
+  // One line per visit; roles, tasks, tools and materials open on request.
   $("crew").replaceChildren(
-    el("div", { className: "crew-grid" },
-      el("div", {}, el("strong", { textContent: String(plan.headcount || 0) }), "people on site"),
-      el("div", {}, el("strong", { textContent: String(plan.onsite_days) }), "site day(s)"),
-      el("div", {}, el("strong", { textContent: String(plan.visits.length) }), "visit(s)")),
-    ...(plan.crew.length ? [el("h2", { textContent: "Crew" }), ...plan.crew.map((c) => el("div", { className: "crew-role" },
-      el("span", { className: "n", textContent: String(c.count) }), el("div", {}, el("strong", { textContent: c.role }), el("div", { className: "muted", textContent: c.why }))))] : []),
-    el("h2", { textContent: "Visits and duration" }),
-    ...plan.visits.map((v) => el("div", { className: `visit${v.remote ? " remote" : ""}` },
-      el("strong", { textContent: v.name }),
-      el("div", { className: "muted", textContent: v.remote ? `Remote · ${v.people} engineer · ~${v.hours} h` : `${v.people} people · ~${v.hours} h · ${v.days} day(s)` }),
-      el("ul", {}, ...v.tasks.map((t) => el("li", { textContent: t }))))),
-    ...list("Tools and equipment to bring", plan.tools),
-    ...list("Materials", plan.materials),
-    el("p", { className: "muted", textContent: plan.note }),
+    ...plan.visits.map((v) => el("div", { className: "visit-line" }, el("span", { textContent: v.name }),
+      el("span", { className: "muted", textContent: v.remote ? `${v.people} engineer · ~${v.hours} h` : `${v.people} people · ${v.days} day(s)` }))),
+    el("details", { className: "more" }, el("summary", { textContent: "Crew, tasks and materials" }),
+      ...(plan.crew.length ? [el("h2", { textContent: "Crew" }), el("ul", {}, ...plan.crew.map((c) => el("li", {}, `${c.count} × `, el("span", { textContent: c.role }))))] : []),
+      ...plan.visits.flatMap((v) => list(v.name, v.tasks)),
+      ...list("Tools and equipment to bring", plan.tools),
+      ...list("Materials", plan.materials),
+      el("p", { className: "muted", textContent: plan.note })),
   );
   setCardSummary("work", `${plan.materials.length} material(s)`);
 }
