@@ -26,6 +26,7 @@ export async function composeBeforeAfter({ site, before, after }) {
 }
 
 export function openSnapshot(blob, site) {
+  if (document.querySelector(".snapshot-dialog[open]")) return;
   const url = URL.createObjectURL(blob);
   const name = `${site}-before-after.png`;
   const status = el("span", { className: "muted", role: "status" });

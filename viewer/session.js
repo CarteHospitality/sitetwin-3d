@@ -74,3 +74,16 @@ export function consumeHandoff(params, url = location.href) {
   history.replaceState(history.state, "", current.href);
   return { id, instruction, voice: params.get("voice") === "1" };
 }
+
+// Sites loaded with "Load file" during this session, kept per portfolio so the
+// map and the 3D page (action plan address, list of sites) still know them.
+const uploadsKey = (indexUrl) => `uploads:${absoluteUrl(indexUrl)}`;
+export function rememberUpload(indexUrl, entry) {
+  const list = readSession(uploadsKey(indexUrl), []).filter((e) => e.site_id !== entry.site_id);
+  return writeSession(uploadsKey(indexUrl), [...list, entry]);
+}
+export function withUploads(indexUrl, index) {
+  const known = new Set(index.sites.map((s) => s.site_id));
+  const extra = readSession(uploadsKey(indexUrl), []).filter((e) => e && typeof e.twin === "string" && !known.has(e.site_id));
+  return { ...index, sites: [...index.sites, ...extra] };
+}

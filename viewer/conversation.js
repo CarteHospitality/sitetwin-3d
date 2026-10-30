@@ -65,6 +65,7 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
   function busy(on, mode) {
     $("chatSend").disabled = on;
     $("chatInput").disabled = on;
+    if (document.getElementById("photoButton")) $("photoButton").disabled = on;
     for (const b of document.querySelectorAll(".suggest")) b.disabled = on;
     if (on) {
       rows = new Map(); trialCount = completedTrials = failedTrials = 0;

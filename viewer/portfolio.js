@@ -8,7 +8,7 @@ import { populationContext } from "./population.js";
 import { createAgent } from "./agent.js";
 import { initVoice } from "./voice.js";
 import { initConversation } from "./conversation.js";
-import { readSession, writeSession, restoreProposed, canonical, handoffId, absoluteUrl } from "./session.js";
+import { readSession, writeSession, restoreProposed, canonical, handoffId, absoluteUrl, rememberUpload, withUploads } from "./session.js";
 import { $, el, token, initShell, reducedMotion } from "./ui.js";
 import { startTour, readTour, endTour } from "./tour.js";
 import { combinePlans, openActionPlan } from "./actionplan.js";
@@ -33,8 +33,8 @@ const mapKey = `map:${absoluteUrl(indexUrl)}`;
 const storedMap = readSession(mapKey, {}) || {};
 const mapActions = Array.isArray(storedMap.actions) ? storedMap.actions.filter((a) => a && typeof a.text === "string" && typeof a.time === "string") : [];
 const seenProposals = storedMap.proposals && typeof storedMap.proposals === "object" ? storedMap.proposals : {};
-const index = await fetch(indexUrl).then((r) => (r.ok ? r.json() : fetch("data/samples/portfolio.json").then((s) => s.json())))
-  .catch((e) => { $("loading").textContent = `Portfolio unavailable: ${e.message}`; throw e; });
+const index = withUploads(indexUrl, await fetch(indexUrl).then((r) => (r.ok ? r.json() : fetch("data/samples/portfolio.json").then((s) => s.json())))
+  .catch((e) => { $("loading").textContent = `Portfolio unavailable: ${e.message}`; throw e; }));
 
 const map = L.map("map", { zoomControl: true, fadeAnimation: !reducedMotion.matches,
   zoomAnimation: !reducedMotion.matches, markerZoomAnimation: !reducedMotion.matches });
@@ -346,7 +346,7 @@ const mapAgent = createAgent({
   systemPrompt: ({ voice } = {}) => `You are the Expert Operator on the SiteTwin portfolio map: a senior RF and site engineer who helps
 an operator or vendor decide which base-station sites need attention and what to do.
 ${voice ? "The engineer is speaking: answer in 1-3 short spoken sentences, no lists." : "The engineer is typing: answer in at most 3 short lines, plain sentences, no headings."}
-Answer in the engineer's language (Turkish if they speak Turkish).
+Answer in the engineer's language (Turkish if they speak Turkish). When you open a site, pass the instruction in the engineer's own language.
 Sites are ranked by automatic checks: Critical = an EMF zone reaches a sensitive building (school, kindergarten, hospital);
 Action needed = a zone reaches another building; Review = roof safety or capacity; Change planned = SiteTwin has pending antenna changes.
 Call list_sites before talking about sites; never invent sites or numbers. Site names may be spoken loosely ("Ankara", "the Izmir one"):
@@ -389,7 +389,9 @@ $("upload").onchange = async (e) => {
   try {
     const res = await fetch("api/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: await file.text() });
     if (!res.ok) throw new Error(await res.text());
-    const s = await add(await res.json());
+    const entry = await res.json();
+    const s = await add(entry);
+    rememberUpload(indexUrl, entry);
     $("uploadStatus").textContent = `Added ${s.entry.site_id}`;
     setCardSummary("upload", "done", "ok");
     setTimeout(() => hideCard("upload"), 4000);

@@ -15,7 +15,7 @@ import { populationContext } from "./population.js";
 import { initVoice } from "./voice.js";
 import { initConversation } from "./conversation.js";
 import { createSceneMotion } from "./scene.js";
-import { restoreProposed, saveProposed, sourceFingerprint, consumeHandoff, handoffId, absoluteUrl } from "./session.js";
+import { restoreProposed, saveProposed, sourceFingerprint, consumeHandoff, handoffId, absoluteUrl, withUploads } from "./session.js";
 import { fieldWorkOrder } from "./fieldwork.js";
 import { $, el, token, initShell, setText } from "./ui.js";
 import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
@@ -63,14 +63,15 @@ let coverageBand = restored.view.coverageBand ?? null;
 let lastModelState = clone(site);
 const planActions = restored.actions.filter((a) => a && typeof a.time === "string" && Array.isArray(a.delta));
 let saveTimer = null;
-let lastReason = null; // the operator's own words for the latest applied change, for the action plan
+// The operator's own words for the latest applied change, for the action plan; kept with the session plan.
+let lastReason = typeof restored.view.reason === "string" ? restored.view.reason : null;
 let pageActive = true;
 window.addEventListener("pagehide", () => { pageActive = false; });
 window.addEventListener("pageshow", () => { pageActive = true; });
 function saveSessionPlan() {
   clearTimeout(saveTimer);
   const saved = saveProposed(src, twin, { site, regime: regimeKey, actions: planActions,
-    view: { selected: selectedId, layers, coverageBand } }, fingerprint);
+    view: { selected: selectedId, layers, coverageBand, reason: lastReason } }, fingerprint);
   if (!saved) $("planSession").textContent = "Session storage unavailable · export the plan to keep it";
 }
 window.addEventListener("pagehide", saveSessionPlan);
@@ -358,7 +359,7 @@ const undoStack = [];
 let pendingOpen = null;
 let portfolioCache = null;
 async function portfolioIndex() {
-  portfolioCache ??= await fetch(portfolioUrl).then((r) => (r.ok ? r.json() : fetch("data/samples/portfolio.json").then((x) => x.json())));
+  portfolioCache ??= withUploads(portfolioUrl, await fetch(portfolioUrl).then((r) => (r.ok ? r.json() : fetch("data/samples/portfolio.json").then((x) => x.json()))));
   return portfolioCache;
 }
 
@@ -685,7 +686,7 @@ $("addAntenna").onclick = () => {
   refreshCoverageBands();
   select(`S${i}-N`);
 };
-$("reset").onclick = () => { undoStack.push(clone(site)); site = clone(baseline); selectedId = null; refreshCoverageBands(); update(); renderEditor(); };
+$("reset").onclick = () => { undoStack.push(clone(site)); site = clone(baseline); selectedId = null; lastReason = null; refreshCoverageBands(); update(); renderEditor(); };
 async function buildPlan() {
   const regime = REGIMES[regimeKey];
   const zones = siteZones(site, regime);

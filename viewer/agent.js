@@ -122,7 +122,7 @@ const TOOLS = [
     function: {
       name: "open_site",
       description: "Leave this site and open another site's 3D twin, where `instruction` (or a full review) is carried out. Use when the engineer names another site.",
-      parameters: { type: "object", properties: { site_id: { type: "string" }, instruction: { type: "string" } }, required: ["site_id"] },
+      parameters: { type: "object", properties: { site_id: { type: "string" }, instruction: { type: "string", description: "What to do there, in the engineer's own words and language" } }, required: ["site_id"] },
     },
   },
 ];
@@ -168,7 +168,8 @@ EMF zones use a conservative point-source model and do not shrink with tilt; rai
 Work method for goals, in as few turns as possible: read the briefing (do not call get_site_state or get_population_context for it).
 Compare two to four different options in ONE evaluate_change call. Pick the best by the goals, apply it with apply_change, and answer.
 Never invent numbers: quote only figures returned by the tools, and say "estimated" for population figures.
-Final answer, in the same language as the engineer (Turkish if they speak Turkish): what you changed, why, and the key before/after numbers. If no option meets goal 1, say so plainly and give the least-bad option.
+Final answer, in the same language as the engineer (Turkish if they speak Turkish). ${document.documentElement.lang === "tr" ? "The engineer's screen is in Turkish: always answer in Turkish, even when an instruction arrives in English." : ""}
+Final answer content: what you changed, why, and the key before/after numbers. If no option meets goal 1, say so plainly and give the least-bad option.
 After every apply_change, without being asked, finish with what has to happen physically, using the field_crew it returned:
 ${voice
     ? "in two or three spoken sentences: how many people go to site and for how long (from crew), the main work and materials, the key precaution and the EMF re-measurement; say the crew plan is in the panel."
@@ -197,6 +198,8 @@ export function initAgent(planner, ui) {
     },
     systemPrompt: (mode) => systemPrompt(planner, mode),
     ui,
+    // Each call compares up to four options; a third round adds time, rarely a better answer.
+    limits: { evaluate_change: 2 },
   });
 }
 
@@ -213,7 +216,8 @@ export function replyHtml(text) {
 
 // The agent loop itself, shared by the 3D planner and the portfolio map:
 // the model picks tools, the handlers run them in this page, results go back.
-export function createAgent({ definitions, handlers, systemPrompt, ui }) {
+// `limits`: most calls of a tool per request, e.g. { evaluate_change: 3 }.
+export function createAgent({ definitions, handlers, systemPrompt, ui, limits = {} }) {
   const history = [];
   const tools = handlers;
   let mode = { voice: false };
@@ -237,6 +241,7 @@ export function createAgent({ definitions, handlers, systemPrompt, ui }) {
   // `silent`: the page already showed the request its own way (e.g. a photo).
   async function runAsk(text, { voice = false, silent = false } = {}, requestId) {
     mode = { voice };
+    const used = {};
     ui.requestStart?.(requestId);
     history.push({ role: "user", content: text });
     if (!silent) ui.user(text);
@@ -264,7 +269,11 @@ export function createAgent({ definitions, handlers, systemPrompt, ui }) {
             args = JSON.parse(call.function.arguments || "{}");
             ui.toolStart?.(call.id, call.function.name, args);
             started = true;
-            result = (await tools[call.function.name]?.(args)) ?? { error: `unknown tool ${call.function.name}` };
+            // A tool with a budget (e.g. comparing options) answers with a nudge once it is used up.
+            used[call.function.name] = (used[call.function.name] ?? 0) + 1;
+            result = used[call.function.name] > (limits[call.function.name] ?? Infinity)
+              ? { error: "Comparison budget used. Apply the best option you have already evaluated, or say none is acceptable." }
+              : (await tools[call.function.name]?.(args)) ?? { error: `unknown tool ${call.function.name}` };
           } catch (e) {
             if (!started) ui.toolStart?.(call.id, call.function.name, args);
             result = { error: String(e.message ?? e) };

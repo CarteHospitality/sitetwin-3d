@@ -78,6 +78,7 @@ function printable(plan) {
 // The dialog: the plan to read, and one row of ways to send it.
 // `extra`: more ways to share, as { label, onclick }.
 export function openActionPlan(plan, { data, extra = [] } = {}) {
+  if (document.querySelector(".plan-dialog[open]:not(.snapshot-dialog)")) return; // a double click opens one plan
   const text = planText(plan);
   const status = el("span", { className: "muted", role: "status" });
   const action = (label, onclick, primary = false) => Object.assign(el("button", { className: primary ? "primary" : "", textContent: tr(label) }), { onclick });
