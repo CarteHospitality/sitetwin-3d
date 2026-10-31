@@ -17,6 +17,9 @@ const MAILTO_MAX = 1800;
 
 // The change list between two plans, one line per parameter, band or antenna.
 export const FIELDS = { azimuth_deg: "azimuth", mechanical_tilt_deg: "mech. tilt", electrical_tilt_deg: "elec. tilt", height_agl_m: "height", x_m: "x", z_m: "z" };
+// In a change line each value carries its unit; x and z are said as the antenna's place on the roof.
+const UNITS = { azimuth_deg: "°", mechanical_tilt_deg: "°", electrical_tilt_deg: "°", height_agl_m: " m", x_m: " m", z_m: " m" };
+const LINE_LABELS = { ...FIELDS, x_m: "roof position x", z_m: "roof position z" };
 // The difference between two versions of a site as steps, in the order an operator makes them: each
 // with its plain line (the action plan's wording) and a way to make it on a copy of the site.
 export function diffSteps(before, after) {
@@ -31,8 +34,8 @@ export function diffSteps(before, after) {
       steps.push({ id: a.id, kind: "add", line: `Add ${a.id} at ${a.azimuth_deg}° (${a.bands.map((x) => x.name).join(", ")})`, apply: (s) => { s.antennas.push(copy(a)); } });
       continue;
     }
-    for (const [k, label] of Object.entries(FIELDS)) if (p[k] !== a[k]) {
-      steps.push({ id: a.id, kind: "field", key: k, from: p[k], to: a[k], line: `${a.id} ${label}: ${p[k]} → ${a[k]}`, apply: (s) => { on(s, a.id)[k] = a[k]; } });
+    for (const [k, label] of Object.entries(LINE_LABELS)) if (p[k] !== a[k]) {
+      steps.push({ id: a.id, kind: "field", key: k, from: p[k], to: a[k], line: `${a.id} ${label}: ${p[k]}${UNITS[k]} → ${a[k]}${UNITS[k]}`, apply: (s) => { on(s, a.id)[k] = a[k]; } });
     }
     const pb = Object.fromEntries(p.bands.map((x) => [x.name, x]));
     const nb = Object.fromEntries(a.bands.map((x) => [x.name, x]));
@@ -75,21 +78,21 @@ export function sitePlan({ site, baseline, entry, regimeKey = "tr", reason = nul
 // Why the plan is made, in its own terms: a safety problem first; then, for a sector the plan adds
 // capacity to, its load (measured, or estimated from the people it serves) and when it gets busy
 // at today's growth. A clean EMF headline is not a finding: it is said only when nothing else is.
-const inTime = (months) => (months <= 24 ? `in about ${months} months` : `in about ${Math.round(months / 12)} years`);
+const inTime = (months) => (months <= 24 ? `in roughly ${months} months` : `in roughly ${Math.round(months / 12)} years`);
 function planFindings(baseline, before, gained, kpi) {
   const findings = before.level !== "ok" ? [{ text: before.text }] : [];
   for (const sector of gained) {
     const cell = (kpi?.cells ?? []).filter((c) => c.sector === sector).sort((a, b) => b.prb_dl_pct - a.prb_dl_pct)[0];
     if (cell) {
       const months = monthsUntil(cell.prb_dl_pct, PRB_BALANCE);
-      findings.push({ cell, text: months ? `Cell ${cell.sector} ${cell.band} at ${cell.prb_dl_pct}% PRB in the busy hour (${cell.tag}), and at today's growth it gets busy ${inTime(months)}`
+      findings.push({ cell, text: months ? `Cell ${cell.sector} ${cell.band} at ${cell.prb_dl_pct}% PRB in the busy hour (${cell.tag}), and with about 20% more traffic a year it could get busy ${inTime(months)} (a rough estimate)`
         : `Cell ${cell.sector} ${cell.band} is busy: ${cell.prb_dl_pct}% PRB in the busy hour (${cell.tag})` });
       continue;
     }
     const people = Math.max(0, ...Object.entries(populationContext(baseline).people_per_antenna).filter(([id]) => id.split("-")[0] === sector).map(([, n]) => n));
     if (!people) continue;
     const months = monthsUntil(people, CAPACITY_PEOPLE_PER_ANTENNA), about = Math.round(people / 100) * 100;
-    findings.push({ text: months ? `Sector ${sector} serves about ${about} people (estimated), and at today's growth it gets busy ${inTime(months)}`
+    findings.push({ text: months ? `Sector ${sector} serves about ${about} people (estimated), and with about 20% more traffic a year it could get busy ${inTime(months)} (a rough estimate)`
       : `Sector ${sector} serves about ${about} people (estimated): it is busy already` });
   }
   return findings.length ? findings : [{ text: before.text }];
@@ -143,7 +146,7 @@ function trLine(line) {
   return m && tr(m[1]) !== m[1] ? `${tr(m[1])}: ${tr(m[2])}` : tr(line);
 }
 
-const titleOf = (plan) => `${tr("Action plan")} · ${plan.parts ? `${plan.parts.length} ${tr("sites")}` : plan.site}`;
+const titleOf = (plan) => `${tr("Action plan (planning draft)")} · ${plan.parts ? `${plan.parts.length} ${tr("sites")}` : plan.site}`;
 // A tour's plans, one after another; a single plan is one part.
 const partsOf = (plan) => plan.parts ?? [plan];
 

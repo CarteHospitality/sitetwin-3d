@@ -40,7 +40,10 @@ const BAND_PRESETS = {
   L800: { name: "L800", frequency_mhz: 800, tx_power_w: 20, gain_dbi: 15.0, horizontal_beamwidth_deg: 65, vertical_beamwidth_deg: 9, front_to_back_db: 25, feeder_loss_db: 0 },
   L1800: { name: "L1800", frequency_mhz: 1800, tx_power_w: 20, gain_dbi: 17.5, horizontal_beamwidth_deg: 65, vertical_beamwidth_deg: 6, front_to_back_db: 25, feeder_loss_db: 0 },
   L2100: { name: "L2100", frequency_mhz: 2100, tx_power_w: 20, gain_dbi: 18.0, horizontal_beamwidth_deg: 65, vertical_beamwidth_deg: 5, front_to_back_db: 25, feeder_loss_db: 0 },
+  L2600: { name: "L2600", frequency_mhz: 2600, tx_power_w: 20, gain_dbi: 18.0, horizontal_beamwidth_deg: 65, vertical_beamwidth_deg: 5, front_to_back_db: 25, feeder_loss_db: 0 },
+  N700: { name: "N700", frequency_mhz: 700, tx_power_w: 40, gain_dbi: 15.0, horizontal_beamwidth_deg: 65, vertical_beamwidth_deg: 10, front_to_back_db: 25, feeder_loss_db: 0 },
   N3500: { name: "N3500", frequency_mhz: 3500, tx_power_w: 80, gain_dbi: 22.0, horizontal_beamwidth_deg: 65, vertical_beamwidth_deg: 7, front_to_back_db: 30, feeder_loss_db: 0 },
+  N3600: { name: "N3600", frequency_mhz: 3600, tx_power_w: 80, gain_dbi: 22.0, horizontal_beamwidth_deg: 65, vertical_beamwidth_deg: 7, front_to_back_db: 30, feeder_loss_db: 0 },
 };
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -469,7 +472,7 @@ function scanLines(asked) {
     const load = outlook.load_pct_in_one_year;
     lines.push({ text: tr(`Next year: ${outlook.busiest_cell} at about ${load}% PRB`), level: load >= 85 ? "bad" : load >= 70 ? "warn" : "ok" });
   } else if (outlook) {
-    lines.push({ text: tr(outlook.months_until_busy ? `The busiest sector gets crowded in about ${outlook.months_until_busy} months` : "The busiest sector is already crowded"), level: "warn" });
+    lines.push({ text: tr(outlook.months_until_busy ? `The busiest sector could get crowded in roughly ${outlook.months_until_busy} months (a rough estimate)` : "The busiest sector is already crowded"), level: "warn" });
   }
   return lines;
 }
@@ -1423,6 +1426,8 @@ const chat = initConversation({
   transcriptKey: `twin:${absoluteUrl(src)}`,
   // The engineer picked one of the agent's choices: apply it here (the antennas move on the 3D view),
   // tell the agent, and bring the plan forward on the right, ready to send to the team.
+  // What an option changes, antenna by antenna, from today's values (the decision card lists it).
+  describeOption: (changes) => { const { site: candidate, errors } = applyChanges(site, changes); return errors.length ? [] : diffSites(site, candidate); },
   // Today's EMF conflicts, beside each option's in the decision card.
   stateNow: () => ({ conflicts: checkSite(site, siteZones(site, REGIMES[regimeKey])).findings.filter((f) => f.level === "bad").length }),
   onApplyOption: ({ label, changes }) => {

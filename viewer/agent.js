@@ -27,7 +27,7 @@ const CHANGE_SCHEMA = {
       x_m: { type: "number", description: "East position on the roof" },
       z_m: { type: "number", description: "South position on the roof" },
       band_power_w: { type: "object", description: "Band name -> total power in W, e.g. {\"L1800\": 15}", additionalProperties: { type: "number" } },
-      add_bands: { type: "array", items: { type: "string", enum: ["L800", "L1800", "L2100", "N3500"] } },
+      add_bands: { type: "array", items: { type: "string", enum: ["N700", "L800", "L1800", "L2100", "L2600", "N3500", "N3600"] } },
       remove_bands: { type: "array", items: { type: "string" } },
     },
     required: ["action", "antenna_id"],
@@ -99,7 +99,7 @@ const TOOLS = [
           zones: { type: "boolean" },
           coverage: { type: "boolean" },
           baseline: { type: "boolean" },
-          coverage_band: { type: "string", description: "Band name as listed in get_site_state, e.g. L1800 or N3600" },
+          coverage_band: { type: "string", description: "Band name as listed in get_site_state, e.g. L1800 or N3500" },
           select_antenna: { type: "string" },
         },
       },
@@ -158,6 +158,7 @@ Two kinds of request:
 - Direct instructions ("remove S2-A", "add a 5G AAU on sector 1", "tilt S3 down 2 degrees", "show coverage for N3500"):
   carry them out at once with apply_change or set_view, then report the consequences (new conflicts, sensitive buildings, coverage) and offer a fix if something got worse.
 - Goals ("fix the conflicts", "add capacity on sector 2"): investigate, compare options with evaluate_change, apply the best, and explain.
+- The engineer's card ranks your compared options by a fixed rule (sensitive buildings, other buildings, coverage loss, roof, field work). If the option you prefer is not the one it puts first, say in one sentence why you prefer it.
 - Reviews and questions ("analyse this site", "review this site", "can we add 5G here?"): investigate and compare options with evaluate_change, but do not apply: answer in the analysis shape above, with your options as "▸ " choices, best first. The engineer clicks one to apply it.
   When the engineer then approves in words ("apply", "uygula", "yes"), apply that option with apply_change.
 "Undo" means undo_last_change.

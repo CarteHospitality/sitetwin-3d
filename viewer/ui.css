@@ -578,6 +578,7 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
 .metric.warn > :nth-child(2) { color: var(--medium); }
 .metric.bad > :nth-child(2) { color: var(--critical); font-weight: 600; }
 .metric-note { color: var(--muted); }
+.option-changes { margin: 0; padding-left: 16px; font-size: 12px; line-height: 17px; color: var(--text-secondary); font-family: var(--font-mono); }
 
 /* Map page: the right panel opens for the selected site only; the operator sums up the portfolio
    on the left, with links to the sites and the actions that span them. */

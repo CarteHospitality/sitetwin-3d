@@ -76,7 +76,7 @@ The Expert Operator needs `BASETEN_API_KEY`; voice and photo extraction need `MO
 
 - The public demo runs on the five synthetic sample sites only. Real operator site files, their photos and anything derived from them stay on the engineer's machine (`data/private/`, `viewer/data/private/`, `viewer/data/uploads/`, all git-ignored).
 - What leaves the machine, and to whom: the Expert Operator's briefing and tool results (antenna data, neighbouring buildings and their uses, measured load) go to Muse Spark Open on Baseten; a photo sent from the chat and push-to-talk audio go to the Meta Model API; the site's coordinates reach the map tile servers (OpenStreetMap, Esri) as tile requests. Addresses stay in the portfolio index and the action plan, which is only sent when the engineer e-mails it.
-- API keys live in `.env`, never in the repo.
+- API keys live in `.env`, never in the repo, and stay on the server: the browser never sees them. The server listens on 127.0.0.1 only, so its `/api/chat` relay is not open to the network.
 
 ## Limits
 

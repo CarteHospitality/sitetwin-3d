@@ -42,7 +42,8 @@ function byScore(p, q) {
   return p.label.localeCompare(q.label); // a tie keeps one order whatever order the options came in
 }
 // `stateNow()`: today's figures ({ conflicts }) shown beside each option's in the decision card.
-export function initConversation({ onBusy = () => {}, onComplete = () => {}, speak = () => {}, transcriptKey = "default", onApplyOption = null, onChoice = null, scanLines = null, stateNow = null } = {}) {
+// `describeOption(changes)`: an option's changes as lines from today's values to the new ones.
+export function initConversation({ onBusy = () => {}, onComplete = () => {}, speak = () => {}, transcriptKey = "default", onApplyOption = null, onChoice = null, scanLines = null, stateNow = null, describeOption = null } = {}) {
   const log = $("chatLog");
   const stored = readSession(`transcript:${transcriptKey}`, []);
   const transcript = Array.isArray(stored) ? stored.filter((item) => item && ["user", "assistant"].includes(item.role) && typeof item.text === "string").slice(-12) : [];
@@ -77,8 +78,10 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
     if (!scanTimer) scanNext();
   }
   function scanNext() {
-    const line = scanQueue.shift();
+    // A run that ended with lines still queued drops them; what waited on them still runs.
+    const line = scanList ? scanQueue.shift() : null;
     if (!line) {
+      scanQueue = [];
       scanTimer = null;
       const waiting = scanWaiting;
       scanWaiting = [];
@@ -307,12 +310,14 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
       name.dataset.noI18n = "";
       if (r?.errors?.length) return el("li", { className: "option impossible" }, el("div", { className: "option-head" }, name), el("div", { className: "muted", textContent: "Not possible" }));
       const loss = r.heavy_coverage_loss ?? [], work = r.field_work;
-      const apply = el("button", { type: "button", className: recommended ? "primary" : "", textContent: "Apply" });
+      // It adds the option to the simulated plan; nothing reaches the network.
+      const apply = el("button", { type: "button", className: recommended ? "primary" : "", textContent: "Add to plan (simulation)" });
       apply.onclick = () => {
         for (const b of buttons) b.disabled = true;
-        apply.textContent = "Applied";
+        apply.textContent = "Added to plan";
         onApplyOption(o);
       };
+      const changes = describeOption?.(o.changes) ?? [];
       buttons.push(apply);
       return el("li", { className: recommended ? "option recommended" : "option" },
         el("div", { className: "option-head" }, name, ...(recommended ? [el("span", { className: "badge", textContent: "Recommended" })] : []),
@@ -321,7 +326,8 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
           metric("EMF conflicts", String(r.neighbour_conflicts.length), r.neighbour_conflicts.length ? "bad" : "ok", today ? `today ${today.conflicts}` : ""),
           metric("Roof", String(r.roof_restrictions.length), r.roof_restrictions.length ? "warn" : "ok"),
           metric("Coverage", loss.length ? loss.map((l) => `${l.band} ${l.change_pct}%`).join(", ") : "no heavy loss", loss.length ? "warn" : "ok"),
-          metric("Field work", !work ? "–" : work.remote ? "remote only" : `${work.people} people · ${work.days} day(s)`)));
+          metric("Field work", !work ? "–" : work.remote ? "remote only" : `${work.people} people · ${work.days} day(s)`)),
+        ...(changes.length ? [el("ul", { className: "option-changes" }, ...changes.map((line) => el("li", { textContent: line })))] : []));
     });
     liveButtons.push(...buttons);
     const more = options.length - rows.length;

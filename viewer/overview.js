@@ -3,6 +3,10 @@
 // (checks, changes, crew, work order) stay below for whoever needs them.
 
 import { PRB_BALANCE, PRB_EXPAND, monthsUntil } from "./kpi.js";
+import { safetyZone, HEALTH } from "./emf.js";
+
+// Buildings are analysed within this radius (the importer's neighbours, sitetwin3d/osm.py).
+const CHECK_RADIUS_M = 150;
 
 // Indicative, as on the portfolio map: people in one antenna's main lobe worth a capacity look.
 export const CAPACITY_PEOPLE_PER_ANTENNA = 1500;
@@ -61,6 +65,9 @@ export function statusLines(site, checks, population, { coverageLoss = [], kpi =
     else lines.push({ level: "warn", text: `Sector ${sector} is busy: about ${people} people` });
   }
   if (coverageLoss.length) lines.push({ level: "warn", text: `Coverage drops sharply: ${coverageLoss.map((l) => `${l.band} ${l.change_pct}%`).join(", ")}` });
+  // A health facility beyond the checked radius could still be above 3 V/m: say where the check stops.
+  const healthReach = Math.max(0, ...site.antennas.filter((a) => a.bands.length).map((a) => safetyZone(a, HEALTH).front_m));
+  if (healthReach > CHECK_RADIUS_M) lines.push({ level: "warn", text: `Health facilities are checked within ${CHECK_RADIUS_M} m; the 3 V/m distance reaches ${Math.round(healthReach)} m` });
   return lines;
 }
 
