@@ -275,6 +275,8 @@ export const EXACT = {
   // ---- Antennas card
   "Antennas": "Antenler",
   "✓ Saved": "✓ Kaydedildi",
+  "Reset the plan": "Planı sıfırla",
+  "Click again to reset the plan": "Sıfırlamak için tekrar tıklayın",
   "Show": "Göster",
   "Coverage area": "Kapsama alanı",
   "Not saved: this browser blocks storage, export the action plan to keep it": "Kaydedilmedi: bu tarayıcı depolamayı engelliyor, saklamak için eylem planını dışa aktarın",
@@ -565,7 +567,7 @@ export const PATTERNS = [
   ["^Cell (\\S+ \\S+) at (\\d+)% PRB \\(measured\\): the plan adds capacity there$", "", "$1 hücresi %$2 PRB (ölçülen): plan orada kapasite ekliyor"],
   ["^Capacity is sufficient: busiest cell (\\S+ \\S+) at (\\d+)% PRB \\(measured\\)$", "", "Kapasite yeterli: en yoğun hücre $1, %$2 PRB (ölçülen)"],
   ["^Checked (\\d+) sites, (\\d+) need action:$", "", "$1 saha kontrol edildi, $2 saha aksiyon bekliyor:"],
-  ["^Saved (\\S+) in this browser · the site file is unchanged$", "", "$1'de bu tarayıcıya kaydedildi · saha dosyası değişmez"],
+  ["^Last change (\\S+), kept in this browser · the site file is unchanged$", "", "Son değişiklik $1, bu tarayıcıda saklanıyor · saha dosyası değişmez"],
   ["^Coverage (\\S*): area served by each sector, deeper = stronger$", "", "Kapsama $1: her sektörün hizmet alanı, koyu renk = güçlü sinyal"],
   ["^Coverage (\\S*): area served by (\\S+), deeper = stronger · click it again to see all$", "", "Kapsama $1: $2 anteninin hizmet verdiği alan, koyu renk = güçlü sinyal · hepsini görmek için tekrar tıklayın"],
   ["^All sites \\((\\d+)\\)$", "", "Tüm sahalar ($1)"],

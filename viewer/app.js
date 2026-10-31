@@ -82,11 +82,13 @@ function saveSessionPlan() {
   const saved = saveProposed(src, twin, { site, regime: regimeKey, actions: planActions,
     view: { selected: selectedId, layers, coverageBand, reason: lastReason } }, fingerprint);
   if (!saved) $("planSession").textContent = "Session storage unavailable · export the plan to keep it";
-  // Said under the plan, so the engineer knows a change is kept without looking for it.
+  // Said under the plan, so the engineer knows a change is kept, and since when: the time of the
+  // latest change (a plan restored from earlier in the session is not news), with a way back.
   const changed = diffSites(baseline, site).length > 0;
-  $("savedNote").hidden = !changed;
+  const last = planActions.at(-1)?.time;
+  $("savedNote").hidden = $("planReset").hidden = !changed;
   $("savedNote").textContent = !saved ? "Not saved: this browser blocks storage, export the action plan to keep it"
-    : `Saved ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} in this browser · the site file is unchanged`;
+    : `Last change ${new Date(last ?? Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}, kept in this browser · the site file is unchanged`;
 }
 // A short confirmation on the 3D view for each change: what changed, and that it is kept.
 let savedTimer = null;
@@ -815,6 +817,18 @@ $("addAntenna").onclick = () => {
   select(`S${i}-N`);
 };
 $("reset").onclick = () => { undoStack.push(clone(site)); site = clone(baseline); selectedId = null; lastReason = null; refreshCoverageBands(); update(); renderEditor(); };
+// The same reset under the plan: the first click asks, the second resets (and Undo brings it back).
+let resetArmed = null;
+$("planReset").onclick = () => {
+  if (!resetArmed) {
+    $("planReset").textContent = "Click again to reset the plan";
+    resetArmed = setTimeout(() => { resetArmed = null; $("planReset").textContent = "Reset the plan"; }, 4000);
+    return;
+  }
+  clearTimeout(resetArmed); resetArmed = null;
+  $("planReset").textContent = "Reset the plan";
+  $("reset").click();
+};
 async function buildPlan() {
   const entry = (await portfolioIndex().catch(() => ({ sites: [] }))).sites.find((s) => s.site_id === site.site_id);
   const { plan, zones, checks, order, changes } = sitePlan({ site, baseline, entry, regimeKey, reason: lastReason, kpi });
