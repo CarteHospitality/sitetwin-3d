@@ -12,7 +12,7 @@ import { initAgent } from "./agent.js";
 import { initPhoto, photoRequest, seenLine } from "./photo.js";
 import { finishStop, progress } from "./tour.js";
 import { composeBeforeAfter, openSnapshot } from "./snapshot.js";
-import { populationContext } from "./population.js";
+import { populationContext, occupancy, footprintPeople } from "./population.js";
 import { initVoice } from "./voice.js";
 import { initConversation } from "./conversation.js";
 import { createSceneMotion } from "./scene.js";
@@ -669,23 +669,41 @@ function paintCoverageView() {
 // Two numbers on the 3D view, for the whole site or the selected antenna: the people it serves
 // (estimated from the buildings around it) and the share of the shown area with a strong signal.
 const STRONG_DBM = -90;
+// The weakest signal drawn on the map (RSRP_BINS): below it a cell is not served.
+const USABLE_DBM = -110;
+// Everyone in the buildings drawn around the site (analysed neighbours and context to 400 m),
+// placed where they live: the people count reads the same coverage map as the colours.
+const residents = [
+  ...(baseline.neighbours ?? []).map((n) => ({ x: n.x_m, z: n.z_m, people: occupancy(n).people })),
+  ...(Array.isArray(twin.context) ? twin.context : []).map((c) => ({
+    x: c.footprint.reduce((s, p) => s + p[0], 0) / c.footprint.length,
+    z: c.footprint.reduce((s, p) => s + p[1], 0) / c.footprint.length,
+    people: footprintPeople(c.footprint, c.height_m) })),
+];
 function renderStats() {
   const focus = site.antennas.some((a) => a.id === selectedId) ? selectedId : null;
-  const pop = populationContext(site);
-  const people = focus ? pop.people_per_antenna[focus] ?? 0 : pop.total_people_nearby;
-  let share = null;
+  let share = null, people = null;
   if (layers.coverage && paintedCoverage?.key === JSON.stringify([coverageBand, site.antennas])) {
-    const { grid: { grid, server }, antennas } = paintedCoverage;
+    const { grid: { grid, server, n, size }, antennas } = paintedCoverage;
     const index = focus ? antennas.indexOf(focus) : -1;
+    const mine = (k) => index < 0 || server[k] === index;
     let strong = 0;
-    for (let k = 0; k < grid.length; k++) if (grid[k] >= STRONG_DBM && (index < 0 || server[k] === index)) strong++;
+    for (let k = 0; k < grid.length; k++) if (grid[k] >= STRONG_DBM && mine(k)) strong++;
     share = Math.round((100 * strong) / grid.length);
+    // People served: those living in cells this antenna (or the site) serves with a usable signal.
+    people = 0;
+    for (const r of residents) {
+      const i = Math.floor(((r.x + size / 2) / size) * n), j = Math.floor(((r.z + size / 2) / size) * n);
+      if (i < 0 || j < 0 || i >= n || j >= n) continue;
+      const k = j * n + i;
+      if (grid[k] >= USABLE_DBM && mine(k)) people += r.people;
+    }
   }
   const turkish = document.documentElement.lang === "tr";
   const row = (value, label) => el("div", { className: "stat-row" }, el("b", { textContent: value }), el("span", { textContent: label }));
   $("sceneStats").replaceChildren(
     el("div", { className: "stats-title", textContent: focus ?? "Whole site" }),
-    row(`~${people.toLocaleString(turkish ? "tr" : "en")}`, focus ? "people in its main direction (estimated)" : "people around the site (estimated)"),
+    row(people === null ? "…" : `~${people.toLocaleString(turkish ? "tr" : "en")}`, focus ? "people in the area it serves (estimated)" : "people in the covered area (estimated)"),
     row(share === null ? "…" : turkish ? `%${share}` : `${share}%`, focus ? "of the area served by it with a strong signal" : "of the area with a strong signal"),
     el("div", { className: "muted", textContent: `${coverageBand ?? ""} · 1.2 km × 1.2 km around the site` }),
   );

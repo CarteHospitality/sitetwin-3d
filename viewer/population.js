@@ -17,6 +17,18 @@ export function occupancy(n) {
   return { people: Math.round(area / AREA_PER_PERSON[n.use ?? "residential"]), estimated: true };
 }
 
+// People in a context building (beyond the analysed neighbours): only its footprint and height
+// are known, so it is counted as residential.
+export function footprintPeople(footprint, height_m) {
+  let area = 0;
+  for (let i = 0; i < footprint.length; i++) {
+    const [x1, z1] = footprint[i], [x2, z2] = footprint[(i + 1) % footprint.length];
+    area += x1 * z2 - x2 * z1;
+  }
+  const storeys = Math.max(1, Math.round(height_m / 3));
+  return Math.round((Math.abs(area) / 2) * USABLE_SHARE * storeys / AREA_PER_PERSON.residential);
+}
+
 // Serving antenna per building: the one whose main lobe points closest at it.
 function servingAntenna(site, n) {
   let best = null;
