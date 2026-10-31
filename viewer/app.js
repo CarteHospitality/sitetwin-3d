@@ -376,6 +376,88 @@ function summarize(s) {
   };
 }
 
+// ---------- a change the engineer watches ----------
+// Applied by the agent or a chosen option: the antennas move at a readable pace and glow, the
+// panel's sliders follow, the ground it newly covers flashes, and the numbers count to their new
+// values. A band the change adds becomes the band shown: that is where the difference is.
+const FLASH_MS = 2600;
+// "New" on the 3D view: the halo around a changed antenna and the ground it newly covers.
+const NEW_COLOR = "#12B76A";
+let showcaseFrom = null;
+function showcase(before, changes) {
+  const ids = [...new Set(changes.map((c) => c.antenna_id).filter((id) => site.antennas.some((a) => a.id === id)))];
+  const focus = ids[0] ?? null;
+  const antenna = site.antennas.find((a) => a.id === focus);
+  const lowest = (bands) => [...bands].sort((x, y) => x.frequency_mhz - y.frequency_mhz)[0];
+  const isNew = changes.some((c) => c.action === "add_antenna" && c.antenna_id === focus);
+  const added = !antenna ? null : isNew ? lowest(antenna.bands)
+    : antenna.bands.find((b) => changes.some((c) => c.antenna_id === focus && (c.add_bands ?? []).includes(b.name)));
+  if (layers.coverage && antenna) {
+    if (added) coverageBand = added.name;
+    else if (!antenna.bands.some((b) => b.name === coverageBand)) coverageBand = lowest(antenna.bands).name;
+  }
+  refreshCoverageBands();
+  if (layers.coverage && coverageBand) {
+    const grid = coverageGrid(before, coverageBand, COVERAGE_SIZE_M, COVERAGE_CELLS);
+    const antennaIds = before.antennas.map((a) => a.id);
+    showcaseFrom = { grid, antennaIds, focus };
+    statsBefore = { focus, band: coverageBand, stats: statsFor(grid, antennaIds, focus) };
+  }
+  update({ animate: true, slow: true });
+  sceneMotion.highlight(ids, NEW_COLOR);
+  renderEditor();
+  animateEditor(before.antennas.find((a) => a.id === focus), antenna);
+}
+// One plain line on what the watched change did to the numbers in the box, or null.
+function watchedSummary() {
+  if (!statsBefore || !paintedCoverage || paintedCoverage.key !== JSON.stringify([coverageBand, site.antennas])) return null;
+  const now = statsFor(paintedCoverage.grid, paintedCoverage.antennas, statsBefore.focus), then = statsBefore.stats;
+  const turkish = document.documentElement.lang === "tr", locale = turkish ? "tr" : "en";
+  const pct = (v) => (turkish ? `%${Math.round(v)}` : `${Math.round(v)}%`);
+  const who = statsBefore.focus ?? tr("The site"), people = Math.round(now.people).toLocaleString(locale);
+  // A layer that did not exist before has no "before": say what the new layer reaches.
+  const line = then.covered === 0 && statsBefore.focus
+    ? `Done: the new ${coverageBand} layer of ${who} reaches ${pct(now.covered)} of the area, about ${people} people.`
+    : `Done: ${who} now reaches ${pct(now.covered)} of the area (was ${pct(then.covered)}), about ${people} people.`;
+  return `${tr(line)} ${tr("The action plan is on the right, ready to send to the team.")}`;
+}
+// Cells the focus antenna (or the site) serves now and did not before: the ground the change wins.
+function newlyServed(result, now) {
+  if (!showcaseFrom) return null;
+  const { grid: before, antennaIds, focus } = showcaseFrom;
+  showcaseFrom = null;
+  const after = now.antennas.map((a) => a.id).indexOf(focus), was = antennaIds.indexOf(focus);
+  const mask = new Uint8Array(result.grid.length);
+  let any = false;
+  for (let k = 0; k < mask.length; k++) {
+    const served = result.grid[k] >= USABLE_DBM && (!focus || result.server[k] === after);
+    const servedBefore = before.grid[k] >= USABLE_DBM && (!focus || before.server[k] === was);
+    if (served && !servedBefore) { mask[k] = 1; any = true; }
+  }
+  return any ? { mask, until: performance.now() + FLASH_MS } : null;
+}
+// The antenna editor follows the change: its sliders travel from the old values to the new ones,
+// and a band just added flashes in the list.
+function animateEditor(from, to) {
+  if (!to || $("editor").hidden) return;
+  for (const row of $("bands").children) if (from && !from.bands.some((b) => row.textContent.startsWith(b.name))) row.classList.add("just-added");
+  if (!from || reducedMotion.matches) return;
+  const inputs = [...document.querySelectorAll("#editor input[data-k]")].filter((input) => from[input.dataset.k] !== to[input.dataset.k]);
+  const started = performance.now();
+  const step = (now) => {
+    const t = Math.min(1, (now - started) / 1600), e = 1 - (1 - t) ** 3;
+    for (const input of inputs) {
+      const k = input.dataset.k, value = Math.round((from[k] + (to[k] - from[k]) * e) * 10) / 10;
+      input.value = value; input.nextElementSibling.textContent = value;
+      if (input.userNumeric) input.userNumeric.value = value;
+      input.closest(".row")?.classList.add("changing");
+    }
+    if (t < 1) requestAnimationFrame(step);
+    else { renderEditor(); for (const input of inputs) input.closest(".row")?.classList.remove("changing"); }
+  };
+  requestAnimationFrame(step);
+}
+
 const planner = {
   get site() { return site; },
   roofBounds,
@@ -399,11 +481,11 @@ const planner = {
     if (errors.length) return { errors };
     lastReason = reason ?? lastReason;
     undoStack.push(site);
+    const before = site;
     site = candidate;
     selectedId = changes[0]?.antenna_id ?? selectedId;
-    refreshCoverageBands();
-    update({ animate: true });
-    renderEditor();
+    showCard("antenna", { reveal: true });
+    showcase(before, changes);
     const { visits, crew } = planner.fieldWork().crew;
     return { applied: true, reason, result: summarize(site), field_crew: { visits, crew } };
   },
@@ -660,7 +742,8 @@ function paintCoverageView() {
   if (!paintedCoverage) return;
   const { grid, antennas } = paintedCoverage;
   const focus = antennas.indexOf(selectedId);
-  paintBestServer(coverageCanvas, grid, (index) => rgb(sectorColor(antennas[index].split("-")[0])), focus < 0 ? null : focus);
+  const fresh = paintedCoverage.fresh && performance.now() < paintedCoverage.fresh.until ? paintedCoverage.fresh.mask : null;
+  paintBestServer(coverageCanvas, grid, (index) => rgb(sectorColor(antennas[index].split("-")[0])), focus < 0 ? null : focus, fresh, rgb(NEW_COLOR));
   coverageTexture.needsUpdate = true;
   sceneMotion.invalidate();
   renderStats();
@@ -680,40 +763,71 @@ const residents = [
     z: c.footprint.reduce((s, p) => s + p[1], 0) / c.footprint.length,
     people: footprintPeople(c.footprint, c.height_m) })),
 ];
+// People served, area covered and area with a strong signal, for the site or one antenna,
+// from a coverage result ({ grid, server, n, size }) and the antenna ids it was computed for.
+function statsFor(result, antennaIds, focus) {
+  const { grid, server, n, size } = result;
+  const index = focus ? antennaIds.indexOf(focus) : -1;
+  if (focus && index < 0) return { people: 0, covered: 0, strong: 0 };
+  const mine = (k) => index < 0 || server[k] === index;
+  // Covered: any usable signal; strong: the deeper colours. Shares of the whole 1.2 km area.
+  let usable = 0, deep = 0;
+  for (let k = 0; k < grid.length; k++) if (mine(k)) { if (grid[k] >= USABLE_DBM) usable++; if (grid[k] >= STRONG_DBM) deep++; }
+  // People served: those living in cells this antenna (or the site) serves with a usable signal.
+  let people = 0;
+  for (const r of residents) {
+    const i = Math.floor(((r.x + size / 2) / size) * n), j = Math.floor(((r.z + size / 2) / size) * n);
+    if (i < 0 || j < 0 || i >= n || j >= n) continue;
+    const k = j * n + i;
+    if (grid[k] >= USABLE_DBM && mine(k)) people += r.people;
+  }
+  return { people, covered: (100 * usable) / grid.length, strong: (100 * deep) / grid.length };
+}
+// Set by a watched change (showcase): the numbers before it, so the box counts to the new ones.
+let statsBefore = null;
+let countFrame = 0;
 function renderStats() {
   const focus = site.antennas.some((a) => a.id === selectedId) ? selectedId : null;
-  let covered = null, strong = null, people = null;
-  if (layers.coverage && paintedCoverage?.key === JSON.stringify([coverageBand, site.antennas])) {
-    const { grid: { grid, server, n, size }, antennas } = paintedCoverage;
-    const index = focus ? antennas.indexOf(focus) : -1;
-    const mine = (k) => index < 0 || server[k] === index;
-    // Covered: any usable signal; strong: the deeper colours. Shares of the whole 1.2 km area.
-    let usable = 0, deep = 0;
-    for (let k = 0; k < grid.length; k++) if (mine(k)) { if (grid[k] >= USABLE_DBM) usable++; if (grid[k] >= STRONG_DBM) deep++; }
-    covered = (100 * usable) / grid.length; strong = (100 * deep) / grid.length;
-    // People served: those living in cells this antenna (or the site) serves with a usable signal.
-    people = 0;
-    for (const r of residents) {
-      const i = Math.floor(((r.x + size / 2) / size) * n), j = Math.floor(((r.z + size / 2) / size) * n);
-      if (i < 0 || j < 0 || i >= n || j >= n) continue;
-      const k = j * n + i;
-      if (grid[k] >= USABLE_DBM && mine(k)) people += r.people;
-    }
-  }
+  const current = layers.coverage && paintedCoverage?.key === JSON.stringify([coverageBand, site.antennas])
+    ? statsFor(paintedCoverage.grid, paintedCoverage.antennas, focus) : null;
   const turkish = document.documentElement.lang === "tr";
-  const row = (value, label) => el("div", { className: "stat-row" }, el("b", { textContent: value }), el("span", { textContent: label }));
+  const locale = turkish ? "tr" : "en";
   // Whole numbers, but a small share keeps one decimal instead of rounding to nothing.
   const pct = (v) => {
-    const text = v === 0 ? "0" : v < 0.1 ? (turkish ? "<0,1" : "<0.1") : v.toLocaleString(turkish ? "tr" : "en", { maximumFractionDigits: v < 10 ? 1 : 0 });
+    const text = v === 0 ? "0" : v < 0.1 ? (turkish ? "<0,1" : "<0.1") : v.toLocaleString(locale, { maximumFractionDigits: v < 10 ? 1 : 0 });
     return turkish ? `%${text}` : `${text}%`;
   };
+  const people = (v) => `~${Math.round(v).toLocaleString(locale)}`;
+  const compare = current && statsBefore?.focus === focus && statsBefore.band === coverageBand ? statsBefore.stats : null;
+  const delta = (now, then, format) => {
+    const d = now - then;
+    if (Math.abs(d) < 0.05) return [];
+    return [el("em", { className: d > 0 ? "up" : "down", textContent: `${d > 0 ? "▲ +" : "▼ −"}${format(Math.abs(d))}` })];
+  };
+  const peopleValue = el("b"), coveredValue = el("b");
   $("sceneStats").replaceChildren(
     el("div", { className: "stats-title", textContent: focus ?? "Whole site" }),
-    row(people === null ? "…" : `~${people.toLocaleString(turkish ? "tr" : "en")}`, focus ? "people in the area it serves (estimated)" : "people in the covered area (estimated)"),
-    row(covered === null ? "…" : pct(covered), focus ? "of the area gets its signal" : "of the area is covered"),
-    ...(strong === null ? [] : [el("div", { className: "stat-note", textContent: `Strong signal: ${pct(strong)} of the area` })]),
+    el("div", { className: "stat-row" }, peopleValue, el("span", { textContent: focus ? "people in the area it serves (estimated)" : "people in the covered area (estimated)" }),
+      ...(compare ? delta(current.people, compare.people, (v) => Math.round(v).toLocaleString(locale)) : [])),
+    el("div", { className: "stat-row" }, coveredValue, el("span", { textContent: focus ? "of the area gets its signal" : "of the area is covered" }),
+      ...(compare ? delta(current.covered, compare.covered, pct) : [])),
+    ...(current ? [el("div", { className: "stat-note", textContent: `Strong signal: ${pct(current.strong)} of the area` })] : []),
     el("div", { className: "muted", textContent: `${coverageBand ?? ""} · 1.2 km × 1.2 km around the site` }),
   );
+  cancelAnimationFrame(countFrame);
+  if (!current) { peopleValue.textContent = coveredValue.textContent = "…"; return; }
+  if (!compare || reducedMotion.matches || statsBefore.counted) { peopleValue.textContent = people(current.people); coveredValue.textContent = pct(current.covered); return; }
+  // Count from the old numbers to the new ones, once, so the change is felt.
+  const started = performance.now(), from = compare;
+  statsBefore.counted = true;
+  const step = (now) => {
+    const t = Math.min(1, (now - started) / 1400);
+    const e = 1 - (1 - t) ** 3;
+    peopleValue.textContent = people(from.people + (current.people - from.people) * e);
+    coveredValue.textContent = pct(from.covered + (current.covered - from.covered) * e);
+    if (t < 1) countFrame = requestAnimationFrame(step);
+  };
+  countFrame = requestAnimationFrame(step);
 }
 function renderCoverage(immediate = false) {
   clearTimeout(coverageTimer);
@@ -736,7 +850,8 @@ function renderCoverage(immediate = false) {
       }
       if (!layers.coverage || controller.signal.aborted) return;
       coverageComparison = { key, band, before: baselineCoverage.get(band), after: coverageArea(grid) };
-      paintedCoverage = { grid, antennas: snapshot.antennas.map((a) => a.id), key };
+      paintedCoverage = { grid, antennas: snapshot.antennas.map((a) => a.id), key, fresh: newlyServed(grid, snapshot) };
+      if (paintedCoverage.fresh) setTimeout(() => { if (paintedCoverage?.key === key) paintCoverageView(); }, FLASH_MS + 50);
       paintCoverageView();
       paintedCoverageKey = key;
       coveragePending = false;
@@ -827,6 +942,7 @@ function update(options = {}) {
 
 function select(id, finding = null) {
   const changed = id !== selectedId || (finding?.building ?? null) !== sceneMotion.selectedBuilding;
+  if (id !== selectedId) statsBefore = null;
   selectedId = id;
   // The coverage view shows the selected antenna's own area, so it needs a band that antenna carries.
   const carried = site.antennas.find((a) => a.id === id)?.bands ?? [];
@@ -1021,8 +1137,10 @@ const chat = initConversation({
     if (r.errors) return chat.say("tool", `✕ ${r.errors.join(", ")}`);
     chat.say("tool", `✓ Applied to plan: ${label}`);
     agent.note(`I applied option "${label}" from your choices myself (apply_change done). Do not apply it again.`);
-    chat.say("assistant", tr("The plan is ready: the field work is on the right, and you can send the action plan to the team from there."));
-    showCard("crew", { reveal: true });
+    setTimeout(() => {
+      chat.say("assistant", watchedSummary() ?? tr("The plan is ready: the field work is on the right, and you can send the action plan to the team from there."));
+      showCard("crew", { reveal: true });
+    }, FLASH_MS + 600);
   },
   // A choice that is not one of the compared options (or a question): the agent takes it from there.
   onChoice: (text) => agent.ask(text),

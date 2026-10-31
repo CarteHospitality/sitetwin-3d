@@ -3,11 +3,16 @@
 import { el, token, reducedMotion } from "./ui.js";
 import { standardEase, travelEase, shortestAngle } from "./motion.js";
 
+// A change applied for the engineer to watch takes this long to move into place.
+const SLOW_MS = 1600;
+
 export function createSceneMotion({ THREE: T, scene, renderer, camera, controls, host, building, antennaGroup, zoneGroup, baselineGroup, neighbourMeshes, onEditFrame = () => {} }) {
   const antennas = new Map(), zones = new Map(), baseline = new Map(), tweens = new Map();
   const clearings = new Map();
   let cameraTween = null, selected = null, located = null, finalHit = new Set();
   let looping = false, editPending = false, disposed = false, dirtyShadow = true;
+  // Halos around antennas that just changed: { mesh, started, ms }.
+  const halos = new Set();
   let framing = false, profile = null, refreshAfterProfile = false, reducedEffects = false;
   const neighbourOutlines = new Map();
   const panelMaterial = new T.MeshStandardMaterial({ color: token("scene-antenna"), roughness: .8 });
@@ -127,7 +132,9 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
     node.displayed = value; poseAntenna(node.group, value);
     const zone = zones.get(id); if (zone) poseZone(zone.group, value);
   }
-  function sync(site, results, checks, layers, baselineSite, baselineZones, selectedId, { animate = false } = {}) {
+  // `slow`: a change applied for the engineer to watch (from the agent or a choice): it moves at a
+  // readable pace, and a new antenna comes down from above into its place.
+  function sync(site, results, checks, layers, baselineSite, baselineZones, selectedId, { animate = false, slow = false } = {}) {
     selected = selectedId;
     if (!selectedId) located = null;
     selection.disabled = !selected;
@@ -141,7 +148,15 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
       const value = valueOf(a, byId.get(a.id));
       let node = antennas.get(a.id);
       const fresh = !node;
-      if (!node) { node = { group: makeAntenna(a.id), displayed: value }; antennas.set(a.id, node); }
+      if (!node) {
+        node = { group: makeAntenna(a.id), displayed: value }; antennas.set(a.id, node);
+        if (slow && !reducedMotion.matches) {
+          const above = { ...value, height_agl_m: value.height_agl_m + 25 };
+          display(a.id, above);
+          tweens.set(a.id, { from: above, to: value, started: performance.now(), duration: SLOW_MS });
+          node.signature = JSON.stringify(value); node.target = value;
+        }
+      }
       node.group.userData.edge.visible = a.id === selected;
       let zone = zones.get(a.id);
       if (zone && zone.group.userData.width !== value.horizontal_beamwidth_deg) {
@@ -153,14 +168,20 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
       }
       if (zone) {
         zone.group.visible = layers.zones && Boolean(value.front_m);
-        zone.group.userData.front.material.uniforms.edgeAlpha.value = a.id === selected ? .45 : .34;
+        // With an antenna selected its zone stays clear and the others fade, so overlapping sectors read apart.
+        const faded = selected && a.id !== selected;
+        const { front, back } = zone.group.userData;
+        front.material.uniforms.bodyAlpha.value = faded ? .025 : a.id === selected ? .12 : .10;
+        front.material.uniforms.edgeAlpha.value = faded ? .08 : a.id === selected ? .48 : .34;
+        back.material.uniforms.bodyAlpha.value = faded ? .015 : .07;
+        back.material.uniforms.edgeAlpha.value = faded ? .05 : .22;
         poseZone(zone.outline, value); zone.outline.visible = false;
       }
       const signature = JSON.stringify(value);
       if (node.signature !== signature) {
         node.signature = signature; node.target = value;
         if (!fresh && animate && !reducedMotion.matches) {
-          tweens.set(a.id, { from: { ...node.displayed }, to: value, started: performance.now() });
+          tweens.set(a.id, { from: { ...node.displayed }, to: value, started: performance.now(), duration: slow ? SLOW_MS : 320 });
         } else { tweens.delete(a.id); display(a.id, value); }
         dirtyShadow = true;
       } else if (fresh) display(a.id, value);
@@ -267,7 +288,7 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
     refreshAfterProfile = false;
     if (editPending) { editPending = false; onEditFrame(); }
     for (const [id, tween] of tweens) {
-      const t = reducedMotion.matches ? 1 : Math.min(1, (now - tween.started) / 320), ease = standardEase(t);
+      const t = reducedMotion.matches ? 1 : Math.min(1, (now - tween.started) / (tween.duration ?? 320)), ease = standardEase(t);
       const value = {};
       for (const key of Object.keys(tween.to)) value[key] = key === "azimuth_deg"
         ? tween.from[key] + shortestAngle(tween.from[key], tween.to[key]) * ease
@@ -288,6 +309,13 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
       if (t === 1) cameraTween = null;
     }
     const clearing = settleClearing(now);
+    for (const halo of halos) {
+      const t = (now - halo.started) / halo.ms;
+      if (t >= 1) { dispose(halo.mesh); halos.delete(halo); continue; }
+      const pulse = (Math.sin(t * Math.PI * 6) + 1) / 2;
+      halo.mesh.scale.setScalar(1 + pulse * 0.5);
+      halo.mesh.material.opacity = 0.55 * (1 - t) * (0.5 + pulse / 2);
+    }
     framing = true; controls.update(); framing = false;
     // Opaque depth testing remains authoritative. Transparent ordering is approximate.
     const ordered = [...zones.values()].flatMap((zone) => [zone.group.userData.front, zone.group.userData.back])
@@ -302,7 +330,7 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
       profile.triangles = Math.max(profile.triangles, renderer.info.render.triangles);
       if (now - profile.started >= 20000) finishProfile();
     }
-    if (!tweens.size && !cameraTween && !clearing && !editPending && !profile && !refreshAfterProfile) { renderer.setAnimationLoop(null); looping = false; }
+    if (!tweens.size && !halos.size && !cameraTween && !clearing && !editPending && !profile && !refreshAfterProfile) { renderer.setAnimationLoop(null); looping = false; }
   }
   function invalidate() { if (!looping && !document.hidden && !disposed) { looping = true; renderer.setAnimationLoop(frame); } }
   function focus(id = null, buildingId = null, snap = false) {
@@ -381,7 +409,18 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
   reducedMotion.addEventListener("change", () => { invalidate(); });
   document.addEventListener("visibilitychange", () => { if (document.hidden) finishProfile(); else invalidate(); });
   window.addEventListener("pagehide", (event) => { finishProfile(); if (!event.persisted) { disposed = true; renderer.setAnimationLoop(null); } });
-  return { sync, focus, invalidate, startProfile, queueEdit: () => { editPending = true; invalidate(); },
+  // A glowing, pulsing halo around each antenna's panel for `ms`: "this is what just changed".
+  function highlight(ids, color, ms = 3600) {
+    for (const id of ids) {
+      const node = antennas.get(id);
+      if (!node || reducedMotion.matches) continue;
+      const mesh = new T.Mesh(new T.SphereGeometry(3.5, 24, 16), new T.MeshBasicMaterial({ color, transparent: true, opacity: .5, depthWrite: false, toneMapped: false }));
+      node.group.userData.panel.add(mesh);
+      halos.add({ mesh, started: performance.now(), ms });
+    }
+    invalidate();
+  }
+  return { sync, focus, invalidate, startProfile, highlight, queueEdit: () => { editPending = true; invalidate(); },
     changedGeometry: () => { dirtyShadow = true; invalidate(); },
     get selectedBuilding() { return located; },
     get animating() { return Boolean(tweens.size || cameraTween); },

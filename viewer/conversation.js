@@ -149,12 +149,24 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
   }
   // The agent's choices as buttons: one the agent compared is applied at once (no model call, the
   // antennas move on the 3D view); anything else goes back to the agent. Then a way to the details.
-  const sameLabel = (a, b) => a.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim() === b.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  // The agent's wording of a choice may differ a little from its option label: match by shared words.
+  const words = (text) => new Set(text.toLocaleLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean));
+  function closestOption(text, options) {
+    const a = words(text);
+    let best = null, bestScore = 0.5;
+    for (const o of options) {
+      const b = words(o.label);
+      const shared = [...a].filter((w) => b.has(w)).length;
+      const score = shared / new Set([...a, ...b]).size;
+      if (score >= bestScore) { best = o; bestScore = score; }
+    }
+    return best;
+  }
   function choiceButtons(list, options) {
     const buttons = [];
     const pick = (fn) => () => { for (const b of buttons) b.disabled = true; fn(); };
     for (const text of list) {
-      const option = options.find((o) => sameLabel(o.label, text));
+      const option = closestOption(text, options);
       const button = el("button", { type: "button", className: "choice", textContent: text });
       button.dataset.noI18n = "";
       button.onclick = pick(() => (option && onApplyOption ? onApplyOption(option) : onChoice?.(text)));
