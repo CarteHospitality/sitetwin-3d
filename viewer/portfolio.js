@@ -154,7 +154,6 @@ function render(selected = selectedSite) {
   document.body.classList.toggle("site-open", Boolean(selected));
   renderSelected(selected);
   renderActions();
-  renderLegend();
 }
 let shownSelected = null;
 function renderSelected(s) {
@@ -181,16 +180,6 @@ function deselect() {
   document.querySelector(".panel.drawer-open .drawer-close")?.click();
   render(null);
   saveMapState();
-}
-
-// What the pin colours mean, with how many sites each.
-const legend = L.control({ position: "bottomleft" });
-legend.onAdd = () => el("div", { className: "map-legend" });
-legend.addTo(map);
-function renderLegend() {
-  legend.getContainer().replaceChildren(...Object.keys(LEVELS).map((k) => [k, sites.filter((s) => s.a.level === k).length]).filter(([, n]) => n)
-    .map(([k, n]) => el("div", {}, el("span", { className: "dot", style: `background:${token(k)}`, textContent: LEVELS[k].glyph }),
-      el("span", { textContent: LEVELS[k].label }), el("b", { textContent: String(n) }))));
 }
 
 // ---------- home: the operator sums the portfolio up; the right panel stays closed ----------

@@ -490,9 +490,6 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
 .briefing-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
 .briefing-actions button { font-size: 13px; padding: 4px 10px; min-height: 0; background: var(--surface-0); border-color: var(--border-control); }
 .briefing-actions button:hover { background: var(--surface-selected); }
-.map-legend { display: grid; gap: 3px; padding: 6px 10px; font-size: 12px; background: var(--surface-0); border: 1px solid var(--border); border-radius: var(--radius-card); box-shadow: var(--shadow-card); }
-.map-legend div { display: grid; grid-template-columns: 16px auto auto; align-items: center; gap: 8px; }
-.map-legend b { font-weight: 600; text-align: right; }
 .home-list { display: grid; gap: 4px; margin-bottom: 10px; }
 .home-site { display: grid; grid-template-columns: 16px auto minmax(0, 1fr); align-items: center; gap: 8px; width: 100%; min-height: 0; padding: 6px 8px;
   text-align: left; font-weight: 400; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-control); }
