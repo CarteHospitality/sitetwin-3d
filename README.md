@@ -4,6 +4,8 @@ A **3D digital twin and change planner for mobile base-station sites**, built on
 
 Built for the Meta Global AI Developer Hackathon (Indie track). Demo video: _link to be added_.
 
+**Try it online:** [the map of the five sample sites](https://cartehospitality.github.io/sitetwin-3d/portfolio.html?portfolio=data/samples/portfolio.json). The map, the 3D twin, the EMF checks, manual changes and the action plan run in the browser; the Expert Operator needs the local server and a model key (see Quick start).
+
 ## Demo in three minutes
 
 1. **The map** (`portfolio.html?portfolio=data/samples/portfolio.json`): five sites, coloured by urgency. Hover Ankara: its card says the problem in one sentence, "A school is inside the EMF safety zone of S3-1 in the planning model: it needs a fix or a measurement." **Download the list (CSV)** gives the same ranking for a planning sheet. Every sample site is labelled a synthetic sample; **Sources and assumptions** in the twin's top bar shows where each figure comes from.
