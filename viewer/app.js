@@ -22,9 +22,9 @@ import { groundMap } from "./groundmap.js";
 import { createIntro } from "./intro.js";
 import { fieldWorkOrder } from "./fieldwork.js";
 import { $, el, token, initShell, setText, reducedMotion, confirmClick } from "./ui.js";
-import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
+import { initCards, showCard, hideCard, setCardSummary, foldCard } from "./cards.js";
 import { crewPlan } from "./crew.js";
-import { openActionPlan, result, diffSites, sitePlan, FIELDS } from "./actionplan.js";
+import { openActionPlan, result, diffSites, diffSteps, sitePlan, FIELDS, sendByEmail } from "./actionplan.js";
 import { statusLines, planSteps, CAPACITY_PEOPLE_PER_ANTENNA } from "./overview.js";
 
 initShell();
@@ -384,6 +384,8 @@ const FLASH_MS = 2600;
 // "New" on the 3D view: the halo around a changed antenna and the ground it newly covers.
 const NEW_COLOR = "#12B76A";
 let showcaseFrom = null;
+// Resolves when the latest watched change has played out (the chat's closing line waits for it).
+let lastShowcase = Promise.resolve();
 function showcase(before, changes) {
   const ids = [...new Set(changes.map((c) => c.antenna_id).filter((id) => site.antennas.some((a) => a.id === id)))];
   const focus = ids[0] ?? null;
@@ -403,10 +405,15 @@ function showcase(before, changes) {
     showcaseFrom = { grid, antennaIds, focus };
     statsBefore = { focus, band: coverageBand, stats: statsFor(grid, antennaIds, focus) };
   }
-  update({ animate: true, slow: true });
-  sceneMotion.highlight(ids, NEW_COLOR);
-  renderEditor();
-  animateEditor(before.antennas.find((a) => a.id === focus), antenna);
+  $("planReady").dataset.wait = "";
+  // The change is played as a plan, step by step; then the plan is ready on top of the panel.
+  lastShowcase = playPlan(before, focus, ids).then(() => {
+    foldCard("antenna", true);
+    glide(document.querySelector(".panel.cards"), 0);
+    const ready = $("planReady");
+    delete ready.dataset.wait;
+    if (!ready.hidden && !reducedMotion.matches) ready.animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }], { duration: 500, easing: "cubic-bezier(.16,1,.3,1)" });
+  });
 }
 // One plain line on what the watched change did to the numbers in the box, or null.
 function watchedSummary() {
@@ -436,30 +443,149 @@ function newlyServed(result, now) {
   }
   return any ? { mask, until: performance.now() + FLASH_MS } : null;
 }
-// The antenna editor follows the change: its sliders travel from the old values to the new ones,
-// and a band just added flashes in the list.
-function animateEditor(from, to) {
-  if (!to || $("editor").hidden) return;
-  for (const row of $("bands").children) if (from && !from.bands.some((b) => row.textContent.startsWith(b.name))) row.classList.add("just-added");
-  if (!from || reducedMotion.matches) return;
-  const inputs = [...document.querySelectorAll("#editor input[data-k]")].filter((input) => from[input.dataset.k] !== to[input.dataset.k]);
-  const started = performance.now();
-  const step = (now) => {
-    const t = Math.min(1, (now - started) / 1600), e = 1 - (1 - t) ** 3;
-    for (const input of inputs) {
-      const k = input.dataset.k, value = Math.round((from[k] + (to[k] - from[k]) * e) * 10) / 10;
-      input.value = value; input.nextElementSibling.textContent = value;
-      if (input.userNumeric) input.userNumeric.value = value;
-      input.closest(".row")?.classList.add("changing");
-    }
-    if (t < 1) requestAnimationFrame(step);
-    else { renderEditor(); for (const input of inputs) input.closest(".row")?.classList.remove("changing"); }
+// Scrolls a panel softly by time, not by frames: the browser's own smooth scroll stalls while the
+// 3D view is busy animating, and this one always arrives.
+function glide(panel, top) {
+  const from = panel.scrollTop, started = performance.now(), ms = reducedMotion.matches ? 0 : 600;
+  let done = false;
+  const frame = (now) => {
+    if (done) return;
+    panel.scrollTop = from + (top - from) * (1 - (1 - Math.min(1, (now - started) / ms)) ** 3);
+    requestAnimationFrame(frame);
   };
-  requestAnimationFrame(step);
+  requestAnimationFrame(frame);
+  setTimeout(() => { done = true; panel.scrollTop = top; }, ms);
+}
+// A value shown on an editor control without changing the plan (the playback moves the controls).
+function showValue(input, value) {
+  input.value = value;
+  input.nextElementSibling.textContent = input.closest("#bands") ? `${value} W` : value;
+  if (input.userNumeric) input.userNumeric.value = value;
+}
+// The editor showing the selected antenna as it stands at this point of the playback, not as it ends.
+function editorAt(state) {
+  renderEditor();
+  const a = state.antennas.find((x) => x.id === selectedId);
+  if (!a) return;
+  for (const input of document.querySelectorAll("#editor input[data-k]")) showValue(input, a[input.dataset.k]);
+  for (const row of $("bands").children) {
+    const band = a.bands.find((b) => b.name === row.dataset.band);
+    row.hidden = !band;
+    if (band) showValue(row.querySelector("input"), band.tx_power_w);
+  }
+}
+
+// The change played the way an operator would make it. The manual card first lists every step of
+// the plan; then each step in turn lights up, its control moves in the editor, its antenna moves on
+// the 3D view, and it is ticked off. Coverage and the numbers follow once the last step is done.
+const STEP_MS = 2600, PAUSE_MS = 1400;
+async function playPlan(before, focus, ids) {
+  const target = site;
+  const finish = () => { selectedId = focus ?? selectedId; update({ animate: true, slow: true }); sceneMotion.highlight(ids, NEW_COLOR); renderEditor(); };
+  const steps = [];
+  for (const step of diffSteps(before, target)) {
+    // An antenna that already stands is picked first, as the operator would on the 3D view.
+    if (step.kind !== "add" && step.kind !== "remove" && steps.at(-1)?.id !== step.id) steps.push({ id: step.id, kind: "select", line: `Select ${step.id}` });
+    steps.push(step);
+  }
+  if (!steps.length || reducedMotion.matches) { finish(); return; }
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const press = (control) => { control.classList.add("pressed"); setTimeout(() => control.classList.remove("pressed"), 600); };
+  // Frames move the slider; a timer ends it, so a hidden tab (no frames) never stalls the playback.
+  const slide = (input, a, b) => new Promise((resolve) => {
+    const row = input.closest(".row");
+    row.classList.add("changing");
+    const started = performance.now();
+    let done = false;
+    const frame = (now) => {
+      if (done) return;
+      const t = Math.min(1, (now - started) / 1600);
+      showValue(input, Math.round((a + (b - a) * (1 - (1 - t) ** 3)) * 10) / 10);
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+    setTimeout(() => { done = true; showValue(input, b); row.classList.remove("changing"); resolve(); }, 1600);
+  });
+  const regime = REGIMES[regimeKey];
+  const showScene = (state) => {
+    const zones = siteZones(state, regime);
+    sceneMotion.sync(state, zones, checkSite(state, zones), layers, baseline, siteZones(baseline, regime), selectedId, { animate: true, slow: true });
+  };
+  const pick = (id) => { selectedId = id; renderAntennaPicker(); };
+  const bandRow = (name) => [...$("bands").children].find((row) => row.dataset.band === name);
+
+  // The plan first: the card opens with every step waiting its turn.
+  const card = document.querySelector('.card[data-card="antenna"]'), panel = card.closest(".panel");
+  foldCard("antenna", false);
+  card.classList.add("operating");
+  const title = $("operatorTitle"), list = $("operatorSteps");
+  title.hidden = list.hidden = false;
+  title.className = "operator-title";
+  title.textContent = `The plan: ${steps.length} steps`;
+  const items = steps.map((step) => el("li", { className: "pending", textContent: step.line }));
+  items.forEach((item, i) => { item.style.animationDelay = `${i * 140}ms`; });
+  list.replaceChildren(...items);
+  let state = structuredClone(before);
+  editorAt(state);
+  glide(panel, panel.scrollTop + card.getBoundingClientRect().top - panel.getBoundingClientRect().top - 8);
+  await wait(PAUSE_MS + steps.length * 140);
+
+  // Then one step at a time.
+  for (const [i, step] of steps.entries()) {
+    if (site !== target) break; // undone, reset or replaced meanwhile: stop and show what is there now
+    items[i].className = "active";
+    title.textContent = `Step ${i + 1} of ${steps.length}`;
+    const started = performance.now();
+    if (step.kind === "select") {
+      pick(step.id);
+      const button = [...$("antennaPicker").querySelectorAll("button")].find((b) => b.textContent === step.id);
+      if (button) press(button);
+      editorAt(state);
+      sceneMotion.highlight([step.id], NEW_COLOR, 2200);
+      showScene(state);
+      await wait(1400);
+    } else {
+      if (step.kind === "add") { press($("addAntenna")); await wait(600); step.apply(state); pick(step.id); editorAt(state); }
+      else if (step.kind === "remove") { press($("removeAntenna")); await wait(600); step.apply(state); }
+      else if (step.kind === "band") {
+        const preset = [...$("bandPreset").options].find((o) => BAND_PRESETS[o.value]?.name === step.band);
+        if (preset) { $("bandPreset").value = preset.value; press($("bandPreset")); await wait(700); }
+        press($("addBand"));
+        await wait(400);
+        step.apply(state);
+        editorAt(state);
+        bandRow(step.band)?.classList.add("just-added");
+      } else if (step.kind === "removeBand") {
+        const remove = bandRow(step.band)?.querySelector("button");
+        if (remove) { press(remove); await wait(600); }
+        step.apply(state);
+        editorAt(state);
+      } else {
+        const input = step.kind === "field" ? document.querySelector(`#editor input[data-k="${step.key}"]`) : bandRow(step.band)?.querySelector("input");
+        step.apply(state);
+        showScene(state);
+        if (input) await slide(input, step.from, step.to);
+      }
+      if (step.kind !== "field" && step.kind !== "power") showScene(state);
+      sceneMotion.highlight([step.id], NEW_COLOR, STEP_MS);
+      await wait(Math.max(0, STEP_MS - (performance.now() - started)));
+    }
+    items[i].className = "done";
+    await wait(350);
+  }
+
+  // Done: coverage and the numbers catch up with the whole plan, then the card closes.
+  finish();
+  title.className = "operator-title done";
+  title.textContent = `Done: all ${steps.length} steps applied`;
+  await wait(FLASH_MS + 400);
+  card.classList.remove("operating");
 }
 
 const planner = {
   get site() { return site; },
+  // Resolves when the change being played on screen has finished (the agent waits before replying).
+  settled: () => lastShowcase,
   roofBounds,
   heightRange: HEIGHT_RANGE,
   state: () => ({ regime: REGIMES[regimeKey].name, current_plan: summarize(site), baseline: summarize(baseline), neighbours: site.neighbours }),
@@ -484,7 +610,6 @@ const planner = {
     const before = site;
     site = candidate;
     selectedId = changes[0]?.antenna_id ?? selectedId;
-    showCard("antenna", { reveal: true });
     showcase(before, changes);
     const { visits, crew } = planner.fieldWork().crew;
     return { applied: true, reason, result: summarize(site), field_crew: { visits, crew } };
@@ -562,8 +687,8 @@ function pairRange(range, out, label, setter) {
 function renderEditor() {
   const a = site.antennas.find((x) => x.id === selectedId);
   $("editor").hidden = !a;
-  if (!a) { hideCard("antenna"); return; }
-  showCard("antenna");
+  $("manualHint").hidden = Boolean(a);
+  if (!a) { setCardSummary("antenna", ""); return; }
   setCardSummary("antenna", `${a.id} · ${Math.round(a.azimuth_deg)}° · ${a.height_agl_m} m`);
   $("editId").textContent = a.id;
   // Bands the antenna already carries cannot be added again: offer only the others.
@@ -582,7 +707,9 @@ function renderEditor() {
     const range = el("input", { type: "range", min: 1, max: band.frequency_mhz > 3000 ? 240 : 80, step: 1, value: band.tx_power_w });
     const del = el("button", { textContent: "×", title: `Remove ${band.name}`, ariaLabel: `Remove band ${band.name}`, className: "destructive" });
     del.onclick = () => { undoStack.push(clone(site)); a.bands = a.bands.filter((x) => x !== band); refreshCoverageBands(); update(); renderEditor(); };
-    bands.append(el("div", { className: "row" }, el("label", { textContent: `${band.name} W` }), range, out, del));
+    const row = el("div", { className: "row" }, el("label", { textContent: `${band.name} W` }), range, out, del);
+    row.dataset.band = band.name;
+    bands.append(row);
     pairRange(range, out, `${a.id} ${band.name} power in watts`, (value) => { band.tx_power_w = value; });
   }
 }
@@ -640,6 +767,7 @@ function renderPanels(zones, checks, changes) {
       el("div", { textContent: action.delta.join("; ") }), el("div", { className: "muted", textContent: action.result ?? "" }))));
   }
   $("undo").disabled = !undoStack.length;
+  $("planUndo").hidden = !undoStack.length;
   // Exporting only makes sense once the plan differs from the source.
   $("export").hidden = !changes.length;
 
@@ -679,13 +807,15 @@ function renderOverview(checks, changes, crew) {
   $("planSteps").replaceChildren(...(steps.length
     ? [...steps.map((t) => el("li", { textContent: t })), ...outcome.map((o) => el("li", { className: o.open ? "outcome open" : "outcome", textContent: o.text }))]
     : [el("li", { className: "muted", textContent: "No changes yet. Ask the Expert Operator, or select an antenna to edit it." })]));
-  $("crewLine").hidden = !crewText;
-  $("sendPlan").hidden = !changes.length;
-  $("crewLine").textContent = crewText ? `${crewText} ›` : "";
+  // One line once there is a plan: it is ready, what it takes, and the two things to do with it.
+  $("planReady").hidden = !changes.length;
+  $("planReadyCrew").textContent = crewText;
 }
-$("crewLine").onclick = () => showCard("crew", { reveal: true });
+
 // The action plan opens with e-mail, copy, print and share for the site chief.
-$("sendPlan").onclick = () => $("export").click();
+$("reviewPlan").onclick = () => $("export").click();
+$("sendPlanNow").onclick = async () => { const { plan } = await buildPlan(); await sendByEmail(plan); };
+$("planUndo").onclick = () => { planner.undo(); agent.note("The engineer undid the last change by hand."); };
 confirmClick($("startOver"), "Click again: everything is forgotten", () => startOver(portfolioUrl));
 
 let crewSignature = "";
@@ -950,7 +1080,6 @@ function select(id, finding = null) {
     coverageBand = [...carried].sort((x, y) => x.frequency_mhz - y.frequency_mhz)[0].name;
     refreshCoverageBands();
   }
-  if (id && !finding) showCard("antenna", { reveal: true });
   update();
   renderEditor();
   paintCoverageView();
@@ -1012,7 +1141,10 @@ $("addAntenna").onclick = () => {
   refreshCoverageBands();
   select(`S${i}-N`);
 };
-$("reset").onclick = () => { undoStack.push(clone(site)); site = clone(baseline); selectedId = null; lastReason = null; refreshCoverageBands(); update(); renderEditor(); };
+$("reset").onclick = () => {
+  undoStack.push(clone(site)); site = clone(baseline); selectedId = null; lastReason = null; refreshCoverageBands(); update(); renderEditor();
+  agent.note("The engineer reset the plan: the site is back to its current state and none of the earlier changes are applied any more.");
+};
 // The same reset under the plan: the first click asks, the second resets (and Undo brings it back).
 let resetArmed = null;
 $("planReset").onclick = () => {
@@ -1057,7 +1189,7 @@ $("export").onclick = async () => {
 };
 $("regime").onchange = (e) => { regimeKey = e.target.value; update(); };
 $("coverageBand").onchange = $("viewBand").onchange = (e) => { coverageBand = e.target.value; refreshCoverageBands(); renderCoverage(); renderLegend(); saveSessionPlan(); };
-$("undo").onclick = () => planner.undo();
+$("undo").onclick = () => { planner.undo(); agent.note("The engineer undid the last change by hand."); };
 function syncLayerChips() {
   for (const chip of document.querySelectorAll(".chip[data-layer]")) {
     chip.classList.toggle("on", layers[chip.dataset.layer]);
@@ -1137,10 +1269,7 @@ const chat = initConversation({
     if (r.errors) return chat.say("tool", `✕ ${r.errors.join(", ")}`);
     chat.say("tool", `✓ Applied to plan: ${label}`);
     agent.note(`I applied option "${label}" from your choices myself (apply_change done). Do not apply it again.`);
-    setTimeout(() => {
-      chat.say("assistant", watchedSummary() ?? tr("The plan is ready: the field work is on the right, and you can send the action plan to the team from there."));
-      showCard("crew", { reveal: true });
-    }, FLASH_MS + 600);
+    lastShowcase.then(() => chat.say("assistant", watchedSummary() ?? tr("The plan is ready: the field work is on the right, and you can send the action plan to the team from there.")));
   },
   // A choice that is not one of the compared options (or a question): the agent takes it from there.
   onChoice: (text) => agent.ask(text),

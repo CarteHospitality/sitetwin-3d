@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SiteTwin 3D</title>
-<link rel="stylesheet" href="ui.css?v=ui-40">
+<link rel="stylesheet" href="ui.css?v=ui-42">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -76,9 +76,14 @@
         <h2>Action plan</h2>
         <ul class="plan-steps" id="planSteps"></ul>
         <div class="muted saved-note" id="savedNote" role="status" hidden></div>
-        <button type="button" class="plan-reset" id="planReset" hidden>↺ Reset the plan</button>
-        <button class="crew-line" id="crewLine" hidden></button>
-        <button type="button" class="primary send-plan" id="sendPlan" hidden>✉ Send the action plan to the team</button>
+        <div class="plan-tools">
+          <button type="button" class="plan-reset" id="planUndo" hidden>↶ Undo</button>
+          <button type="button" class="plan-reset" id="planReset" hidden>↺ Reset the plan</button>
+        </div>
+        <div class="plan-ready" id="planReady" hidden>
+          <div class="plan-ready-text"><strong>✓ Action plan ready</strong><span class="muted" id="planReadyCrew"></span></div>
+          <div class="plan-ready-actions"><button type="button" id="reviewPlan">Review plan</button><button type="button" class="primary" id="sendPlanNow">✉ Send</button></div>
+        </div>
       </section>
 
       <section class="card" data-card="site" data-folded data-extra>
@@ -104,7 +109,7 @@
         </div>
       </section>
 
-      <section class="card" data-card="checks" data-folded>
+      <section class="card" data-card="checks" data-folded data-extra>
         <button class="card-head" aria-expanded="true"><span class="card-icon">⚠</span><span class="card-title">Checks</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
         <div class="card-body">
           <div class="headline" id="checksHeadline"></div>
@@ -112,7 +117,7 @@
         </div>
       </section>
 
-      <section class="card" data-card="changes" hidden data-folded>
+      <section class="card" data-card="changes" hidden data-folded data-extra>
         <button class="card-head" aria-expanded="true"><span class="card-icon">↔</span><span class="card-title">Changes to the plan</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
         <div class="card-body">
           <div class="muted" id="planDelta">No changes yet</div>
@@ -122,7 +127,7 @@
         </div>
       </section>
 
-      <section class="card" data-card="crew" hidden data-folded>
+      <section class="card" data-card="crew" hidden data-folded data-extra>
         <button class="card-head" aria-expanded="true"><span class="card-icon">👷</span><span class="card-title">Field crew and schedule</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
         <div class="card-body" id="crew"></div>
       </section>
@@ -135,9 +140,12 @@
         </div>
       </section>
 
-      <section class="card" data-card="antenna" hidden data-folded>
-        <button class="card-head" aria-expanded="true"><span class="card-icon">📡</span><span class="card-title">Selected antenna</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
+      <section class="card" data-card="antenna" data-folded>
+        <button class="card-head" aria-expanded="true"><span class="card-icon">🛠</span><span class="card-title">Manual adjustment</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
         <div class="card-body">
+      <div class="operator-title" id="operatorTitle" role="status" hidden></div>
+      <ol class="operator-steps" id="operatorSteps" hidden></ol>
+      <p class="muted" id="manualHint">Pick an antenna above the 3D view to change it by hand.</p>
       <div id="editor" hidden>
         <h2>Edit <span id="editId"></span></h2>
         <div class="row"><label>Azimuth</label><input type="range" min="0" max="359" step="1" data-k="azimuth_deg"><output></output></div>
@@ -150,6 +158,7 @@
         <div id="bands"></div>
         <div class="row"><select id="bandPreset" aria-label="Band preset"></select><button id="addBand">Add band</button><button id="removeAntenna" class="destructive">Remove antenna</button></div>
       </div>
+      <div class="row"><button id="addAntenna">+ New antenna</button></div>
         </div>
       </section>
 
@@ -157,7 +166,6 @@
         <button class="card-head" aria-expanded="false"><span class="card-icon">🗼</span><span class="card-title">Antennas</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
         <div class="card-body">
           <table><thead><tr><th>ID</th><th>Az °</th><th>Tilt °</th><th>Bands</th><th>Zone m</th></tr></thead><tbody id="antennas"></tbody></table>
-          <div class="row" style="margin-top:8px"><button id="addAntenna">+ New antenna</button></div>
         </div>
       </section>
 
@@ -172,6 +180,6 @@
 <nav class="mobile-nav" aria-label="Workspace navigation"><button data-pane="workspace" aria-pressed="true">Workspace</button><button data-pane="operator" aria-expanded="false">Operator</button><button data-pane="inspect" aria-expanded="false">Inspect</button></nav>
 <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
 <div id="liveStatus" class="sr-only" role="status" aria-live="polite"></div>
-<script type="module" src="app.js?v=ui-40"></script>
+<script type="module" src="app.js?v=ui-42"></script>
 </body>
 </html>

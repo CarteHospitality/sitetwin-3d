@@ -45,6 +45,12 @@ export function showCard(name, { reveal = false } = {}) {
   if (reveal) c.scrollIntoView({ block: "nearest", behavior: reducedMotion.matches ? "auto" : "smooth" });
 }
 
+// Fold or unfold a card from code (the operator's work opens the manual card, then closes it).
+export function foldCard(name, value) {
+  const c = card(name);
+  if (c) setFolded(c, value);
+}
+
 export function hideCard(name) {
   const c = card(name);
   if (c) c.hidden = true;

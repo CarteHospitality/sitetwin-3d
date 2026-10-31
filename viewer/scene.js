@@ -4,7 +4,7 @@ import { el, token, reducedMotion } from "./ui.js";
 import { standardEase, travelEase, shortestAngle } from "./motion.js";
 
 // A change applied for the engineer to watch takes this long to move into place.
-const SLOW_MS = 1600;
+const SLOW_MS = 2800;
 
 export function createSceneMotion({ THREE: T, scene, renderer, camera, controls, host, building, antennaGroup, zoneGroup, baselineGroup, neighbourMeshes, onEditFrame = () => {} }) {
   const antennas = new Map(), zones = new Map(), baseline = new Map(), tweens = new Map();

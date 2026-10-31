@@ -210,7 +210,12 @@ export function initAgent(planner, ui) {
       evaluate_change: ({ options, changes }) => options?.length
         ? { options: options.slice(0, 4).map((o) => ({ label: o.label, ...planner.evaluate(o.changes ?? []) })) }
         : planner.evaluate(changes ?? []),
-      apply_change: ({ changes, reason }) => planner.apply(changes, reason),
+      // The page plays the change step by step; the reply comes once the engineer has seen it.
+      apply_change: async ({ changes, reason }) => {
+        const result = planner.apply(changes, reason);
+        await planner.settled?.();
+        return result;
+      },
       undo_last_change: () => planner.undo(),
       get_population_context: () => planner.population(),
       set_view: (args) => planner.setView(args),
