@@ -11,7 +11,9 @@ const SCAN_COLOR = "#22D3EE", SCAN_EDGE_COLOR = "#0891B2";
 // The watched change's camera: far enough to see an antenna's area of service, near enough to see it move.
 const WIDE_DISTANCE_M = 470, WIDE_AHEAD_M = 100, CLOSE_DISTANCE_M = 38;
 
-export function createSceneMotion({ THREE: T, scene, renderer, camera, controls, host, building, antennaGroup, zoneGroup, baselineGroup, neighbourMeshes, onEditFrame = () => {} }) {
+// `tower`: a ground site (lattice tower, monopole): the structure is drawn by the page, and each
+// antenna hangs on a short mount pipe at its height instead of standing on a pole from the roof.
+export function createSceneMotion({ THREE: T, scene, renderer, camera, controls, host, building, antennaGroup, zoneGroup, baselineGroup, neighbourMeshes, tower = false, onEditFrame = () => {} }) {
   const antennas = new Map(), zones = new Map(), baseline = new Map(), tweens = new Map();
   const clearings = new Map();
   let cameraTween = null, selected = null, located = null, finalHit = new Set();
@@ -121,9 +123,9 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
   }
   function poseAntenna(group, value) {
     const { pole, panel } = group.userData;
-    const length = Math.max(.01, value.height_agl_m - building.height_m + value.length_m / 2);
+    const length = tower ? value.length_m + .8 : Math.max(.01, value.height_agl_m - building.height_m + value.length_m / 2);
     group.position.set(value.x_m, 0, value.z_m);
-    pole.scale.y = length; pole.position.y = building.height_m + length / 2;
+    pole.scale.y = length; pole.position.y = tower ? value.height_agl_m : building.height_m + length / 2;
     const angle = Math.PI - T.MathUtils.degToRad(value.azimuth_deg);
     panel.position.set(Math.sin(angle) * .2, value.height_agl_m, Math.cos(angle) * .2);
     panel.rotation.set(-T.MathUtils.degToRad(value.mechanical_tilt_deg), angle, 0, "YXZ");

@@ -254,6 +254,68 @@ const zoneGroup = new THREE.Group();
 const baselineGroup = new THREE.Group();
 scene.add(antennaGroup, zoneGroup, baselineGroup);
 
+// The structure of a ground site. The file gives the antennas' heights and places them around it;
+// the structure is drawn from them: a tapering lattice or tube up to just above the highest antenna,
+// a platform ring at each antenna level and an arm out to each antenna. It follows the plan when an
+// antenna is raised above the top.
+const TOWER_KINDS = new Set(["lattice_tower", "monopole", "pole"]);
+const towerKind = TOWER_KINDS.has(baseline.structure) ? baseline.structure : null;
+const towerGroup = new THREE.Group();
+const towerMaterial = softenShadow(new THREE.MeshStandardMaterial({ color: token("scene-pole"), roughness: 0.6, metalness: 0.35 }));
+scene.add(towerGroup);
+let towerSignature = "";
+function renderTower(state) {
+  if (!towerKind) return;
+  const levels = [...new Set(state.antennas.map((a) => Math.round(a.height_agl_m * 2) / 2))].sort((x, y) => x - y);
+  const top = Math.max(6, ...levels) + 1.2;
+  const signature = JSON.stringify(state.antennas.map((a) => [a.x_m, a.z_m, a.height_agl_m]));
+  if (signature === towerSignature) return;
+  towerSignature = signature;
+  for (const child of [...towerGroup.children]) { child.geometry.dispose(); towerGroup.remove(child); }
+  const parts = [];
+  const up = new THREE.Vector3(0, 1, 0);
+  const strut = (from, to, radius) => {
+    const along = to.clone().sub(from);
+    const g = new THREE.CylinderGeometry(radius, radius, along.length(), 6, 1, true);
+    g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(up, along.normalize()));
+    g.translate((from.x + to.x) / 2, (from.y + to.y) / 2, (from.z + to.z) / 2);
+    parts.push(g);
+  };
+  if (towerKind === "lattice_tower") {
+    // Four legs, wide at the foot and narrow at the top, braced crosswise every few metres.
+    const half = (y) => THREE.MathUtils.lerp(Math.max(2.2, top * 0.06), 0.75, y / top);
+    const corners = (y) => [[1, 1], [1, -1], [-1, -1], [-1, 1]].map(([sx, sz]) => new THREE.Vector3(sx * half(y), y, sz * half(y)));
+    const heights = [];
+    for (let y = 0; y < top - 1; y += 4) heights.push(y);
+    heights.push(top);
+    for (let i = 0; i + 1 < heights.length; i++) {
+      const lo = corners(heights[i]), hi = corners(heights[i + 1]);
+      for (let c = 0; c < 4; c++) {
+        const next = (c + 1) % 4;
+        strut(lo[c], hi[c], 0.1);
+        strut(lo[c], hi[next], 0.035);
+        strut(lo[next], hi[c], 0.035);
+        strut(hi[c], hi[next], 0.045);
+      }
+    }
+  } else {
+    const [topRadius, footRadius] = towerKind === "pole" ? [0.16, 0.24] : [0.3, 0.6];
+    parts.push(new THREE.CylinderGeometry(topRadius, footRadius, top, 20).translate(0, top / 2, 0));
+  }
+  // A platform ring under each level of antennas, and an arm out to each one.
+  for (const level of levels) {
+    const at = state.antennas.filter((a) => Math.round(a.height_agl_m * 2) / 2 === level);
+    const reach = Math.max(1, ...at.map((a) => Math.hypot(a.x_m, a.z_m)));
+    parts.push(new THREE.TorusGeometry(reach, 0.06, 6, 40).rotateX(Math.PI / 2).translate(0, level - 0.7, 0));
+    for (const a of at) strut(new THREE.Vector3(0, level - 0.7, 0), new THREE.Vector3(a.x_m, level - 0.7, a.z_m), 0.06);
+  }
+  const mesh = new THREE.Mesh(mergeGeometries(parts.map((g) => g.toNonIndexed())), towerMaterial);
+  for (const g of parts) g.dispose();
+  mesh.castShadow = mesh.receiveShadow = true;
+  towerGroup.add(mesh);
+}
+renderTower(twin.site);
+
 // The site is built in front of the engineer on opening (see intro.js).
 const standing = (mesh) => (mesh.rotation.x ? "extrude" : "box");
 const farthest = Math.max(1, ...(baseline.neighbours ?? []).map((n) => Math.hypot(n.x_m, n.z_m)));
@@ -265,6 +327,7 @@ const intro = createIntro([
   ...(baseline.neighbours ?? []).map((n) => ({ object: neighbourMeshes[n.id], kind: standing(neighbourMeshes[n.id]),
     delay: 150 + 550 * (Math.hypot(n.x_m, n.z_m) / farthest), duration: 450 })),
   ...(contextBuildings ? [{ object: contextBuildings, kind: "up", delay: 450, duration: 800 }] : []),
+  ...(towerKind ? [{ object: towerGroup, kind: "up", delay: 500, duration: 700 }] : []),
   { object: antennaGroup, kind: "up", delay: 900, duration: 550 },
   { object: zoneGroup, kind: "grow", delay: 1300, duration: 500 },
 ], { reducedMotion, onFrame: () => sceneMotion.changedGeometry() });
@@ -277,7 +340,8 @@ const COVERAGE_CELLS = 200, COVERAGE_SIZE_M = 1200;
 const coverageCanvas = Object.assign(document.createElement("canvas"), { width: COVERAGE_CELLS, height: COVERAGE_CELLS });
 const coverageTexture = new THREE.CanvasTexture(coverageCanvas);
 coverageTexture.colorSpace = THREE.SRGBColorSpace;
-coverageTexture.magFilter = THREE.NearestFilter;
+// Smooth between the 6 m cells: hard steps read as pixels, not as a signal fading out.
+coverageTexture.magFilter = THREE.LinearFilter;
 const coveragePlane = new THREE.Mesh(new THREE.PlaneGeometry(COVERAGE_SIZE_M, COVERAGE_SIZE_M), new THREE.MeshBasicMaterial({ map: coverageTexture, transparent: true, depthWrite: false, toneMapped: false }));
 coveragePlane.rotation.x = -Math.PI / 2;
 coveragePlane.position.y = 0.05;
@@ -285,7 +349,7 @@ coveragePlane.visible = false;
 scene.add(coveragePlane);
 
 const sceneMotion = createSceneMotion({ THREE, scene, renderer, camera, controls, host, building: b,
-  antennaGroup, zoneGroup, baselineGroup, neighbourMeshes, onEditFrame: () => update() });
+  antennaGroup, zoneGroup, baselineGroup, neighbourMeshes, tower: Boolean(towerKind), onEditFrame: () => update() });
 
 // ---------- planner API used by the assistant ----------
 const EDITABLE = ["azimuth_deg", "mechanical_tilt_deg", "electrical_tilt_deg", "height_agl_m", "x_m", "z_m"];
@@ -561,6 +625,7 @@ async function playPlan(before, focus, ids) {
   });
   const regime = REGIMES[regimeKey];
   const showScene = (state) => {
+    renderTower(state);
     const zones = siteZones(state, regime);
     sceneMotion.sync(state, zones, checkSite(state, zones), layers, baseline, siteZones(baseline, regime), selectedId, { animate: true, slow: true });
   };
@@ -1130,6 +1195,7 @@ function renderComparison(checks = checkSite(site, siteZones(site, REGIMES[regim
 }
 
 function update(options = {}) {
+  renderTower(site);
   const regime = REGIMES[regimeKey];
   const zones = siteZones(site, regime);
   const checks = checkSite(site, zones);

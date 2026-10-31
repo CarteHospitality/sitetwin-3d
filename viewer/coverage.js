@@ -84,9 +84,10 @@ export const RSRP_BINS = [
 ];
 
 // Who serves where: each cell in the colour of its best server's sector, stronger signal
-// more opaque, below the weakest bin transparent. `focus` (an antenna index) shows only
-// the area that antenna serves; `fresh` (a cell mask) paints just-won cells in `freshColor`.
-const BIN_ALPHA = [0.55, 0.42, 0.28, 0.15];
+// more opaque, below the weakest bin transparent, light enough for the ground and buildings
+// to read through. `focus` (an antenna index) shows only the area that antenna serves;
+// `fresh` (a cell mask) paints just-won cells in `freshColor`.
+const BIN_ALPHA = [0.36, 0.26, 0.16, 0.08];
 export function paintBestServer(canvas, { grid, server, n }, colorOf, focus = null, fresh = null, freshColor = null) {
   if (canvas.width !== n || canvas.height !== n) throw new Error(`coverage canvas must be ${n}x${n}`);
   const ctx = canvas.getContext("2d");
