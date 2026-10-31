@@ -821,12 +821,12 @@ $("reset").onclick = () => { undoStack.push(clone(site)); site = clone(baseline)
 let resetArmed = null;
 $("planReset").onclick = () => {
   if (!resetArmed) {
-    $("planReset").textContent = "Click again to reset the plan";
-    resetArmed = setTimeout(() => { resetArmed = null; $("planReset").textContent = "Reset the plan"; }, 4000);
+    $("planReset").textContent = "↺ Click again to reset the plan";
+    resetArmed = setTimeout(() => { resetArmed = null; $("planReset").textContent = "↺ Reset the plan"; }, 4000);
     return;
   }
   clearTimeout(resetArmed); resetArmed = null;
-  $("planReset").textContent = "Reset the plan";
+  $("planReset").textContent = "↺ Reset the plan";
   $("reset").click();
 };
 async function buildPlan() {

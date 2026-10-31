@@ -275,8 +275,8 @@ export const EXACT = {
   // ---- Antennas card
   "Antennas": "Antenler",
   "✓ Saved": "✓ Kaydedildi",
-  "Reset the plan": "Planı sıfırla",
-  "Click again to reset the plan": "Sıfırlamak için tekrar tıklayın",
+  "↺ Reset the plan": "↺ Planı sıfırla",
+  "↺ Click again to reset the plan": "↺ Sıfırlamak için tekrar tıklayın",
   "Show": "Göster",
   "Coverage area": "Kapsama alanı",
   "Not saved: this browser blocks storage, export the action plan to keep it": "Kaydedilmedi: bu tarayıcı depolamayı engelliyor, saklamak için eylem planını dışa aktarın",
