@@ -785,31 +785,31 @@ function renderPanels(zones, checks, changes) {
   renderOverview(checks, changes, crew);
 }
 
-// The overview on top of the panel: good and bad points, then the plan in plain words.
-let overviewSignature = "";
+// The overview on top of the panel: the site as it stands today, the plan in plain words and, once
+// there is a plan, the same points as they would be after it. The plan is only a simulation, so the
+// current state stays on top and never gives way to it.
+let overviewSignature = "", currentState = null;
 function renderOverview(checks, changes, crew) {
-  const lines = statusLines(site, checks, populationContext(site), { coverageLoss: changes.length ? currentCoverageLoss() : [], kpi, before: baseline });
+  if (currentState?.of !== baseline || currentState.regime !== regimeKey || currentState.kpi !== kpi) {
+    const zones = siteZones(baseline, REGIMES[regimeKey]);
+    currentState = { of: baseline, regime: regimeKey, kpi, lines: statusLines(baseline, checkSite(baseline, zones), populationContext(baseline), { kpi }) };
+  }
+  const now = currentState.lines;
+  const after = changes.length ? statusLines(site, checks, populationContext(site), { coverageLoss: currentCoverageLoss(), kpi, before: baseline }) : [];
   const steps = planSteps(baseline, site);
-  // What the plan achieves; a problem it leaves is said as still open, never with a tick.
-  const after = headline(checks);
-  const outcome = !changes.length ? [] : result(headline(checkSite(baseline, siteZones(baseline, REGIMES[regimeKey]))), after)
-    .map((text) => (after.level !== "ok" && text === after.text ? `Still open: ${text}` : text)).slice(0, 2)
-    // Translated in two parts here: the page translator knows each part, not the joined line.
-    .map((text) => ({ open: text.startsWith("Still open: "), text: text.startsWith("Still open: ") ? `${tr("Still open")}: ${tr(text.slice(12))}` : text }));
-  // A plan that answers the busy sector says so first: that is usually why it was made.
-  const relieved = lines.find((l) => l.relieves)?.relieves;
-  if (changes.length && relieved) outcome.unshift({ open: false, text: `More capacity on sector ${relieved}` });
   const install = crew.visits.find((v) => v.name === "Installation visit");
   const crewText = !changes.length || !crew.visits.length ? "" : install ? `Field work: ${crew.headcount} people · ${install.days} day(s)` : "Field work: remote only, no site visit";
-  const signature = JSON.stringify([lines, steps, outcome, crewText]);
+  const signature = JSON.stringify([now, after, steps, crewText]);
   if (signature === overviewSignature) return;
   overviewSignature = signature;
   const icon = { ok: "✓", warn: "!", bad: "✕" };
-  $("statusLines").replaceChildren(...lines.map((l) => el("li", { className: l.level }, el("span", { className: "mark", ariaHidden: "true", textContent: icon[l.level] }), el("span", { textContent: l.text }))));
-  $("overview").querySelector("h2").textContent = changes.length ? "With the plan" : "Current state";
+  const items = (lines) => lines.map((l) => el("li", { className: l.level }, el("span", { className: "mark", ariaHidden: "true", textContent: icon[l.level] }), el("span", { textContent: l.text })));
+  $("statusLines").replaceChildren(...items(now));
   $("planSteps").replaceChildren(...(steps.length
-    ? [...steps.map((t) => el("li", { textContent: t })), ...outcome.map((o) => el("li", { className: o.open ? "outcome open" : "outcome", textContent: o.text }))]
+    ? steps.map((t) => el("li", { textContent: t }))
     : [el("li", { className: "muted", textContent: "No changes yet. Ask the Expert Operator, or select an antenna to edit it." })]));
+  $("afterHeading").hidden = $("afterLines").hidden = !after.length;
+  $("afterLines").replaceChildren(...items(after));
   // One line once there is a plan: it is ready, what it takes, and the two things to do with it.
   $("planReady").hidden = !changes.length;
   $("planReadyCrew").textContent = crewText;

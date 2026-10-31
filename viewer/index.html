@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SiteTwin 3D</title>
-<link rel="stylesheet" href="ui.css?v=ui-43">
+<link rel="stylesheet" href="ui.css?v=ui-44">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -75,6 +75,8 @@
         <ul class="status-lines" id="statusLines"></ul>
         <h2>Action plan</h2>
         <ul class="plan-steps" id="planSteps"></ul>
+        <h2 id="afterHeading" hidden>After the plan (simulation)</h2>
+        <ul class="status-lines after-lines" id="afterLines" hidden></ul>
         <div class="muted saved-note" id="savedNote" role="status" hidden></div>
         <div class="plan-tools">
           <button type="button" class="plan-reset" id="planUndo" hidden>↶ Undo</button>
@@ -180,6 +182,6 @@
 <nav class="mobile-nav" aria-label="Workspace navigation"><button data-pane="workspace" aria-pressed="true">Workspace</button><button data-pane="operator" aria-expanded="false">Operator</button><button data-pane="inspect" aria-expanded="false">Inspect</button></nav>
 <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
 <div id="liveStatus" class="sr-only" role="status" aria-live="polite"></div>
-<script type="module" src="app.js?v=ui-43"></script>
+<script type="module" src="app.js?v=ui-44"></script>
 </body>
 </html>
