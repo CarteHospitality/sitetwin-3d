@@ -51,9 +51,9 @@ const twin = await fetch(src).then((r) => {
   if (!r.ok) throw new Error(`Twin unavailable (${r.status})`);
   return r.json();
 }).catch((error) => { $("loading").textContent = error.message; throw error; });
-// A twin may carry the existing state separately (e.g. SiteTwin's retain/remove
-// antennas); the plan starts from the proposed site and is compared with it.
-const baseline = twin.baseline ?? twin.site;
+// The SiteTwin result is the site as it stands: the plan starts from it and every change is
+// measured against it. (twin.baseline, the site before that SiteTwin application, is history.)
+const baseline = twin.site;
 const restored = restoreProposed(src, twin);
 const fingerprint = sourceFingerprint(twin);
 let site = clone(restored.site);
@@ -258,14 +258,13 @@ function coverageMetric(s) {
 }
 
 // A band that loses this share of its good-signal area (≥ −90 dBm) against the
-// baseline is a heavy cost: the panel and the agent must both say it. A band the
-// plan switches off everywhere (e.g. refarmed to 5G) is a decision, not a loss:
-// it is listed apart, in bands_switched_off.
+// baseline is a heavy cost, a band switched off everywhere included: the panel and
+// the agent must both say it.
 const HEAVY_COVERAGE_LOSS = 0.3;
 let baselineCoverageMetric = null;
 function coverageLoss(cov) {
   baselineCoverageMetric ??= coverageMetric(baseline);
-  return Object.entries(baselineCoverageMetric).filter(([band]) => cov[band]).map(([band, b]) => {
+  return Object.entries(baselineCoverageMetric).map(([band, b]) => {
     const before = b.km2_above_minus90dBm, after = cov[band]?.km2_above_minus90dBm ?? 0;
     return { band, before_km2: before, after_km2: after, change_pct: before ? Math.round(((after - before) / before) * 100) : 0 };
   }).filter((x) => x.change_pct <= -HEAVY_COVERAGE_LOSS * 100);
@@ -293,7 +292,6 @@ function summarize(s) {
     roof_restrictions: findings.filter((f) => f.level === "warn").map((f) => f.text),
     coverage,
     heavy_coverage_loss: coverageLoss(coverage),
-    bands_switched_off: Object.keys(baselineCoverageMetric).filter((band) => !coverage[band]),
   };
 }
 

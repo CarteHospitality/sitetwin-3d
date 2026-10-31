@@ -171,7 +171,7 @@ Goals, in order: 1) no EMF zone may reach a neighbouring building; 2) keep cover
 EMF zones use a conservative point-source model and do not shrink with tilt; raising an antenna or lowering power are what move a zone off a neighbour.
 Coverage cost: every result lists heavy_coverage_loss, the bands that lose 30% or more of their area at -90 dBm or better against the baseline. That is a heavy cost for subscribers:
 prefer an option without it; always say it plainly in the answer (band and percentage); if every option has it, say the fix costs coverage and how to win it back (e.g. add L2100 or N3500 on that sector).
-bands_switched_off lists bands the plan no longer carries at all. When the SiteTwin plan already does that (e.g. L1800 refarmed to 5G), it is the operator's decision, not a problem to fix: mention it only if it matters for the engineer's question.
+The baseline is the site as it stands, the result of its latest SiteTwin application; the plan is the next change on top of it.
 
 Work method for goals, in as few turns as possible: read the briefing (do not call get_site_state or get_population_context for it).
 Compare two to four different options in ONE evaluate_change call. Pick the best by the goals, apply it with apply_change (for a review: recommend it and wait for approval), and answer.

@@ -66,7 +66,7 @@ function assess(entry, source, site = source.site, regime = "tr", proposed = fal
   let capacity = false, full = false, capacityText = "";
   if (cell) {
     const name = `${cell.sector} ${cell.band}`;
-    const relieved = capacityAdded(source.baseline ?? source.site, site).has(cell.sector);
+    const relieved = capacityAdded(source.site, site).has(cell.sector);
     if (cell.prb_dl_pct >= PRB_BALANCE && relieved) issues.push(`Capacity: ${name} at ${cell.prb_dl_pct}% PRB (measured), the plan adds capacity there`);
     else if (cell.prb_dl_pct >= PRB_BALANCE) {
       capacity = true; full = cell.prb_dl_pct >= PRB_EXPAND;
@@ -78,14 +78,16 @@ function assess(entry, source, site = source.site, regime = "tr", proposed = fal
     capacity = busiest && busiest[1] > CAPACITY_PEOPLE_PER_ANTENNA;
     if (capacity) { capacityText = "Busy sector: capacity to review"; issues.push(`Capacity: ${busiest[0]} serves ~${busiest[1]} people in its main lobe (estimated)`); }
   }
-  const planned = Object.entries(entry.antenna_actions ?? {}).filter(([k]) => k !== "retain");
-  if (planned.length) issues.push(`SiteTwin plan: ${planned.map(([k, v]) => `${v} ${k}`).join(", ")}${entry.reason ? ` (${entry.reason})` : ""}`);
+  // The SiteTwin result is the site as it stands; its application is history. Only a change
+  // planned in SiteTwin 3D is "Change planned".
+  const applied = Object.entries(entry.antenna_actions ?? {}).filter(([k]) => k !== "retain");
+  if (applied.length) issues.push(`Last SiteTwin application: ${applied.map(([k, v]) => `${v} ${k}`).join(", ")}${entry.reason ? ` (${entry.reason})` : ""}`);
   if (proposed) issues.push("Session proposal · applied to plan; source file unchanged");
-  const level = sensitive.length ? "critical" : bad.length || full ? "high" : findings.some((f) => f.level === "warn") || capacity ? "medium" : planned.length || proposed ? "planned" : "ok";
-  const score = 100 * sensitive.length + 30 * bad.length + (full ? 25 : 0) + 5 * findings.filter((f) => f.level === "warn").length + (capacity ? 10 : 0) + planned.length;
+  const level = sensitive.length ? "critical" : bad.length || full ? "high" : findings.some((f) => f.level === "warn") || capacity ? "medium" : proposed ? "planned" : "ok";
+  const score = 100 * sensitive.length + 30 * bad.length + (full ? 25 : 0) + 5 * findings.filter((f) => f.level === "warn").length + (capacity ? 10 : 0) + (proposed ? 1 : 0);
   // One sentence for the list: the EMF state, or else the next most important thing.
   const head = headline(checks);
-  const summary = head.level !== "ok" ? head.text : capacity ? capacityText : planned.length ? "SiteTwin changes planned" : "No issues found";
+  const summary = head.level !== "ok" ? head.text : capacity ? capacityText : proposed ? "Change planned" : "No issues found";
   return { level, score, issues, summary, hitBuildings: hit.size, findingCount: bad.length, people: pop.total_people_nearby, buildings: site.neighbours.length };
 }
 
@@ -189,8 +191,8 @@ function renderLegend() {
 }
 
 // ---------- home: the operator sums the portfolio up; the right panel stays closed ----------
-const baselineOf = (s) => s.source.baseline ?? s.source.site;
-// Sites whose current plan (SiteTwin's or a session's) changes antennas: field work to do.
+const baselineOf = (s) => s.source.site;
+// Sites with a change planned in SiteTwin 3D: field work to do.
 const plannedWork = () => sites.filter((s) => diffSites(baselineOf(s), s.site).length);
 function siteLink(s) {
   const row = el("button", { type: "button", className: "home-site" },
@@ -415,7 +417,7 @@ ${voice ? "The engineer is speaking: answer in 1-3 short spoken sentences, no li
 Answer in the engineer's language (Turkish if they speak Turkish). When you open a site, pass the instruction in the engineer's own language.
 ${document.documentElement.lang === "tr" ? "The engineer's screen is in Turkish: say the urgency levels and structure types in Turkish too (Critical = Kritik, Action needed = Aksiyon gerekli, Review = İnceleme, Change planned = Değişiklik planlandı, OK = Uygun; rooftop = çatı, ground = zemin)." : ""}
 Sites are ranked by automatic checks: Critical = an EMF zone reaches a sensitive building (school, kindergarten, hospital);
-Action needed = a zone reaches another building, or a cell is full (85% PRB or more in the busy hour, measured); Review = roof safety or a busy sector; Change planned = SiteTwin has pending antenna changes.
+Action needed = a zone reaches another building, or a cell is full (85% PRB or more in the busy hour, measured); Review = roof safety or a busy sector; Change planned = the engineer applied a change in SiteTwin 3D that is not built yet. Each site is assessed as it stands, the result of its latest SiteTwin application.
 Capacity issues marked "measured" come from the operator's network KPIs; "estimated" ones only from the people around the site.
 Call a cell full only at 85% PRB or more; 70-85% is busy. When the plan already adds capacity on a busy sector, say so.
 Call list_sites before talking about sites; never invent sites or numbers. Site names may be spoken loosely ("Ankara", "the Izmir one"):

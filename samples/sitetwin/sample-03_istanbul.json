@@ -192,8 +192,8 @@
         "band": "L800",
         "busy_hour": "2026-10-28 21:00",
         "prb_dl_pct": 44.0,
-        "rrc_users": 122,
-        "traffic_gb": 21.2
+        "rrc_users": 107,
+        "traffic_gb": 20.7
       },
       {
         "cell": "SAMPLE-03_ISTANBUL_S1_L1800",
@@ -201,8 +201,8 @@
         "band": "L1800",
         "busy_hour": "2026-10-28 21:00",
         "prb_dl_pct": 52.0,
-        "rrc_users": 133,
-        "traffic_gb": 25.4
+        "rrc_users": 146,
+        "traffic_gb": 24.8
       },
       {
         "cell": "SAMPLE-03_ISTANBUL_S1_L2600",
@@ -210,8 +210,17 @@
         "band": "L2600",
         "busy_hour": "2026-10-28 21:00",
         "prb_dl_pct": 38.0,
-        "rrc_users": 101,
-        "traffic_gb": 16.3
+        "rrc_users": 99,
+        "traffic_gb": 17.4
+      },
+      {
+        "cell": "SAMPLE-03_ISTANBUL_S1_N3600",
+        "sector": 1,
+        "band": "N3600",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 26.0,
+        "rrc_users": 63,
+        "traffic_gb": 12.3
       },
       {
         "cell": "SAMPLE-03_ISTANBUL_S2_L800",
@@ -219,8 +228,8 @@
         "band": "L800",
         "busy_hour": "2026-10-28 21:00",
         "prb_dl_pct": 49.0,
-        "rrc_users": 118,
-        "traffic_gb": 24.2
+        "rrc_users": 130,
+        "traffic_gb": 24.5
       },
       {
         "cell": "SAMPLE-03_ISTANBUL_S2_L1800",
@@ -228,8 +237,8 @@
         "band": "L1800",
         "busy_hour": "2026-10-28 21:00",
         "prb_dl_pct": 62.0,
-        "rrc_users": 156,
-        "traffic_gb": 27.8
+        "rrc_users": 171,
+        "traffic_gb": 28.2
       },
       {
         "cell": "SAMPLE-03_ISTANBUL_S2_L2600",
@@ -237,8 +246,17 @@
         "band": "L2600",
         "busy_hour": "2026-10-28 21:00",
         "prb_dl_pct": 41.0,
-        "rrc_users": 109,
-        "traffic_gb": 18.0
+        "rrc_users": 104,
+        "traffic_gb": 20.6
+      },
+      {
+        "cell": "SAMPLE-03_ISTANBUL_S2_N3600",
+        "sector": 2,
+        "band": "N3600",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 33.0,
+        "rrc_users": 91,
+        "traffic_gb": 15.9
       },
       {
         "cell": "SAMPLE-03_ISTANBUL_S3_L800",
@@ -246,8 +264,8 @@
         "band": "L800",
         "busy_hour": "2026-10-28 21:00",
         "prb_dl_pct": 36.0,
-        "rrc_users": 84,
-        "traffic_gb": 17.4
+        "rrc_users": 101,
+        "traffic_gb": 17.3
       },
       {
         "cell": "SAMPLE-03_ISTANBUL_S3_L1800",
@@ -255,8 +273,8 @@
         "band": "L1800",
         "busy_hour": "2026-10-28 21:00",
         "prb_dl_pct": 47.0,
-        "rrc_users": 114,
-        "traffic_gb": 24.1
+        "rrc_users": 133,
+        "traffic_gb": 23.9
       },
       {
         "cell": "SAMPLE-03_ISTANBUL_S3_L2600",
@@ -264,8 +282,17 @@
         "band": "L2600",
         "busy_hour": "2026-10-28 21:00",
         "prb_dl_pct": 33.0,
-        "rrc_users": 77,
-        "traffic_gb": 16.9
+        "rrc_users": 89,
+        "traffic_gb": 16.7
+      },
+      {
+        "cell": "SAMPLE-03_ISTANBUL_S3_N3600",
+        "sector": 3,
+        "band": "N3600",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 21.0,
+        "rrc_users": 52,
+        "traffic_gb": 9.2
       }
     ]
   },

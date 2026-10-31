@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from sitetwin3d.importers.sitetwin import network_kpi
+from sitetwin3d.importers.sitetwin import _band_name, network_kpi
 
 SAMPLES = Path(__file__).resolve().parents[1] / "samples" / "sitetwin"
 
@@ -26,10 +26,12 @@ def test_unusable_cells_and_blocks_are_ignored():
 
 
 def test_every_sample_carries_measured_load_for_its_current_cells():
+    # The site as it stands is the SiteTwin result: every antenna its application keeps or adds.
     for path in sorted(SAMPLES.glob("*.json")):
         doc = json.loads(path.read_text(encoding="utf-8"))
         kpi = network_kpi(doc)
         assert kpi, path.name
-        current = {(f"S{a['sector']}", f"{'N' if b['frequency_mhz'] >= 3000 else 'L'}{b['frequency_mhz']:g}")
-                   for a in doc["antennas"] if a["action"] != "add" for b in a["bands"]}
+        technology = doc["application"].get("technology")
+        current = {(f"S{a['sector']}", _band_name(float(b["frequency_mhz"]), technology))
+                   for a in doc["antennas"] if a["action"] != "remove" for b in a["bands"]}
         assert {(c["sector"], c["band"]) for c in kpi["cells"]} == current, path.name

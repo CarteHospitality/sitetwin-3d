@@ -199,31 +199,58 @@
     "period": "2026-10-28",
     "cells": [
       {
-        "cell": "SAMPLE-02_IZMIR_S1_L1800",
+        "cell": "SAMPLE-02_IZMIR_S1_N700",
         "sector": 1,
-        "band": "L1800",
+        "band": "N700",
         "busy_hour": "2026-10-28 21:00",
-        "prb_dl_pct": 61.0,
-        "rrc_users": 164,
-        "traffic_gb": 28.1
+        "prb_dl_pct": 52.0,
+        "rrc_users": 142,
+        "traffic_gb": 22.3
       },
       {
-        "cell": "SAMPLE-02_IZMIR_S2_L1800",
+        "cell": "SAMPLE-02_IZMIR_S1_N3600",
+        "sector": 1,
+        "band": "N3600",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 34.0,
+        "rrc_users": 91,
+        "traffic_gb": 15.9
+      },
+      {
+        "cell": "SAMPLE-02_IZMIR_S2_N700",
         "sector": 2,
-        "band": "L1800",
+        "band": "N700",
         "busy_hour": "2026-10-28 21:00",
-        "prb_dl_pct": 57.0,
-        "rrc_users": 141,
-        "traffic_gb": 24.1
+        "prb_dl_pct": 47.0,
+        "rrc_users": 121,
+        "traffic_gb": 22.4
       },
       {
-        "cell": "SAMPLE-02_IZMIR_S3_L1800",
-        "sector": 3,
-        "band": "L1800",
+        "cell": "SAMPLE-02_IZMIR_S2_N3600",
+        "sector": 2,
+        "band": "N3600",
         "busy_hour": "2026-10-28 21:00",
-        "prb_dl_pct": 93.0,
-        "rrc_users": 257,
-        "traffic_gb": 43.6
+        "prb_dl_pct": 29.0,
+        "rrc_users": 78,
+        "traffic_gb": 14.0
+      },
+      {
+        "cell": "SAMPLE-02_IZMIR_S3_N700",
+        "sector": 3,
+        "band": "N700",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 79.0,
+        "rrc_users": 193,
+        "traffic_gb": 35.4
+      },
+      {
+        "cell": "SAMPLE-02_IZMIR_S3_N3600",
+        "sector": 3,
+        "band": "N3600",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 58.0,
+        "rrc_users": 151,
+        "traffic_gb": 26.8
       }
     ]
   },

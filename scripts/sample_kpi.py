@@ -1,8 +1,9 @@
 """Invented network KPIs for the sample sites, used by make_samples.py.
 
-One day of hourly load per cell of the current network, as an operator's OSS
-would record it (DL PRB utilisation, RRC users, traffic); each sample site file
-carries the busiest hour of each cell as its `network_kpi` block.
+One day of hourly load per cell of the site as it stands (the SiteTwin result,
+after its application), as an operator's OSS would record it (DL PRB utilisation,
+RRC users, traffic); each sample site file carries the busiest hour of each cell
+as its `network_kpi` block.
 """
 
 import math
@@ -11,13 +12,15 @@ import random
 DAY = "2026-10-28"
 
 # Busy-hour PRB per cell (sector, band) -> peak %. Adana's S2 is full although few people
-# live in its lobe; Izmir's S3 is full where SiteTwin already plans 5G.
+# live in its lobe; Izmir's S3 stays busy on N700 even with its new 5G layers.
 SITES = {
     "SAMPLE-01_ANKARA": {("S1", "L800"): 52, ("S1", "L1800"): 58, ("S1", "L2100"): 47, ("S2", "L800"): 45, ("S2", "L1800"): 50,
                          ("S2", "L2100"): 41, ("S3", "L800"): 68, ("S3", "L1800"): 84, ("S3", "L2100"): 71},
-    "SAMPLE-02_IZMIR": {("S1", "L1800"): 61, ("S2", "L1800"): 57, ("S3", "L1800"): 93},
-    "SAMPLE-03_ISTANBUL": {("S1", "L800"): 44, ("S1", "L1800"): 52, ("S1", "L2600"): 38, ("S2", "L800"): 49, ("S2", "L1800"): 62,
-                           ("S2", "L2600"): 41, ("S3", "L800"): 36, ("S3", "L1800"): 47, ("S3", "L2600"): 33},
+    "SAMPLE-02_IZMIR": {("S1", "N700"): 52, ("S1", "N3600"): 34, ("S2", "N700"): 47, ("S2", "N3600"): 29, ("S3", "N700"): 79,
+                        ("S3", "N3600"): 58},
+    "SAMPLE-03_ISTANBUL": {("S1", "L800"): 44, ("S1", "L1800"): 52, ("S1", "L2600"): 38, ("S1", "N3600"): 26, ("S2", "L800"): 49,
+                           ("S2", "L1800"): 62, ("S2", "L2600"): 41, ("S2", "N3600"): 33, ("S3", "L800"): 36, ("S3", "L1800"): 47,
+                           ("S3", "L2600"): 33, ("S3", "N3600"): 21},
     "SAMPLE-04_ADANA": {("S1", "L800"): 48, ("S1", "L1800"): 55, ("S2", "L800"): 76, ("S2", "L1800"): 91, ("S3", "L800"): 39,
                         ("S3", "L1800"): 44},
     "SAMPLE-05_BURSA": {("S1", "L800"): 63, ("S1", "L1800"): 69, ("S1", "L2100"): 78, ("S2", "L800"): 42, ("S2", "L1800"): 48,
