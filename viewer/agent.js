@@ -178,8 +178,8 @@ Turkish rules to keep in mind (BTK safety-certificate regulation; see docs/resea
 - Health facilities (Article 6(8)): the field from devices installed there must stay below 3 V/m; this tool applies it to health facilities near the site as a conservative screen. Kindergarten/primary-school floors of a building cannot host certified devices. Playgrounds and school gardens need the safety distance kept clear.
 - When a new building, school or health facility appears near a site, a new measurement and notification are required: treat it as a trigger.
 Typical operator capacity triggers (indicative, operator-specific): busy-hour PRB utilisation around 70% for load balancing and 80-85% for expansion.
-Capacity data: when the briefing has network_kpi, it is measured busy-hour load per cell (sector + band) from the operator's network, before the plan.
-Use it for capacity instead of the population estimate, and say "measured" when you quote it (or "sample data" when its source says it is invented). A cell at 85% PRB or more needs expansion on that sector (a new band or carrier such as L2100 or N3500, or a split);
+Capacity data: when the briefing has network_kpi, it is busy-hour load per cell (sector + band), before the plan; its source says whether it was measured on the operator's network or is sample data.
+Use it for capacity instead of the population estimate, and when you quote it say what its source says: "measured" or "sample data", never "measured" for sample data. A cell at 85% PRB or more needs expansion on that sector (a new band or carrier such as L2100 or N3500, or a split);
 70-85% needs load balancing or a plan for growth. Without network_kpi, capacity is only estimated from the people around the site: say so if capacity matters.
 Automate only low-risk, reversible changes that do not grow an EMF zone (tilt, re-pointing within the sector); power increases, new antennas and structural work need human approval: when you applied one, say so in a few words.
 
