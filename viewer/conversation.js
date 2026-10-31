@@ -39,7 +39,9 @@ function byScore(p, q) {
   if (bad(p)) return 0;
   const a = optionScore(p.result), b = optionScore(q.result);
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] - b[i];
-  return p.label.localeCompare(q.label); // a tie keeps one order whatever order the options came in
+  // On a tie the smaller change goes first; then the label keeps one order whatever order they came in.
+  const size = (o) => o.changes?.length ?? 0;
+  return size(p) - size(q) || p.label.localeCompare(q.label);
 }
 // `stateNow()`: today's figures ({ conflicts }) shown beside each option's in the decision card.
 // `describeOption(changes)`: an option's changes as lines from today's values to the new ones.
@@ -333,7 +335,7 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
     const more = options.length - rows.length;
     return { used, element: el("section", { className: "decision-card" },
       el("div", { className: "decision-title", textContent: "Options the operator compared" }),
-      el("div", { className: "decision-rule", textContent: "Ranked by sensitive buildings, then other buildings, coverage loss, roof and field work" }),
+      el("div", { className: "decision-rule", textContent: "Ranked by sensitive buildings, then other buildings, coverage loss, roof, field work and the size of the change" }),
       el("ol", {}, ...items),
       ...(more > 0 ? [el("div", { className: "decision-rule", textContent: `${more} more compared` })] : [])) };
   }

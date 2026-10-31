@@ -29,10 +29,10 @@ def _report(path, general_view_page: bool = True):
 
 
 def test_general_view_is_the_large_photo_on_the_headed_page(tmp_path):
-    pdf = tmp_path / "52094N_KIRLS_5G_NEW_BTK.pdf"
+    pdf = tmp_path / "12345N_SAMPL_5G_NEW_BTK.pdf"
     _report(pdf)
     photo = general_view(pdf)
-    assert photo["source"] == "52094N_KIRLS_5G_NEW_BTK.pdf, page 2: GENEL GÖRÜNÜM"
+    assert photo["source"] == "12345N_SAMPL_5G_NEW_BTK.pdf, page 2: GENEL GÖRÜNÜM"
     image = Image.open(io.BytesIO(base64.b64decode(photo["data"].split(",", 1)[1])))
     assert image.format == "JPEG" and max(image.size) <= 640
     r, g, b = image.convert("RGB").getpixel((image.width // 2, image.height // 2))

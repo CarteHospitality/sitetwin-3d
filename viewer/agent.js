@@ -158,7 +158,7 @@ Two kinds of request:
 - Direct instructions ("remove S2-A", "add a 5G AAU on sector 1", "tilt S3 down 2 degrees", "show coverage for N3500"):
   carry them out at once with apply_change or set_view, then report the consequences (new conflicts, sensitive buildings, coverage) and offer a fix if something got worse.
 - Goals ("fix the conflicts", "add capacity on sector 2"): investigate, compare options with evaluate_change, apply the best, and explain.
-- The engineer's card ranks your compared options by a fixed rule (sensitive buildings, other buildings, coverage loss, roof, field work). If the option you prefer is not the one it puts first, say in one sentence why you prefer it.
+- The engineer's card ranks your compared options by a fixed rule (sensitive buildings, other buildings, coverage loss, roof, field work, then the smaller change). If the option you prefer is not the one it puts first, say in one sentence why you prefer it.
 - Reviews and questions ("analyse this site", "review this site", "can we add 5G here?"): investigate and compare options with evaluate_change, but do not apply: answer in the analysis shape above, with your options as "▸ " choices, best first. The engineer clicks one to apply it.
   When the engineer then approves in words ("apply", "uygula", "yes"), apply that option with apply_change.
 "Undo" means undo_last_change.
@@ -173,7 +173,7 @@ What makes an operator change a site, and the usual remedies:
 - New neighbouring construction, landlord or permit constraints -> re-plan height and azimuth.
 The briefing at the end already gives the site state and who lives and works around it.
 
-Turkish rules to keep in mind (BTK safety-certificate regulation; see docs/research/operator-change-planning.md):
+Turkish rules to keep in mind (BTK safety-certificate regulation):
 - BTK Elektronik Haberleşme Cihazları Güvenlik Sertifikası Yönetmeliği, Article 16(2): a single device may produce 20% of the ICNIRP field strength (12.3 V/m above 2 GHz) and all devices together 70%; the zones in this tool use the single-device limit, overlapping antennas are summed against the 70%.
 - Health facilities (Article 6(8)): the field from devices installed there must stay below 3 V/m; this tool applies it to health facilities near the site as a conservative screen. Kindergarten/primary-school floors of a building cannot host certified devices. Playgrounds and school gardens need the safety distance kept clear.
 - When a new building, school or health facility appears near a site, a new measurement and notification are required: treat it as a trigger.
@@ -275,7 +275,10 @@ export function createAgent({ definitions, handlers, systemPrompt, ui, limits = 
       // Said plainly, with what still works; the server's own text goes to the console.
       if (!res.ok) {
         console.warn("assistant unavailable", res.status, await res.text());
-        throw new Error(tr(`The Expert Operator cannot be reached right now (${res.status}). The 3D twin, the checks and manual changes still work.`));
+        // 503: the server has no model key (a fresh clone); not an outage, so say what is missing.
+        throw new Error(tr(res.status === 503
+          ? "The Expert Operator needs a model API key on the server (BASETEN_API_KEY or MODEL_API_KEY in .env, see the README). The 3D twin, the checks and manual changes still work."
+          : `The Expert Operator cannot be reached right now (${res.status}). The 3D twin, the checks and manual changes still work.`));
       }
       return await res.json();
     } finally { clearTimeout(timer); ui.waiting?.(false); }

@@ -1,9 +1,9 @@
 """Add the BTK general-view photo to twins that were imported without it.
 
-    python scripts/add_overview_photos.py viewer/data/private/portfolio.json --reports C:/Projelerim/jevbtk/Veriler
+    python scripts/add_overview_photos.py viewer/data/private/portfolio.json --reports PATH/TO/BTK_REPORTS
 
 Each site's BTK reports are found under --reports by the site code in the file name
-(52094_KIRLS -> *KIRLS*.pdf; BTK reports first). Only the twin's `overview_photo` is written.
+(12345_SAMPL -> *SAMPL*.pdf; BTK reports first). Only the twin's `overview_photo` is written.
 New imports get the photo by themselves, from the report their SiteTwin file names.
 """
 
