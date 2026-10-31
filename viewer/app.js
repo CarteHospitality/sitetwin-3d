@@ -25,7 +25,7 @@ import { $, el, token, initShell, setText, reducedMotion, confirmClick } from ".
 import { initCards, showCard, hideCard, setCardSummary, foldCard } from "./cards.js";
 import { crewPlan } from "./crew.js";
 import { openActionPlan, result, diffSites, diffSteps, sitePlan, FIELDS, sendByEmail } from "./actionplan.js";
-import { statusLines, planSteps, CAPACITY_PEOPLE_PER_ANTENNA } from "./overview.js";
+import { statusLines, planSteps, siteProblem, CAPACITY_PEOPLE_PER_ANTENNA } from "./overview.js";
 
 initShell();
 initCards();
@@ -1510,9 +1510,20 @@ if (freshOpen) {
   url.searchParams.delete("fresh");
   history.replaceState(history.state, "", url.href);
 }
+// The problem the map showed for this site, said again on opening, with one button to analyse it.
 if (!handoff && !$("chatLog").children.length) {
-  $("chatLog").append(el("div", { className: "msg assistant welcome", textContent:
-    tr(`${site.site_id} is open: its current state is on the right. Pick a question below, or ask your own.`) }));
+  const problem = siteProblem(checkSite(site, siteZones(site, REGIMES[regimeKey])), populationContext(site), { cell: kpi?.cells?.[0] ?? null });
+  const clean = problem.startsWith("No problem found");
+  $("chatLog").append(el("div", { className: "msg assistant welcome" },
+    el("div", { textContent: tr(`${site.site_id} is open.`) }),
+    el("div", { className: "welcome-problem", textContent: tr(problem) }),
+    el("div", { textContent: tr(clean ? "Analyse it with the button below, or ask your own question." : "Analyse the problem with the button below, or ask your own question.") })));
+  const ask = el("button", { type: "button", className: "chip suggest primary-ask", textContent: tr(clean ? "Analyse this site" : "Analyse this problem") });
+  // One first step: the general "Analyse this site" question waits until this one is used.
+  const general = document.querySelector(".composer .chips .suggest");
+  general.hidden = true;
+  ask.onclick = () => { ask.remove(); general.hidden = false; agent.ask(clean ? tr("Analyse this site") : `${tr("Analyse this problem")}: ${tr(problem)}`); };
+  document.querySelector(".composer .chips").prepend(ask);
 }
 const stop = progress(site.site_id);
 if (stop) $("breadcrumbSite").textContent = `${site.site_id} · ${stop.done}/${stop.total}`;

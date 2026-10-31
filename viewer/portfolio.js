@@ -13,8 +13,8 @@ import { $, el, token, initShell, reducedMotion, confirmClick } from "./ui.js";
 import { startTour, readTour, endTour } from "./tour.js";
 import { combinePlans, openActionPlan, diffSites, sitePlan } from "./actionplan.js";
 import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
-import { twinKpi, PRB_BALANCE, PRB_EXPAND, monthsUntil } from "./kpi.js";
-import { capacityAdded, planSteps } from "./overview.js";
+import { twinKpi, PRB_BALANCE, PRB_EXPAND } from "./kpi.js";
+import { capacityAdded, planSteps, siteProblem } from "./overview.js";
 
 initShell();
 initCards();
@@ -90,16 +90,7 @@ function assess(entry, source, site = source.site, regime = "tr", proposed = fal
   const head = headline(checks);
   const summary = head.level !== "ok" ? head.text : capacity ? capacityText : proposed ? "Change planned" : "No issues found";
   // The problem in one plain sentence, with what it means: the most serious one only.
-  const busiest = Object.entries(pop.people_per_antenna).sort((a, b) => b[1] - a[1])[0];
-  const problem = sensitive[0]?.health ? `The field from ${sensitive[0].antenna} at a hospital is above the 3 V/m health limit: the site cannot stay as it is.`
-    : sensitive.length ? `A ${sensitive[0].use} is inside the EMF safety zone of ${sensitive[0].antenna}: the site cannot stay as it is.`
-    : bad.length ? `The EMF safety zone reaches ${hit.size} neighbouring ${hit.size === 1 ? "building" : "buildings"}: people there get more than the limit allows.`
-    : full ? `Cell ${cell.sector} ${cell.band} is ${cell.prb_dl_pct}% full in the busy hour: users there are already slowed down.`
-    : capacity && cell ? `Cell ${cell.sector} ${cell.band} runs at ${cell.prb_dl_pct}% in the busy hour: at today's growth it fills up in about ${Math.max(1, monthsUntil(cell.prb_dl_pct, PRB_EXPAND))} months.`
-    : capacity ? `About ${Math.round(busiest[1] / 100) * 100} people rely on sector ${busiest[0].split("-")[0]} alone: its capacity may soon not be enough.`
-    : findings.some((f) => f.level === "warn") ? "Part of the roof is inside an EMF zone: access must be restricted before anyone works there."
-    : proposed ? "A change is planned in SiteTwin 3D; the site itself is unchanged."
-    : "No problem found in the model: no building in an EMF zone, no busy sector.";
+  const problem = siteProblem(checks, pop, { cell, relieved: Boolean(cell) && capacityAdded(source.site, site).has(cell.sector), proposed });
   return { level, score, issues, summary, problem, hitBuildings: hit.size, findingCount: bad.length, people: pop.total_people_nearby, buildings: site.neighbours.length };
 }
 

@@ -434,7 +434,9 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
 .plan-steps li.outcome::before { content: "✓"; background: none; width: auto; height: auto; top: 0; left: 2px; font-size: 12px; }
 .plan-steps li.outcome.open { color: var(--medium); }
 .plan-steps li.outcome.open::before { content: "!"; left: 5px; }
-.msg.welcome { color: var(--text-secondary); }
+.msg.welcome { color: var(--text-secondary); display: grid; gap: 6px; }
+.welcome-problem { color: var(--text); font-weight: 500; padding-left: 10px; border-left: 2px solid var(--accent); }
+.chip.primary-ask { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
 /* The plan is ready: one soft line and the two things to do with it. */
 .plan-ready { margin-top: 12px; padding: 10px 12px; display: grid; gap: 10px; border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--ok) 8%, transparent); border: 1px solid color-mix(in srgb, var(--ok) 30%, transparent); }

@@ -2,11 +2,31 @@
 // what the plan changes, without antenna parameters. The detailed cards
 // (checks, changes, crew, work order) stay below for whoever needs them.
 
-import { PRB_BALANCE, PRB_EXPAND } from "./kpi.js";
+import { PRB_BALANCE, PRB_EXPAND, monthsUntil } from "./kpi.js";
 
 // Indicative, as on the portfolio map: people in one antenna's main lobe worth a capacity look.
 export const CAPACITY_PEOPLE_PER_ANTENNA = 1500;
 const sectorOf = (id) => id.split("-")[0];
+
+// The site's most serious problem in one plain sentence, with what it means: on the map's card and
+// in the twin's welcome. `cell`: the busiest measured cell, if any; `relieved`: the plan adds capacity
+// on that cell's sector; `proposed`: a change is planned in SiteTwin 3D.
+export function siteProblem({ findings, hit }, population, { cell = null, relieved = false, proposed = false } = {}) {
+  const bad = findings.filter((f) => f.level === "bad");
+  const sensitive = bad.filter((f) => f.sensitive);
+  const busiest = Object.entries(population.people_per_antenna).sort((a, b) => b[1] - a[1])[0];
+  const busyCell = cell && !relieved && cell.prb_dl_pct >= PRB_BALANCE;
+  const busySector = !cell && busiest && busiest[1] > CAPACITY_PEOPLE_PER_ANTENNA;
+  if (sensitive[0]?.health) return `The field from ${sensitive[0].antenna} at a hospital is above the 3 V/m health limit: the site cannot stay as it is.`;
+  if (sensitive.length) return `A ${sensitive[0].use} is inside the EMF safety zone of ${sensitive[0].antenna}: the site cannot stay as it is.`;
+  if (bad.length) return `The EMF safety zone reaches ${hit.size} neighbouring ${hit.size === 1 ? "building" : "buildings"}: people there get more than the limit allows.`;
+  if (busyCell && cell.prb_dl_pct >= PRB_EXPAND) return `Cell ${cell.sector} ${cell.band} is ${cell.prb_dl_pct}% full in the busy hour: users there are already slowed down.`;
+  if (busyCell) return `Cell ${cell.sector} ${cell.band} runs at ${cell.prb_dl_pct}% in the busy hour: at today's growth it fills up in about ${Math.max(1, monthsUntil(cell.prb_dl_pct, PRB_EXPAND))} months.`;
+  if (busySector) return `About ${Math.round(busiest[1] / 100) * 100} people rely on sector ${sectorOf(busiest[0])} alone: its capacity may soon not be enough.`;
+  if (findings.some((f) => f.level === "warn")) return "Part of the roof is inside an EMF zone: access must be restricted before anyone works there.";
+  if (proposed) return "A change is planned in SiteTwin 3D; the site itself is unchanged.";
+  return "No problem found in the model: no building in an EMF zone, no busy sector.";
+}
 
 // One line per topic, good or bad: [{ level: "ok" | "warn" | "bad", text }].
 // `coverageLoss`: bands that lose a large share of their coverage against the baseline.
