@@ -77,6 +77,21 @@ function saveSessionPlan() {
   const saved = saveProposed(src, twin, { site, regime: regimeKey, actions: planActions,
     view: { selected: selectedId, layers, coverageBand, reason: lastReason } }, fingerprint);
   if (!saved) $("planSession").textContent = "Session storage unavailable · export the plan to keep it";
+  // Said under the plan, so the engineer knows a change is kept without looking for it.
+  const changed = diffSites(baseline, site).length > 0;
+  $("savedNote").hidden = !changed;
+  $("savedNote").textContent = !saved ? "Not saved: this browser blocks storage, export the action plan to keep it"
+    : `Saved ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} in this browser · the site file is unchanged`;
+}
+// A short confirmation on the 3D view for each change: what changed, and that it is kept.
+let savedTimer = null;
+function showSaved(delta) {
+  const toast = $("savedToast");
+  toast.replaceChildren(el("span", { textContent: delta[0] }), ...(delta.length > 1 ? [el("span", { textContent: `+${delta.length - 1}` })] : []),
+    el("strong", { textContent: "✓ Saved" }));
+  toast.hidden = false;
+  clearTimeout(savedTimer);
+  savedTimer = setTimeout(() => { toast.hidden = true; }, 2500);
 }
 window.addEventListener("pagehide", saveSessionPlan);
 
@@ -652,6 +667,7 @@ function update(options = {}) {
       result: `Unique hit buildings: ${previousAssessment?.hit ?? nextAssessment.hit} → ${nextAssessment.hit} · roof restrictions: ${previousAssessment?.roof ?? nextAssessment.roof} → ${nextAssessment.roof}` });
     if (planActions.length > 30) planActions.shift();
     lastModelState = clone(site);
+    showSaved(delta);
   }
   previousAssessment = nextAssessment;
   renderPanels(zones, checks, diffSites(baseline, site));
@@ -660,6 +676,7 @@ function update(options = {}) {
 
   renderCoverage();
   renderLegend();
+  renderAntennaPicker();
 }
 
 function select(id, finding = null) {
@@ -774,6 +791,20 @@ for (const chip of document.querySelectorAll(".chip[data-layer]")) {
 }
 
 const raycaster = new THREE.Raycaster();
+// Antennas are a few pixels wide from a distance: a click that misses them but lands
+// this close to one on screen still selects it.
+const PICK_RADIUS_PX = 28;
+function nearestAntenna(clientX, clientY) {
+  const r = renderer.domElement.getBoundingClientRect();
+  let best = null, bestDistance = PICK_RADIUS_PX;
+  antennaGroup.traverse((part) => {
+    if (!part.isMesh || !part.userData.antennaId) return;
+    const p = part.getWorldPosition(new THREE.Vector3()).project(camera);
+    const distance = Math.hypot(r.left + (p.x + 1) / 2 * r.width - clientX, r.top + (1 - p.y) / 2 * r.height - clientY);
+    if (p.z < 1 && distance < bestDistance) { best = part.userData.antennaId; bestDistance = distance; }
+  });
+  return best;
+}
 let downAt = null;
 renderer.domElement.addEventListener("pointerdown", (e) => (downAt = [e.clientX, e.clientY]));
 renderer.domElement.addEventListener("pointerup", (e) => {
@@ -781,8 +812,22 @@ renderer.domElement.addEventListener("pointerup", (e) => {
   const r = renderer.domElement.getBoundingClientRect();
   raycaster.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
   const hit = raycaster.intersectObjects(antennaGroup.children, true).find((h) => h.object.userData.antennaId);
-  select(hit ? hit.object.userData.antennaId : null);
+  select(hit ? hit.object.userData.antennaId : nearestAntenna(e.clientX, e.clientY));
 });
+
+// One button per antenna on the 3D view: always a sure way to pick one, however small it looks.
+let pickerSignature = "";
+function renderAntennaPicker() {
+  const ids = site.antennas.map((a) => a.id);
+  const signature = JSON.stringify([ids, selectedId]);
+  if (signature === pickerSignature) return;
+  pickerSignature = signature;
+  $("antennaPicker").replaceChildren(el("span", { className: "muted", textContent: "Antennas" }), ...ids.map((id) => {
+    const button = el("button", { type: "button", textContent: id, ariaPressed: String(id === selectedId) });
+    button.onclick = () => select(id === selectedId ? null : id);
+    return button;
+  }));
+}
 
 // ---------- assistant chat ----------
 const chat = initConversation({

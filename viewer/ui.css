@@ -142,6 +142,14 @@ li { margin: 6px 0; }
 #legend { left: 16px; bottom: 16px; max-width: calc(100% - 32px); pointer-events: none; }
 .stage-tools { top: 16px; left: 16px; display: flex; gap: 8px; padding: 8px; }
 .scene-caption { right: 16px; top: 16px; max-width: 220px; pointer-events: none; }
+/* Antenna buttons and the "saved" confirmation on the 3D view. */
+.antenna-picker { top: 16px; left: 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; max-width: calc(100% - 32px); }
+.antenna-picker .muted { font-size: 12px; margin-right: 2px; }
+.antenna-picker button { min-height: 0; padding: 3px 9px; font-size: 12px; font-family: var(--font-mono); border: 1px solid var(--border-control); background: var(--surface-0); }
+.antenna-picker button[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.saved-toast { left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; gap: 8px; align-items: baseline; padding: 8px 12px; pointer-events: none; }
+.saved-toast strong { color: var(--ok); white-space: nowrap; }
+.saved-note { margin-top: 8px; font-size: 12px; }
 .scene-reference { right: 16px; bottom: 16px; min-width: 100px; pointer-events: none; font-size: 12px; }
 .north-arrow { display: inline-block; color: var(--accent); font-size: 20px; line-height: 24px; }
 .scale-line { display: block; border: 1px solid var(--text-secondary); border-top: 0; height: 5px; margin: 8px 0 4px; }
