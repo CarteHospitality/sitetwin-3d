@@ -319,6 +319,93 @@ function updateMarker(s) {
   marker.getElement()?.setAttribute("aria-label", marker.options.title);
 }
 
+// ---------- hover: a line rises from the pin, turns, and opens a small screen on the site ----------
+// The screen shows the site from the air (Esri World Imagery, the street map if a tile is missing)
+// and under it the few facts that matter, one per line. It only informs: a click selects the site.
+const AERIAL = (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
+const STREET = (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+const RISE = 56, RUN = 34, MEET = 22, PHOTO_W = 284, PHOTO_H = 132;
+function aerialPhoto(lat, lon) {
+  const z = 18, n = 2 ** z, r = (lat * Math.PI) / 180;
+  const x = ((lon + 180) / 360) * n, y = ((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * n;
+  const ix = Math.floor(x), iy = Math.floor(y);
+  // Nine tiles around the site, shifted so the site sits in the middle of the photo.
+  const mosaic = el("div", { className: "aerial-mosaic" });
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    const tile = el("img", { alt: "", src: AERIAL(z, ix + dx, iy + dy), decoding: "async" });
+    tile.onerror = () => { tile.onerror = null; tile.src = STREET(z, ix + dx, iy + dy); };
+    tile.style.left = `${(dx + 1) * 256}px`;
+    tile.style.top = `${(dy + 1) * 256}px`;
+    mosaic.append(tile);
+  }
+  mosaic.style.transform = `translate(${Math.round(PHOTO_W / 2 - 256 - (x - ix) * 256)}px, ${Math.round(PHOTO_H / 2 - 256 - (y - iy) * 256)}px)`;
+  return el("div", { className: "callout-photo" }, mosaic, el("span", { className: "reticle" }), el("span", { className: "photo-credit", textContent: "Imagery: Esri, Maxar, Earthstar Geographics" }));
+}
+function calloutFacts(s) {
+  const cells = s.source.network_kpi?.cells ?? [];
+  const busiest = [...cells].sort((a, b) => b.prb_dl_pct - a.prb_dl_pct)[0];
+  // The antennas standing today: a plan is only a simulation until it is carried out.
+  const antennas = s.source.site.antennas;
+  const bands = [...new Set(antennas.flatMap((a) => a.bands.map((b) => b.name)))];
+  // Separate text nodes, so the page translator finds the words it knows ("rooftop").
+  const structure = el("span", {}, el("span", { textContent: (s.entry.structure ?? "rooftop").replaceAll("_", " ") }), s.entry.technology ? `, ${s.entry.technology}` : "");
+  return [
+    ["Status", s.a.summary],
+    ["Location", s.entry.address ?? `${s.entry.lat}, ${s.entry.lon}`],
+    ["Structure", structure],
+    ["Antennas", `${antennas.length} antennas: ${bands.join(", ")}`],
+    // The busiest cell, unless the status line already names it: then the people nearby instead.
+    busiest && !s.a.summary.includes(`${busiest.sector} ${busiest.band}`) ? ["Busiest cell", `${busiest.sector} ${busiest.band} at ${busiest.prb_dl_pct}% PRB`]
+      : ["Nearby", `about ${Math.round(s.a.people / 100) * 100} people`],
+  ];
+}
+const callout = el("div", { className: "site-callout", hidden: true });
+callout.setAttribute("aria-hidden", "true");
+map.getContainer().append(callout);
+let calloutSite = null, calloutTimer = null;
+function showCallout(s) {
+  clearTimeout(calloutTimer);
+  if (calloutSite === s && !callout.hidden) return;
+  calloutSite = s;
+  const color = token(s.a.level);
+  const screen = el("div", { className: "callout-screen" },
+    aerialPhoto(s.entry.lat, s.entry.lon),
+    el("div", { className: "callout-title" }, el("strong", { textContent: s.entry.site_id }), el("span", { className: "callout-level", textContent: LEVELS[s.a.level].label })),
+    el("dl", {}, ...calloutFacts(s).flatMap(([label, value], i) => {
+      const dt = el("dt", { textContent: label }), dd = el("dd", {}, value);
+      dt.style.setProperty("--i", i); dd.style.setProperty("--i", i);
+      return [dt, dd];
+    })));
+  const line = el("div", { className: "callout-line" });
+  callout.replaceChildren(line, screen);
+  callout.style.setProperty("--level", color);
+  callout.hidden = false;
+  // Up and to the right, unless the map edge is in the way; the screen never leaves the map.
+  const size = map.getSize(), p = map.latLngToContainerPoint([s.entry.lat, s.entry.lon]);
+  const w = screen.offsetWidth, h = screen.offsetHeight;
+  const hx = p.x + RUN + w + 12 > size.x ? -1 : 1;
+  const vy = p.y - RISE - MEET < 8 ? 1 : -1;
+  const top = Math.max(8 - p.y, Math.min(vy * RISE - MEET, size.y - 8 - h - p.y));
+  const meet = vy * RISE - top;
+  callout.style.left = `${p.x}px`;
+  callout.style.top = `${p.y}px`;
+  screen.style.top = `${top}px`;
+  screen.style.left = hx > 0 ? `${RUN}px` : `${-RUN - w}px`;
+  screen.style.setProperty("--meet", `${meet}px`);
+  const end = vy * RISE;
+  line.innerHTML = `<svg width="1" height="1" overflow="visible"><circle class="ping" r="9"/><path d="M0 ${vy * 9} V${end} H${hx * RUN}" pathLength="1"/><circle class="elbow" cx="0" cy="${end}" r="2.5"/></svg>`;
+  callout.classList.toggle("flip-x", hx < 0);
+  callout.classList.remove("open");
+  void callout.offsetWidth; // restart the opening for a new site
+  callout.classList.add("open");
+}
+function hideCallout(now = false) {
+  clearTimeout(calloutTimer);
+  const close = () => { callout.hidden = true; callout.classList.remove("open"); calloutSite = null; };
+  if (now) close(); else calloutTimer = setTimeout(close, 160);
+}
+map.on("movestart zoomstart", () => hideCallout(true));
+
 async function add(entry) {
   const twin = await fetch(entry.twin).then((r) => r.json());
   const s = { entry, source: twin };
@@ -330,9 +417,11 @@ async function add(entry) {
   if (existing >= 0) sites.splice(existing, 1, s); else sites.push(s);
   markers[entry.site_id]?.remove();
   markers[entry.site_id] = L.marker([entry.lat, entry.lon], { icon: pinIcon(s.a.level, false, s.a.level === "critical" && attentionCount++ < 3), title: `${entry.site_id}: ${LEVELS[s.a.level].label}`, alt: `${entry.site_id}: ${LEVELS[s.a.level].label}` })
-    .addTo(map).on("click", () => select(s))
-    // Only the name on hover: what the site needs is said once, in the panel when it is selected.
-    .bindTooltip(entry.site_id, { direction: "top", offset: [0, -14] });
+    .addTo(map).on("click", () => { hideCallout(true); select(s); })
+    .on("mouseover", () => showCallout(s)).on("mouseout", () => hideCallout());
+  const pin = markers[entry.site_id].getElement();
+  pin?.addEventListener("focus", () => showCallout(s));
+  pin?.addEventListener("blur", () => hideCallout());
   return s;
 }
 
