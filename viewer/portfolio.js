@@ -314,17 +314,18 @@ function reassess(s) {
 }
 function updateMarker(s) {
   const marker = markers[s.entry.site_id];
-  marker.options.title = marker.options.alt = `${s.entry.site_id}: ${LEVELS[s.a.level].label}`;
+  marker.options.alt = `${s.entry.site_id}: ${LEVELS[s.a.level].label}`;
   marker.setIcon(pinIcon(s.a.level, s === selectedSite));
-  marker.getElement()?.setAttribute("aria-label", marker.options.title);
+  marker.getElement()?.setAttribute("aria-label", marker.options.alt);
 }
 
 // ---------- hover: a line rises from the pin, turns, and opens a small screen on the site ----------
-// The screen shows the site from the air (Esri World Imagery, the street map if a tile is missing)
+// The screen shows the site's general view from its BTK report (carried in the twin), or the site
+// from the air when the file has none (Esri World Imagery, the street map if a tile is missing),
 // and under it the few facts that matter, one per line. It only informs: a click selects the site.
 const AERIAL = (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
 const STREET = (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
-const RISE = 56, RUN = 34, MEET = 22, PHOTO_W = 284, PHOTO_H = 132;
+const RISE = 40, RUN = 12, MEET = 18, PHOTO_W = 256, PHOTO_H = 132;
 function aerialPhoto(lat, lon) {
   const z = 18, n = 2 ** z, r = (lat * Math.PI) / 180;
   const x = ((lon + 180) / 360) * n, y = ((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * n;
@@ -340,6 +341,10 @@ function aerialPhoto(lat, lon) {
   }
   mosaic.style.transform = `translate(${Math.round(PHOTO_W / 2 - 256 - (x - ix) * 256)}px, ${Math.round(PHOTO_H / 2 - 256 - (y - iy) * 256)}px)`;
   return el("div", { className: "callout-photo" }, mosaic, el("span", { className: "reticle" }), el("span", { className: "photo-credit", textContent: "Imagery: Esri, Maxar, Earthstar Geographics" }));
+}
+function generalView(photo) {
+  const img = el("img", { alt: "", src: photo.data, decoding: "async" });
+  return el("div", { className: "callout-photo btk" }, img, el("span", { className: "photo-credit", textContent: "Photo: BTK report, general view" }));
 }
 function calloutFacts(s) {
   const cells = s.source.network_kpi?.cells ?? [];
@@ -369,10 +374,10 @@ function showCallout(s) {
   calloutSite = s;
   const color = token(s.a.level);
   const screen = el("div", { className: "callout-screen" },
-    aerialPhoto(s.entry.lat, s.entry.lon),
+    s.source.overview_photo?.data ? generalView(s.source.overview_photo) : aerialPhoto(s.entry.lat, s.entry.lon),
     el("div", { className: "callout-title" }, el("strong", { textContent: s.entry.site_id }), el("span", { className: "callout-level", textContent: LEVELS[s.a.level].label })),
     el("dl", {}, ...calloutFacts(s).flatMap(([label, value], i) => {
-      const dt = el("dt", { textContent: label }), dd = el("dd", {}, value);
+      const dt = el("dt", { textContent: label }), dd = el("dd", { className: i === 0 ? "wrap" : "" }, value);
       dt.style.setProperty("--i", i); dd.style.setProperty("--i", i);
       return [dt, dd];
     })));
@@ -416,12 +421,19 @@ async function add(entry) {
   const existing = sites.findIndex((x) => x.entry.site_id === entry.site_id);
   if (existing >= 0) sites.splice(existing, 1, s); else sites.push(s);
   markers[entry.site_id]?.remove();
-  markers[entry.site_id] = L.marker([entry.lat, entry.lon], { icon: pinIcon(s.a.level, false, s.a.level === "critical" && attentionCount++ < 3), title: `${entry.site_id}: ${LEVELS[s.a.level].label}`, alt: `${entry.site_id}: ${LEVELS[s.a.level].label}` })
-    .addTo(map).on("click", () => { hideCallout(true); select(s); })
-    .on("mouseover", () => showCallout(s)).on("mouseout", () => hideCallout());
-  const pin = markers[entry.site_id].getElement();
-  pin?.addEventListener("focus", () => showCallout(s));
-  pin?.addEventListener("blur", () => hideCallout());
+  // No browser tooltip (title): the screen names the site, and the tooltip landed on top of it.
+  const marker = L.marker([entry.lat, entry.lon], { icon: pinIcon(s.a.level, false, s.a.level === "critical" && attentionCount++ < 3), alt: `${entry.site_id}: ${LEVELS[s.a.level].label}` })
+    // The pin element exists only once the map shows it (after the first view is set).
+    .on("add", () => {
+      const pin = marker.getElement();
+      pin.setAttribute("aria-label", marker.options.alt);
+      pin.addEventListener("focus", () => showCallout(s));
+      pin.addEventListener("blur", () => hideCallout());
+    })
+    .on("click", () => { hideCallout(true); select(s); })
+    .on("mouseover", () => showCallout(s)).on("mouseout", () => hideCallout())
+    .addTo(map);
+  markers[entry.site_id] = marker;
   return s;
 }
 

@@ -16,6 +16,7 @@ import json
 import re
 from pathlib import Path
 
+from .btk_photo import from_sitetwin as btk_general_view
 from .export import build_twin
 from .importers.sitetwin import GROUND_STRUCTURES, from_sitetwin, network_kpi
 from .osm import context_buildings, dms_to_deg, surroundings
@@ -44,6 +45,9 @@ def import_site(doc: dict, out_dir: Path, web_root: Path = Path("viewer"), with_
     twin["baseline"] = existing.model_dump()
     if kpi := network_kpi(doc):
         twin["network_kpi"] = kpi
+    # The general-view photo from the site's BTK report; never in public samples (a real site).
+    if not anonymize_names and (photo := btk_general_view(doc)):
+        twin["overview_photo"] = photo
     if with_surroundings:
         # Lighter buildings around the analysed ones, for the 3D view only.
         twin["context"] = context_buildings(lat, lon)

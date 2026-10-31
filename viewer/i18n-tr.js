@@ -400,6 +400,7 @@ export const EXACT = {
   "Busiest cell": "En yoğun hücre",
   "Nearby": "Çevrede",
   "Imagery: Esri, Maxar, Earthstar Geographics": "Görüntü: Esri, Maxar, Earthstar Geographics",
+  "Photo: BTK report, general view": "Fotoğraf: BTK raporu, genel görünüm",
   "Address": "Adres",
   "Coordinates": "Koordinat",
   "Map": "Harita",
