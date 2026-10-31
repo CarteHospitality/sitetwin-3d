@@ -275,6 +275,9 @@ export const EXACT = {
   // ---- Antennas card
   "Antennas": "Antenler",
   "✓ Saved": "✓ Kaydedildi",
+  "Start over": "Baştan başla",
+  "Click again: everything is forgotten": "Tekrar tıklayın: her şey silinir",
+  "Forget all chats, plans and loaded files in this browser": "Bu tarayıcıdaki tüm sohbetleri, planları ve yüklenen dosyaları unut",
   "Analyse this site": "Bu sahayı analiz et",
   "Is capacity enough, and in a year?": "Kapasite yeterli mi, bir yıl sonra ne olur?",
   "Is there a risk for a school or hospital?": "Okul ya da hastane için risk var mı?",

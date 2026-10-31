@@ -16,12 +16,12 @@ import { populationContext } from "./population.js";
 import { initVoice } from "./voice.js";
 import { initConversation } from "./conversation.js";
 import { createSceneMotion } from "./scene.js";
-import { restoreProposed, saveProposed, sourceFingerprint, consumeHandoff, handoffId, absoluteUrl, withUploads } from "./session.js";
+import { restoreProposed, saveProposed, sourceFingerprint, consumeHandoff, handoffId, absoluteUrl, withUploads, startOver } from "./session.js";
 import { twinKpi } from "./kpi.js";
 import { groundMap } from "./groundmap.js";
 import { createIntro } from "./intro.js";
 import { fieldWorkOrder } from "./fieldwork.js";
-import { $, el, token, initShell, setText, reducedMotion } from "./ui.js";
+import { $, el, token, initShell, setText, reducedMotion, confirmClick } from "./ui.js";
 import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
 import { crewPlan } from "./crew.js";
 import { openActionPlan, result, diffSites, sitePlan, FIELDS } from "./actionplan.js";
@@ -604,6 +604,7 @@ function renderOverview(checks, changes, crew) {
 $("crewLine").onclick = () => showCard("crew", { reveal: true });
 // The action plan opens with e-mail, copy, print and share for the site chief.
 $("sendPlan").onclick = () => $("export").click();
+confirmClick($("startOver"), "Click again: everything is forgotten", () => startOver(portfolioUrl));
 
 let crewSignature = "";
 function renderCrew(plan) {

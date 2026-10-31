@@ -2,13 +2,24 @@
 // restored. Stored findings are never trusted: both pages rerun shared checks.
 import { REGIMES } from "./emf.js";
 const PREFIX = "sitetwin:";
+// Set by startOver: nothing may be written back while the page leaves (pagehide saves).
+let frozen = false;
 export function readSession(key, fallback = null) {
   try { const value = sessionStorage.getItem(PREFIX + key); return value ? JSON.parse(value) : fallback; }
   catch { return fallback; }
 }
 export function writeSession(key, value) {
+  if (frozen) return false;
   try { sessionStorage.setItem(PREFIX + key, JSON.stringify(value)); return true; }
   catch { return false; }
+}
+// Start over: forget everything this site keeps in the browser (chats, plans, map view, loaded
+// files, folded cards, language choice) and open the map's home view, as a first visit sees it.
+export function startOver(portfolioUrl) {
+  frozen = true;
+  try { sessionStorage.clear(); } catch { /* storage blocked */ }
+  try { for (const key of Object.keys(localStorage)) if (key.startsWith(PREFIX)) localStorage.removeItem(key); } catch { /* storage blocked */ }
+  location.replace(`portfolio.html?${new URLSearchParams({ portfolio: portfolioUrl, home: "1" })}`);
 }
 export function canonical(value) {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;

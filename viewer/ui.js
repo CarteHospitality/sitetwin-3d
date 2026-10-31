@@ -17,6 +17,22 @@ export function setText(node, value) {
     { duration: 120, easing: "cubic-bezier(.2,0,0,1)" });
 }
 
+// A button that acts on the second click within four seconds; the first one says what will happen.
+export function confirmClick(button, confirmText, action) {
+  const label = button.textContent;
+  let armed = null;
+  button.onclick = () => {
+    if (!armed) {
+      button.textContent = confirmText;
+      armed = setTimeout(() => { armed = null; button.textContent = label; }, 4000);
+      return;
+    }
+    clearTimeout(armed); armed = null;
+    button.textContent = label;
+    action();
+  };
+}
+
 export function showTab(name) {
   for (const tab of document.querySelectorAll("[data-tab]")) {
     const active = tab.dataset.tab === name;

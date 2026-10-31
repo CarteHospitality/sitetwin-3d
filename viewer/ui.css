@@ -471,3 +471,7 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
 .choices .choice:disabled { opacity: .55; cursor: default; }
 details.options-card > summary { cursor: pointer; margin-bottom: 0; font-weight: 500; }
 details.options-card[open] > summary { margin-bottom: 6px; }
+
+/* Start over: quiet in the top bar, it asks once before it forgets everything. */
+.start-over { margin-left: auto; padding: 4px 10px; min-height: 0; font-size: 13px; border: 1px solid var(--border-control); background: var(--surface-0); color: var(--text-secondary); }
+.start-over:hover { border-color: var(--critical); color: var(--critical); }

@@ -8,8 +8,8 @@ import { populationContext } from "./population.js";
 import { createAgent } from "./agent.js";
 import { initVoice } from "./voice.js";
 import { initConversation } from "./conversation.js";
-import { readSession, writeSession, restoreProposed, canonical, handoffId, absoluteUrl, rememberUpload, withUploads, isUpload, forgetUpload, forgetPlan } from "./session.js";
-import { $, el, token, initShell, reducedMotion } from "./ui.js";
+import { readSession, writeSession, restoreProposed, canonical, handoffId, absoluteUrl, rememberUpload, withUploads, isUpload, forgetUpload, forgetPlan, startOver } from "./session.js";
+import { $, el, token, initShell, reducedMotion, confirmClick } from "./ui.js";
 import { startTour, readTour, endTour } from "./tour.js";
 import { combinePlans, openActionPlan, diffSites, sitePlan } from "./actionplan.js";
 import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
@@ -19,6 +19,7 @@ import { capacityAdded, planSteps } from "./overview.js";
 initShell();
 initCards();
 $("loadTwin").onclick = () => $("upload").click();
+confirmClick($("startOver"), "Click again: everything is forgotten", () => startOver(indexUrl));
 
 const LEVELS = {
   critical: { label: "Critical", glyph: "!", rank: 4 },
