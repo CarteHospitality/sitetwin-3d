@@ -7,56 +7,49 @@ Başvuru: https://cerebralvalley.ai/e/meta-ai-developer-hackathon/hackathon/subm
 
 | Ölçüt | Ağırlık | Videoda gösterilecek |
 |---|---|---|
-| Etki | 30% | Operatörün yüzlerce sahası var; okul/hastane yakınındaki EMF sorunlarını bugün elle, haftalarca bulur. Burada saniyeler. |
-| Meta araçları | 25% | Üç Meta modeli tek akışta: **Muse Spark Open** (ajan, Baseten), **Muse Spark 1.3** (fotoğraf okuma), **Muse Voice Transcribe** (sesli komut). |
-| Teknik | 20% | Ajanın araçları tarayıcıda canlı 3D ikiz üzerinde çalışır; her seçenek gerçek EMF hesabıyla denenir, tahmin değil. |
-| Demo | 25% | Tek kesintisiz akış: harita → acil saha → sesli komut → 3D'de düzeltme → saha ekibi ve iş emri. |
+| Etki | 30% | Operatörün yüzlerce sahası var; okul/hastane yakınındaki EMF sorunlarını bugün elle bulur. Burada harita hepsini tarar, sorunu tek cümleyle söyler ve saha ekibine giden bir plan taslağı çıkar. |
+| Meta araçları | 25% | **Muse Spark Open** (Baseten) canlı ikiz üzerinde araç çağıran ajan; Baseten düşerse aynı çağrıyı **Muse Spark 1.3** (Meta Model API) alır. **Muse Voice Transcribe** sesli komut, **Muse Spark 1.3** fotoğraf okuma. |
+| Teknik | 20% | Her seçenek ikizin kendi EMF hesabıyla denenir (BTK yönetmeliği maddeleriyle); sıralama kartta yazan sabit kurala göre, modelin tercihi ayrıca işaretli. |
+| Demo | 25% | Tek kesintisiz akış: harita → Ankara → analiz → karar kartı → plana ekle (simülasyon) → izlenen değişiklik → eylem planı. |
 
-Ek ödüller: **Best Open Weight** (Muse Spark Open kullanıyoruz, uygun), **Best Agentic** (ajan çok adımlı plan yapıyor),
+Ek ödüller: **Best Open Weight** (Muse Spark Open), **Best Agentic** (ajan çok adımlı plan yapıyor),
 **Most Viral** (X paylaşımı, 8 Kasım'a kadar etkileşim).
 
-## Video akışı (3:00)
+## Video akışı (3:00): tek senaryo, Ankara
 
-Ekran kaydı + seslendirme. Seslendirme İngilizce olmalı (jüri); uygulamaya verilen sesli komut **Türkçe** olabilir.
-Bu bilerek iyi bir şey: "mühendis kendi dilinde konuşuyor" mesajı.
+Ekran kaydı + İngilizce seslendirme. Ana videoda yalnız Ankara var; fotoğraf ve portföy turu ayrı kısa kliplerde.
+Ajanın beklediği kısım hızlandırılırsa ekranda küçük bir "sped up" notu olsun: canlı çalıştığı inandırıcı kalır.
 
 | Süre | Ekranda | Seslendirme (İngilizce) |
 |---|---|---|
-| 0:00–0:20 | Portföy haritası, sorunlu sahalar renkli | "Operators run thousands of rooftop sites. Some radiate into schools and homes, and finding them is slow, manual work. SiteTwin 3D checks every site automatically." |
-| 0:20–0:45 | Sağda "Aciliyete göre sahalar" kartı, en üstteki sahaya tıklama | "Each site comes from a SiteTwin survey file: antennas, bands, power, and the buildings around it, from Microsoft and OpenStreetMap data." |
-| 0:45–1:20 | 🎤 tuşuna basıp Türkçe: *"Hangi saha en acil? Onu aç ve okul sorununu en küçük değişiklikle çöz."* | "I just talk to it, in Turkish. Muse Voice Transcribe turns my voice into text, and the Expert Operator, running on Muse Spark Open, takes it from there." |
-| 1:20–2:05 | 3D ikiz açılır; ajan seçenekleri dener, EMF bölgesi küçülür, okul kırmızıdan çıkar | "The agent doesn't guess. Every option it tries runs through the same EMF model I see: tilt, azimuth, power. It picks the smallest change that clears the school." |
-| 2:05–2:20 | Sağda "Saha ekibi ve takvim" kartı belirir | "Then it plans the field work: who goes, what they carry, how long it takes." |
-| 2:20–2:35 | 📷 simgesi → çatı/anten fotoğrafı seçilir → küçük resim + "3 × panel anten…" → ajan ikizle karşılaştırır | "On site, a photo is enough. Muse Spark 1.3 reads the equipment and labels, and the agent checks it against the twin." |
-| 2:35–2:55 | "Eylem planı" → plan açılır → "E-postayla gönder" | "One click turns it into an action plan for the site chief: where, why, what to do, crew, tools, materials, precautions." |
-| (yedek) | Haritada "Sorunlu sahaların hepsini sırayla düzelt" → sahalar sırayla açılıp düzelir → "Eylem planı · 4 saha" | Best Agentic için ayrı kısa klip ya da X paylaşımı (tur ~2 dk sürer, hızlandırılmalı). |
-| 2:55–3:00 | Logo + repo adresi | "SiteTwin 3D. Open source, built on Meta's open models." |
+| 0:00–0:15 | Portföy haritası; Ankara pininin kartı: "A school is inside the EMF safety zone of S3-1 in the planning model…" | "Operators run thousands of rooftop sites. Some put an EMF safety zone on a school, and finding them is slow, manual work. SiteTwin 3D checks every site and says the problem in one sentence." |
+| 0:15–0:30 | Karta tıklama; ikiz kurulur, aynı cümle ve **Analyse this problem** | "Each site comes from a survey file: antennas, bands, power, and the real buildings around it." |
+| 0:30–1:00 | **Analyse this problem** (ya da Türkçe sesli komut, İngilizce altyazıyla); sohbette sayfanın kendi hesapladığı saha özeti, sonra ajanın adımları | "The Expert Operator runs on Muse Spark Open. It doesn't guess: every option it tries goes through the same EMF model I see." |
+| 1:00–1:30 | Karar kartı: kartta yazan sıralama kuralı, bugünkü çakışmalarla yan yana, her seçeneğin değişikliği ("S3-1 height: 17.5 m → 24 m") | "The ranking rule is written on the card, so the model doesn't grade its own answer. An analysis never changes the plan: I choose." |
+| 1:30–2:05 | **Add to plan (simulation)**: "Simulation · step 1 of 4", kaydırıcılar oynar, 3B'de önce / değişiklik / sonra; okul bölgeden çıkar | "Nothing changes on site: the twin plays the change step by step, before and after." |
+| 2:05–2:40 | **Action plan (planning draft)**: bulgu, iş, ekip, okul bahçesinin yerinde teyidi; Print / PDF | "It ends as a draft for the site chief: where, why, what to do, the crew, and what must be measured and approved first." |
+| 2:40–2:55 | İsteğe bağlı: tek cümlelik sesli komut ya da fotoğraf okuma | "I can also talk to it in Turkish, or show it a site photo." |
+| 2:55–3:00 | Önce / sonra görseli + repo adresi | "SiteTwin 3D. Open source, built on Meta's models." |
+
+Yedek klipler: portföy turu ("Fix urgent sites one by one", hızlandırılmış) ve fotoğraf okuma.
 
 ## Kayıt öncesi kontrol listesi
 
-- [ ] Sunucu çalışıyor, `.env` içinde hackathon anahtarı var (`meta-models/muse-spark-open-1026`).
+- [ ] Sunucu çalışıyor; `.env` içinde `BASETEN_API_KEY` **ve** `MODEL_API_KEY` var (Baseten düşerse ajan Meta Model API'ye geçer).
 - [ ] **Sadece örnek veri:** `portfolio.html?portfolio=data/samples/portfolio.json`. Gerçek operatör sahaları videoda görünmemeli.
-- [ ] Ankara örneğinde okul sorunu net görünmeli ve portföyde "Kritik" çıkmalı (şu an sınırda; aşağıya bak).
-- [ ] Tarayıcı tam ekran, yakınlaştırma %100, bildirimler kapalı.
-- [ ] Mikrofon testi; ajanın sesli cevabı da kayda girsin.
-- [ ] Fotoğraf sahnesindeki fotoğraf bir kez önceden yüklendi (önbellek), operatör/kişi adı görünmüyor.
-- [ ] Akışı 2–3 kez prova et; en temiz çekimi kullan. Ajan yanıtı 30–60 sn sürebilir; videoda bu kısım hızlandırılabilir.
-
-## Bilinen eksikler (dondurmadan önce)
-
-1. ~~Ankara örneği zayıf~~ **Düzeltildi:** batı sektörü (S3-1) okula dönük, 40 W. Bölge 42 m, okul 29 m'de;
-   portföyde "Kritik". Test çekiminde ajan gücü 40 W → 18 W yaptı, okul bölgeden çıktı.
-   Not: önceki bir öneri tarayıcı oturumunda kalırsa portföy sahayı "düzeltilmiş" gösterir; kayda **yeni bir sekmede** başla.
-2. ~~Ajanın yanıt süresi~~ **Düzeltildi:** ajan seçenekleri tek çağrıda karşılaştırıyor, durum ve çevre bilgisi baştan veriliyor,
-   uygulama sonucu ekip planını da döndürüyor. Ankara'da 3–4 model çağrısı, 20–30 sn (önce 10–25 çağrı, 30–60 sn).
-3. Fotoğraf sahnesi için anten görünen bir çatı fotoğrafı seç (kabin içi fotoğraf da çalışıyor ama antenli olan daha etkili).
-   Fotoğraf okuma 10–15 sn sürer; aynı fotoğraf ikinci kez anında gelir (önbellek). Kayıttan önce bir kez yükleyip önbelleğe al.
+- [ ] Kayda **yeni bir sekmede** ya da **Start over** ile başla: önceki bir plan oturumda kalırsa Ankara "düzeltilmiş" görünür.
+- [ ] Ankara portföyde **Critical**; kartta okul cümlesi var.
+- [ ] Kayıttan hemen önce bir ısınma çalıştırması yap (ilk model çağrısı yavaş olabilir); harita karoları bir kez yüklensin.
+- [ ] **Camera story** bilerek açık ya da kapalı; teknik kartlar kapalı başlasın.
+- [ ] Tarayıcı tam ekran, yakınlaştırma %100, bildirimler kapalı, açılır pencerelere izin var (Print / PDF için).
+- [ ] B planı: ajan cevap vermezse aynı düzeltmeyi elle göster (Manual adjustment kartında S3-1 yüksekliği ve gücü, ~20 sn).
+- [ ] Akışı 2–3 kez prova et; en temiz çekimi kullan.
 
 ## Başvuru formu için gerekenler
 
-- [ ] Public GitHub reposu (README: ne yapar, nasıl çalıştırılır, hangi Meta modelleri nerede).
-- [ ] 3 dakikalık video (YouTube "liste dışı" veya Loom bağlantısı).
+- [x] Public GitHub reposu (README: ne yapar, nasıl çalıştırılır, hangi Meta modelleri nerede).
+- [x] Kullanılan Meta araçları listesi (README, "Meta models used").
+- [x] Repoda gerçek veri yok (`data/private`, `viewer/data/private`, `viewer/data/uploads` gitignore'da).
+- [ ] 3 dakikalık video (YouTube "liste dışı" veya Loom bağlantısı) ve README'deki bağlantı.
 - [ ] Kısa açıklama (1 paragraf) ve problem tanımı.
-- [ ] Kullanılan Meta araçları listesi.
-- [ ] Repoda gerçek veri olmadığının kontrolü (`data/private`, `viewer/data/private`, `viewer/data/uploads` gitignore'da).
-- [ ] İsteğe bağlı: X paylaşımı (Most Viral ödülü için): Eylem planı → "Önce / sonra" görseli + 20 sn klip.
+- [ ] İsteğe bağlı: X paylaşımı (Most Viral ödülü için): eylem planı → "Önce / sonra" görseli + 20 sn klip.

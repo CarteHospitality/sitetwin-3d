@@ -7,8 +7,9 @@ export const PRB_EXPAND = 85;
 // Indicative: mobile data traffic per site grows about 20% a year (operator and industry outlooks
 // give roughly 15-30%). Used for "what if nothing changes".
 export const TRAFFIC_GROWTH = 0.2;
-// Months until a load grows from `now` to `target` (0 if it is already there).
-export const monthsUntil = (now, target) => (now >= target ? 0 : Math.round((12 * Math.log(target / now)) / Math.log(1 + TRAFFIC_GROWTH)));
+// Months until a load grows from `now` to `target` (0 if it is already there). A load below 1 counts
+// as 1: an idle cell would otherwise never grow, and the plan would say "in Infinity years".
+export const monthsUntil = (now, target) => (now >= target ? 0 : Math.round((12 * Math.log(target / Math.max(now, 1))) / Math.log(1 + TRAFFIC_GROWTH)));
 
 // How a load figure is labelled: "measured" for an operator export, "sample data" for the synthetic
 // demo sites (their source says so), so an invented figure never reads as a measurement.

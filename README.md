@@ -6,20 +6,20 @@ Built for the Meta Global AI Developer Hackathon (Indie track). Demo video: _lin
 
 ## Demo in three minutes
 
-1. **The map** (`portfolio.html?portfolio=data/samples/portfolio.json`): five sites, coloured by urgency. Hover Ankara: its card says the problem in one sentence, "A school is inside the EMF safety zone of S3-1 in the planning model: it needs a fix or a measurement." Every sample site is labelled a synthetic sample; **Sources and assumptions** in the twin's top bar shows where each figure comes from.
+1. **The map** (`portfolio.html?portfolio=data/samples/portfolio.json`): five sites, coloured by urgency. Hover Ankara: its card says the problem in one sentence, "A school is inside the EMF safety zone of S3-1 in the planning model: it needs a fix or a measurement." **Download the list (CSV)** gives the same ranking for a planning sheet. Every sample site is labelled a synthetic sample; **Sources and assumptions** in the twin's top bar shows where each figure comes from.
 2. **The twin**: click the card. The 3D twin opens on the same sentence and one button, **Analyse this problem**.
 3. **The operator works in the open**: the chat shows the site summary the page calculates itself (structure, antennas, people nearby, EMF, roof, load, coverage, next year's load), then the operator's real steps as they happen: thinking, comparing options.
 4. **The decision**: its answer in plain words, then one open card with the options it compared, ranked by a fixed rule written on the card (sensitive buildings, other buildings, coverage loss, roof, field work): EMF conflicts against today's, roof, coverage loss and the field work each would take. An option applies only from its own row.
 5. **In your own words**: instead of the button, ask for a goal the buttons do not offer, for example "Okulu etkilemeden, en az saha işiyle güney kapasitesini artır; kapsama kaybı olursa söyle". The operator turns it into options and compares them with the twin's own checks; **Technical steps** shows each tool call and the numbers it returned, and the card's fixed ranking stays apart from the operator's own preference.
-6. **The change, watched**: Apply. The plan's steps are listed, then carried out one at a time in the manual-adjustment card (the antenna is picked, its slider moves) while the 3D view moves with it; with **Camera story** on, the camera tells it as before, change, after. Skip plays the rest at once.
-7. **The plan**: "Action plan ready". Review shows the plan's status (a planning draft: a field measurement and approval come first), the finding that made it, the work, the expected result, the crew, tools, materials and precautions; Print / PDF, Copy or an e-mail draft take it to the site chief.
+6. **The change, watched**: **Add to plan (simulation)**; nothing changes on site. An analysis never adds anything by itself: the engineer picks the option. The plan's steps are listed, then carried out one at a time in the manual-adjustment card (the antenna is picked, its slider moves) while the 3D view moves with it; with **Camera story** on, the camera tells it as before, change, after. Skip plays the rest at once.
+7. **The plan**: "Action plan ready". Review shows the plan's status (a planning draft: a field measurement and approval come first), the finding that made it, the work, the expected result, the crew, tools, materials and precautions (with a school nearby, checking its garden and playgrounds on site comes first); Print / PDF, Copy or an e-mail draft take it to the site chief.
 
 ## Meta models used
 
 | Model | Where | What it does |
 |---|---|---|
 | **Muse Spark Open** (`meta-models/muse-spark-open-1026`, on Baseten) | `viewer/agent.js`, relayed by `sitetwin3d/server.py` `/api/chat` | The Expert Operator agent: calls tools on the live 3D twin, compares options, applies the fix, plans the field work. |
-| **Muse Spark 1.3** (Meta Model API) | `sitetwin3d/extract.py`, `/api/photo`, `viewer/photo.js` | Reads a site photo: equipment, label text, safety notes. The agent then checks it against the twin. |
+| **Muse Spark 1.3** (Meta Model API) | `sitetwin3d/extract.py`, `/api/photo`, `viewer/photo.js`; `/api/chat` as the agent's fallback | Reads a site photo: equipment, label text, safety notes. The agent then checks it against the twin. If Baseten fails or takes over 30 s, it answers the agent's call with the same tools (`tests/test_agent_fallback.py`). |
 | **Muse Voice Transcribe** (Meta Model API) | `viewer/voice.js`, `/api/transcribe` | Push-to-talk: the engineer speaks (Turkish or English), the agent acts. |
 
 ## What existed before vs. what is new
@@ -62,7 +62,7 @@ python -m venv .venv
 - The interface follows the browser language (Turkish or English); switch with the language button.
 - Load your own file: **Load file** on the map, or `python -m sitetwin3d.portfolio FILE.json --out viewer/data/private`.
 
-The Expert Operator needs `BASETEN_API_KEY`; voice and photo extraction need `MODEL_API_KEY` (Meta Model API). Put them in `.env` (see `.env.example`), never in the repo.
+The Expert Operator needs `BASETEN_API_KEY`; voice and photo extraction need `MODEL_API_KEY` (Meta Model API). With both keys set, a call Baseten cannot answer goes to Muse Spark 1.3 on the Meta Model API, and the chat shows which model answered. Put them in `.env` (see `.env.example`), never in the repo.
 
 ## Data
 
@@ -75,7 +75,7 @@ The Expert Operator needs `BASETEN_API_KEY`; voice and photo extraction need `MO
 ## Privacy and data flow
 
 - The public demo runs on the five synthetic sample sites only. Real operator site files, their photos and anything derived from them stay on the engineer's machine (`data/private/`, `viewer/data/private/`, `viewer/data/uploads/`, all git-ignored).
-- What leaves the machine, and to whom: the Expert Operator's briefing and tool results (antenna data, neighbouring buildings and their uses, measured load) go to Muse Spark Open on Baseten; a photo sent from the chat and push-to-talk audio go to the Meta Model API; the site's coordinates reach the map tile servers (OpenStreetMap, Esri) as tile requests. Addresses stay in the portfolio index and the action plan, which is only sent when the engineer e-mails it.
+- What leaves the machine, and to whom: the Expert Operator's briefing and tool results (antenna data, neighbouring buildings and their uses, measured load) go to Muse Spark Open on Baseten (or, when Baseten fails, to Muse Spark 1.3 on the Meta Model API); a photo sent from the chat and push-to-talk audio go to the Meta Model API; the site's coordinates reach the map tile servers (OpenStreetMap, Esri) as tile requests. Addresses stay in the portfolio index and the action plan, which is only sent when the engineer e-mails it.
 - API keys live in `.env`, never in the repo, and stay on the server: the browser never sees them. The server listens on 127.0.0.1 only, so its `/api/chat` relay is not open to the network.
 
 ## Limits

@@ -120,6 +120,10 @@ export function actionPlan({ site, entry, before, after, changes, steps = [], re
     ...measured.filter((c) => ![...named].some((n) => n.sector === c.sector && n.band === c.band)).map((c) => `${c.tag === "measured" ? "Measured" : "Sample"} load: ${c.sector} ${c.band} ${c.prb_dl_pct}% PRB (busy hour)`),
     ...(reason ? [`Reason for the change: ${reason}`] : []), `EMF limit: ${regime}`];
   const visits = crew.visits.map((v) => `${v.name}: ${v.remote ? `${v.people} engineer, ~${v.hours} h, remote` : `${v.people} people, ${v.days} day(s)`}`);
+  // The regulation measures a school's distance from its garden and playgrounds, which the data lacks:
+  // with a school nearby, the plan makes checking them on site a step before any work.
+  const school = (site.neighbours ?? []).some((n) => ["school", "kindergarten"].includes(n.use));
+  const gardens = school ? ["Before any work, confirm on site the safety distance from the nearby school's garden boundary and playgrounds (Article 6(2), 6(4)): the model checks the school building only"] : [];
   return {
     site: site.site_id,
     sections: [
@@ -133,7 +137,7 @@ export function actionPlan({ site, entry, before, after, changes, steps = [], re
       { heading: "Work steps", lines: order.items.flatMap((i) => i.steps) },
       { heading: "Tools and equipment", lines: crew.tools },
       { heading: "Materials", lines: uniq(order.items.flatMap((i) => i.materials)) },
-      { heading: "Precautions and approvals", lines: uniq([...order.items.flatMap((i) => i.precautions), ...order.general]) },
+      { heading: "Precautions and approvals", lines: uniq([...gardens, ...order.items.flatMap((i) => i.precautions), ...order.general]) },
     ].filter((s) => s.lines.length),
     note: crew.note, date: new Date().toLocaleDateString(),
   };

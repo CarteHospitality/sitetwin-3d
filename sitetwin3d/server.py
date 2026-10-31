@@ -64,25 +64,47 @@ def _clean(text: str) -> str:
     return LEAK.sub("", text).strip()
 
 
-@app.post("/api/chat")
-def chat(req: ChatRequest) -> dict:
-    cfg = AGENT_MODELS[os.environ.get("AGENT_PROVIDER", "baseten")]
-    client = OpenAI(base_url=cfg["base_url"], api_key=os.environ[cfg["key_env"]])
+def _providers() -> list[str]:
+    """The configured provider first, then the other one, each only if its key is set."""
+    first = os.environ.get("AGENT_PROVIDER", "baseten")
+    return [p for p in (first, *(p for p in AGENT_MODELS if p != first)) if os.environ.get(AGENT_MODELS[p]["key_env"])]
+
+
+# Both tries together stay under the page's 60 s limit for one model call (viewer/agent.js).
+TIMEOUTS_S = (30, 25)
+
+
+def _ask(cfg: dict, req: ChatRequest, timeout: float) -> dict:
+    client = OpenAI(base_url=cfg["base_url"], api_key=os.environ[cfg["key_env"]], timeout=timeout, max_retries=0)
     for _ in range(3):
-        try:
-            response = client.chat.completions.create(
-                model=cfg["model"], messages=req.messages, temperature=0.2,
-                **({"tools": req.tools} if req.tools else {}),
-            )
-        except OpenAIError as e:
-            raise HTTPException(status_code=502, detail=str(e)) from e
+        response = client.chat.completions.create(
+            model=cfg["model"], messages=req.messages, temperature=0.2,
+            **({"tools": req.tools} if req.tools else {}),
+        )
         message = response.choices[0].message.model_dump(exclude_none=True)
         message.setdefault("content", "")
         if not LEAK.search(message["content"] or ""):
             break
     message["content"] = _clean(message["content"] or "")
     message.pop("reasoning_content", None)
-    return {"message": message, "model": cfg["model"]}
+    return message
+
+
+@app.post("/api/chat")
+def chat(req: ChatRequest) -> dict:
+    # If the configured provider fails (outage, quota, timeout), the other one answers this call;
+    # the page shows which model answered.
+    providers = _providers()
+    if not providers:
+        raise HTTPException(status_code=503, detail="no model API key configured (BASETEN_API_KEY or MODEL_API_KEY)")
+    errors = []
+    for name, timeout in zip(providers, TIMEOUTS_S):
+        cfg = AGENT_MODELS[name]
+        try:
+            return {"message": _ask(cfg, req, timeout), "model": cfg["model"]}
+        except OpenAIError as e:
+            errors.append(f"{name}: {e}")
+    raise HTTPException(status_code=502, detail="; ".join(errors)[:1000])
 
 
 TRANSCRIBE_URL = "https://api.meta.ai/v1/asr/transcribe"

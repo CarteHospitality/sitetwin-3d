@@ -201,6 +201,21 @@ function openCombinedPlan() {
   logAction(`Combined action plan for ${plans.length} sites`);
   openActionPlan(combinePlans(plans));
 }
+// The list as a spreadsheet, most urgent first, for the weekly planning sheet. Excel in Turkish
+// expects ";" between columns, in English ","; the BOM makes it read the text as UTF-8. A site with
+// a change planned here is assessed as planned, so a column says so: nothing has changed on site.
+function downloadSiteList() {
+  const sep = document.documentElement.lang === "tr" ? ";" : ",";
+  const cell = (v) => `"${String(v ?? "").replaceAll('"', '""')}"`;
+  const planned = new Set(plannedWork());
+  const head = ["Rank", "Site", "Urgency", "Issue", "Problem", "Change planned (simulation)", "People nearby (estimated)", "Data", "Address", "Latitude", "Longitude"];
+  const rows = sites.map((s, i) => [i + 1, s.entry.site_id, tr(LEVELS[s.a.level].label), tr(s.a.summary), tr(s.a.problem), planned.has(s) ? tr("yes") : "", s.a.people,
+    tr(s.entry.twin?.includes("/samples/") ? "Synthetic sample" : "Site file"), s.entry.address ?? "", s.entry.lat, s.entry.lon]);
+  const text = "﻿" + [head.map((h) => tr(h)), ...rows].map((r) => r.map(cell).join(sep)).join("\r\n");
+  const link = el("a", { href: URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" })), download: `sitetwin-sites-${new Date().toISOString().slice(0, 10)}.csv` });
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
 const fixUrgent = () => mapAgent.ask(document.documentElement.lang === "tr"
   ? "Aksiyon gerektiren tüm sahaları sırayla düzelt" : "Fix every site that needs action, one by one");
 
@@ -228,7 +243,8 @@ function renderBriefing() {
     ...(work.length ? [el("p", { textContent: tr(`${work.length} site(s) have planned field work.`) })] : []),
     el("div", { className: "briefing-actions" },
       ...(urgent.length ? [button("Fix urgent sites one by one", fixUrgent)] : []),
-      ...(work.length ? [button(work.length > 1 ? `Combined action plan (${work.length} sites)` : "Action plan", openCombinedPlan)] : [])),
+      ...(work.length ? [button(work.length > 1 ? `Combined action plan (${work.length} sites)` : "Action plan", openCombinedPlan)] : []),
+      button("Download the list (CSV)", downloadSiteList)),
     Object.assign(el("details", {}, el("summary", { textContent: tr(`All sites (${sites.length})`) }),
       el("div", { className: "home-list" }, ...sites.map(siteLink))), { open: allOpen }));
 }
