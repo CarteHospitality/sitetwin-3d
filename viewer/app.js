@@ -276,7 +276,29 @@ function coverageMetric(s) {
   return result;
 }
 
+// A band that loses this share of its good-signal area (≥ −90 dBm) against the
+// baseline is a heavy cost: the panel and the agent must both say it. A band the
+// plan switches off everywhere (e.g. refarmed to 5G) is a decision, not a loss:
+// it is listed apart, in bands_switched_off.
+const HEAVY_COVERAGE_LOSS = 0.3;
+let baselineCoverageMetric = null;
+function coverageLoss(cov) {
+  baselineCoverageMetric ??= coverageMetric(baseline);
+  return Object.entries(baselineCoverageMetric).filter(([band]) => cov[band]).map(([band, b]) => {
+    const before = b.km2_above_minus90dBm, after = cov[band]?.km2_above_minus90dBm ?? 0;
+    return { band, before_km2: before, after_km2: after, change_pct: before ? Math.round(((after - before) / before) * 100) : 0 };
+  }).filter((x) => x.change_pct <= -HEAVY_COVERAGE_LOSS * 100);
+}
+// The overview renders often (sliders): coverage is recomputed only when antennas change.
+let coverageMemo = { key: "", loss: [] };
+function currentCoverageLoss() {
+  const key = JSON.stringify(site.antennas);
+  if (coverageMemo.key !== key) coverageMemo = { key, loss: coverageLoss(coverageMetric(site)) };
+  return coverageMemo.loss;
+}
+
 function summarize(s) {
+  const coverage = coverageMetric(s);
   const zones = siteZones(s, REGIMES[regimeKey]);
   const zoneById = Object.fromEntries(zones.map((z) => [z.antenna_id, z]));
   const { findings } = checkSite(s, zones);
@@ -288,7 +310,9 @@ function summarize(s) {
     })),
     neighbour_conflicts: findings.filter((f) => f.level === "bad").map((f) => f.text),
     roof_restrictions: findings.filter((f) => f.level === "warn").map((f) => f.text),
-    coverage: coverageMetric(s),
+    coverage,
+    heavy_coverage_loss: coverageLoss(coverage),
+    bands_switched_off: Object.keys(baselineCoverageMetric).filter((band) => !coverage[band]),
   };
 }
 
@@ -491,7 +515,7 @@ function renderPanels(zones, checks, changes) {
 // The overview on top of the panel: good and bad points, then the plan in plain words.
 let overviewSignature = "";
 function renderOverview(checks, changes, crew) {
-  const lines = statusLines(site, checks, populationContext(site));
+  const lines = statusLines(site, checks, populationContext(site), changes.length ? currentCoverageLoss() : []);
   const steps = planSteps(baseline, site);
   // What the plan achieves; a problem it leaves is said as still open, never with a tick.
   const after = headline(checks);
@@ -795,6 +819,13 @@ const chat = initConversation({
   speak: (text) => voice.speak(text),
   // One conversation per site: switching sites must not show another site's chat.
   transcriptKey: `twin:${absoluteUrl(src)}`,
+  // The engineer picked an option from the comparison table: apply it here and tell the agent.
+  onApplyOption: ({ label, changes }) => {
+    const r = planner.apply(changes, label);
+    if (r.errors) return chat.say("tool", `✕ ${r.errors.join(", ")}`);
+    chat.say("tool", `✓ Applied to plan: ${label}`);
+    agent.note(`I applied option "${label}" from the comparison table myself (apply_change done). Do not apply it again.`);
+  },
 });
 const agent = initAgent(planner, chat);
 const voice = initVoice({

@@ -9,7 +9,9 @@ const LABELS = {
   set_view: "Adjusting view", list_sites: "Reading portfolio", focus_site: "Focusing site", open_site: "Opening twin",
 };
 
-export function initConversation({ onBusy = () => {}, onComplete = () => {}, speak = () => {}, transcriptKey = "default" } = {}) {
+// `onApplyOption`: when given, options the agent compared but did not apply are shown
+// as a table under its answer, each with an Apply button that calls it.
+export function initConversation({ onBusy = () => {}, onComplete = () => {}, speak = () => {}, transcriptKey = "default", onApplyOption = null } = {}) {
   const log = $("chatLog");
   const stored = readSession(`transcript:${transcriptKey}`, []);
   const transcript = Array.isArray(stored) ? stored.filter((item) => item && ["user", "assistant"].includes(item.role) && typeof item.text === "string").slice(-12) : [];
@@ -22,6 +24,8 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
   let rows = new Map(), trialCount = 0, completedTrials = 0, failedTrials = 0;
   const queuedRequests = new Map();
   let runFailed = false;
+  // Options compared in the current run, and Apply buttons of earlier tables (stale once the plan moves on).
+  let compared = [], appliedInRun = false, liveButtons = [];
   const nearBottom = () => log.scrollHeight - log.scrollTop - log.clientHeight <= 48;
   function change(fn) {
     const follow = nearBottom();
@@ -70,6 +74,9 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
     if (on) {
       rows = new Map(); trialCount = completedTrials = failedTrials = 0;
       runFailed = false;
+      compared = []; appliedInRun = false;
+      for (const b of liveButtons) b.disabled = true;
+      liveButtons = [];
       runStart = performance.now(); trials = null;
       groupTitle = el("summary", { textContent: "Working…" });
       rail = el("div", { className: "activity-rail" });
@@ -82,6 +89,7 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
       // A plain answer with no tool steps needs no activity row.
       if (!rows.size && !runFailed) group?.remove();
       else if (groupTitle) groupTitle.textContent =`${runFailed ? "✕ Failed" : failed ? "✓ Done, some steps failed" : "✓ Done"} · ${rows.size} steps · ${Math.round((performance.now() - runStart) / 1000)}s`;
+      if (onApplyOption && !runFailed && !appliedInRun && compared.length) change(() => log.append(optionsTable(compared)));
     }
     onBusy(on, mode);
     if (!on) onComplete(mode);
@@ -120,12 +128,48 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
       if (result?.options) text = result.options.map((o) => `${o.label}: ${o.errors?.length ? "✕" : `${o.neighbour_conflicts.length} conflict findings`}`).join(" · ");
       if (report?.neighbour_conflicts) text += ` · ${report.neighbour_conflicts.length} conflict findings · ${report.roof_restrictions.length} roof restrictions`;
       entry.row.append(el("div", { className: "activity-result", textContent: text }), el("pre", { textContent: JSON.stringify(result, null, 2) }));
+      if (name === "apply_change" && !failed) appliedInRun = true;
+      if (name === "evaluate_change" && !failed) {
+        const tried = result?.options ? result.options.map((r, i) => ({ label: r.label, changes: args.options?.[i]?.changes ?? [], result: r }))
+          : [{ label: "Option", changes: args.changes ?? [], result }];
+        for (const o of tried) { compared = compared.filter((c) => c.label !== o.label); compared.push(o); }
+      }
       if (name === "evaluate_change") {
         const n = result?.options?.length ?? 1;
         completedTrials += n; failedTrials += failed ? n : (result?.options ?? []).filter((o) => o.errors?.length).length;
         trialTitle.textContent = `${completedTrials} options tested${failedTrials ? ` · ${failedTrials} failed` : ""}`;
       } else announce(text);
     });
+  }
+  // The compared options side by side; nothing changes until the engineer picks one.
+  function optionsTable(options) {
+    const buttons = [];
+    const cell = (text, className = "") => el("td", { className, textContent: text });
+    const rowsOut = options.map((o) => {
+      const r = o.result;
+      const label = el("td", { className: "option-label", textContent: o.label });
+      label.dataset.noI18n = "";
+      if (r?.errors?.length) return el("tr", { className: "impossible" }, label, el("td", { colSpan: 4, className: "muted", textContent: "Not possible" }));
+      const loss = r.heavy_coverage_loss ?? [];
+      const apply = el("button", { type: "button", className: "apply-option", textContent: "Apply" });
+      apply.onclick = () => {
+        for (const b of buttons) b.disabled = true;
+        apply.textContent = "Applied";
+        onApplyOption(o);
+      };
+      buttons.push(apply);
+      return el("tr", {}, label,
+        cell(String(r.neighbour_conflicts.length), r.neighbour_conflicts.length ? "bad" : "ok"),
+        cell(String(r.roof_restrictions.length), r.roof_restrictions.length ? "warn" : "ok"),
+        cell(loss.length ? loss.map((l) => `${l.band} ${l.change_pct}%`).join("\n") : "No heavy loss", `coverage ${loss.length ? "warn" : "ok"}`),
+        el("td", {}, apply));
+    });
+    liveButtons.push(...buttons);
+    return el("div", { className: "options-card" },
+      el("div", { className: "options-title", textContent: "Options compared · nothing changes until you apply one" }),
+      el("table", {},
+        el("thead", {}, el("tr", {}, ...["Option", "Conflicts", "Roof", "Coverage", ""].map((h) => el("th", { textContent: h })))),
+        el("tbody", {}, ...rowsOut)));
   }
   if (transcript.length) {
     restoring = true;

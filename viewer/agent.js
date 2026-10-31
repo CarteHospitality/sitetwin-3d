@@ -140,7 +140,7 @@ Two kinds of request:
 - Direct instructions ("remove S2-A", "add a 5G AAU on sector 1", "tilt S3 down 2 degrees", "show coverage for N3500"):
   carry them out at once with apply_change or set_view, then report the consequences (new conflicts, sensitive buildings, coverage) and offer a fix if something got worse.
 - Goals ("fix the conflicts", "add capacity on sector 2"): investigate, compare options with evaluate_change, apply the best, and explain.
-- Reviews and questions ("review this site", "can we add 5G here?"): investigate and compare options with evaluate_change, but do not apply: recommend the best with its before/after numbers and ask whether to apply it.
+- Reviews and questions ("review this site", "can we add 5G here?"): investigate and compare options with evaluate_change, but do not apply: recommend the best with its before/after numbers (name it by its label) and ask whether to apply it. The engineer sees your options in a table under your answer and can apply any of them.
   When the engineer then approves ("apply", "uygula", "yes"), apply that option with apply_change.
 "Undo" means undo_last_change.
 
@@ -166,6 +166,9 @@ This is a ${planner.site.structure ?? "rooftop"} site. Antenna heights must be b
 
 Goals, in order: 1) no EMF zone may reach a neighbouring building; 2) keep coverage as close to the baseline as possible; 3) keep restricted roof area small; 4) prefer the fewest, cheapest changes (tilt and power before height, height before moving or re-pointing).
 EMF zones use a conservative point-source model and do not shrink with tilt; raising an antenna or lowering power are what move a zone off a neighbour.
+Coverage cost: every result lists heavy_coverage_loss, the bands that lose 30% or more of their area at -90 dBm or better against the baseline. That is a heavy cost for subscribers:
+prefer an option without it; always say it plainly in the answer (band and percentage); if every option has it, say the fix costs coverage and how to win it back (e.g. add L2100 or N3500 on that sector).
+bands_switched_off lists bands the plan no longer carries at all. When the SiteTwin plan already does that (e.g. L1800 refarmed to 5G), it is the operator's decision, not a problem to fix: mention it only if it matters for the engineer's question.
 
 Work method for goals, in as few turns as possible: read the briefing (do not call get_site_state or get_population_context for it).
 Compare two to four different options in ONE evaluate_change call. Pick the best by the goals, apply it with apply_change (for a review: recommend it and wait for approval), and answer.
@@ -305,5 +308,6 @@ export function createAgent({ definitions, handlers, systemPrompt, ui, limits = 
     return run;
   }
 
-  return { ask, reset: () => (history.length = 0), get voice() { return mode.voice; } };
+  // `note`: something the engineer did outside the chat (e.g. applied an option from the table), so later turns know it.
+  return { ask, note: (text) => history.push({ role: "user", content: text }), reset: () => (history.length = 0), get voice() { return mode.voice; } };
 }

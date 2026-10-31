@@ -7,7 +7,8 @@ const CAPACITY_PEOPLE_PER_ANTENNA = 1500;
 const sectorOf = (id) => id.split("-")[0];
 
 // One line per topic, good or bad: [{ level: "ok" | "warn" | "bad", text }].
-export function statusLines(site, checks, population) {
+// `coverageLoss`: bands that lose a large share of their coverage against the baseline.
+export function statusLines(site, checks, population, coverageLoss = []) {
   const lines = [];
   const bad = checks.findings.filter((f) => f.level === "bad");
   const sensitiveUses = [...new Set(bad.filter((f) => f.sensitive).map((f) => f.use))];
@@ -23,37 +24,60 @@ export function statusLines(site, checks, population) {
   const busiest = Object.entries(population.people_per_antenna).sort((a, b) => b[1] - a[1])[0];
   if (busiest && busiest[1] > CAPACITY_PEOPLE_PER_ANTENNA) lines.push({ level: "warn", text: `Sector ${sectorOf(busiest[0])} is busy: about ${Math.round(busiest[1] / 100) * 100} people` });
   else lines.push({ level: "ok", text: "Capacity is sufficient" });
+  if (coverageLoss.length) lines.push({ level: "warn", text: `Coverage drops sharply: ${coverageLoss.map((l) => `${l.band} ${l.change_pct}%`).join(", ")}` });
   return lines;
 }
 
-// What the plan does, one plain line per kind of work, most visible first.
+// One line per kind of work; the same work on several sectors is one line ("on sectors S1, S2, S3").
+const on = (sectors) => (sectors.length > 1 ? `sectors ${sectors.join(", ")}` : `sector ${sectors[0]}`);
+const antennaOn = (sectors) => (sectors.length > 1 ? `antennas on ${on(sectors)}` : `antenna on ${on(sectors)}`);
+const STEP_TEXT = {
+  add5g: (s) => `Add 5G on ${on(s)}`,
+  addBand: (s) => `Add a new frequency on ${on(s)}`,
+  switchOff: (s) => `Switch off a frequency on ${on(s)}`,
+  lowerPower: (s) => `Lower the power on ${on(s)} (remote)`,
+  raisePower: (s) => `Raise the power on ${on(s)} for more capacity`,
+  raise: (s) => `Raise the ${antennaOn(s)}`,
+  lower: (s) => `Lower the ${antennaOn(s)}`,
+  turn: (s) => `Turn the ${antennaOn(s)}`,
+  down: (s) => `Point the ${antennaOn(s)} further down`,
+  up: (s) => `Point the ${antennaOn(s)} further up`,
+  move: (s) => `Move the ${antennaOn(s)} on the roof`,
+  remove: (s) => `Remove the ${antennaOn(s)}`,
+};
+
+// What the plan does, in plain lines, most visible first.
 export function planSteps(before, after) {
   const prev = Object.fromEntries(before.antennas.map((a) => [a.id, a]));
   const next = new Set(after.antennas.map((a) => a.id));
-  const steps = [];
-  const add = (text) => { if (!steps.includes(text)) steps.push(text); };
+  const lines = [];
+  const sectorsOf = new Map();
+  const add = (kind, s) => {
+    if (!sectorsOf.has(kind)) { sectorsOf.set(kind, []); lines.push(kind); }
+    if (!sectorsOf.get(kind).includes(s)) sectorsOf.get(kind).push(s);
+  };
   const fresh = after.antennas.filter((a) => !prev[a.id]);
   const fiveG = fresh.filter((a) => a.bands.some((b) => b.name.startsWith("N"))).length;
-  if (fiveG) add(fiveG === 1 ? "Install a new 5G antenna" : `Install ${fiveG} new 5G antennas`);
-  if (fresh.length > fiveG) add(fresh.length - fiveG === 1 ? "Install a new antenna" : `Install ${fresh.length - fiveG} new antennas`);
+  if (fiveG) lines.push(fiveG === 1 ? "Install a new 5G antenna" : `Install ${fiveG} new 5G antennas`);
+  if (fresh.length > fiveG) lines.push(fresh.length - fiveG === 1 ? "Install a new antenna" : `Install ${fresh.length - fiveG} new antennas`);
   for (const a of after.antennas) {
     const p = prev[a.id];
     const s = sectorOf(a.id);
     if (!p) continue;
     const pb = Object.fromEntries(p.bands.map((b) => [b.name, b]));
     const added = a.bands.filter((b) => !pb[b.name]);
-    if (added.some((b) => b.name.startsWith("N"))) add(`Add 5G on sector ${s}`);
-    else if (added.length) add(`Add a new frequency on sector ${s}`);
-    if (p.bands.some((b) => !a.bands.some((x) => x.name === b.name))) add(`Switch off a frequency on sector ${s}`);
+    if (added.some((b) => b.name.startsWith("N"))) add("add5g", s);
+    else if (added.length) add("addBand", s);
+    if (p.bands.some((b) => !a.bands.some((x) => x.name === b.name))) add("switchOff", s);
     const power = a.bands.filter((b) => pb[b.name]).map((b) => b.tx_power_w - pb[b.name].tx_power_w);
-    if (power.some((d) => d < 0)) add(`Lower the power on sector ${s} (remote)`);
-    if (power.some((d) => d > 0)) add(`Raise the power on sector ${s} for more capacity`);
-    if (p.height_agl_m !== a.height_agl_m) add(`${a.height_agl_m > p.height_agl_m ? "Raise" : "Lower"} the antenna on sector ${s}`);
-    if (p.azimuth_deg !== a.azimuth_deg) add(`Turn the antenna on sector ${s}`);
+    if (power.some((d) => d < 0)) add("lowerPower", s);
+    if (power.some((d) => d > 0)) add("raisePower", s);
+    if (p.height_agl_m !== a.height_agl_m) add(a.height_agl_m > p.height_agl_m ? "raise" : "lower", s);
+    if (p.azimuth_deg !== a.azimuth_deg) add("turn", s);
     const tilt = a.mechanical_tilt_deg + a.electrical_tilt_deg - p.mechanical_tilt_deg - p.electrical_tilt_deg;
-    if (tilt) add(`Point the antenna on sector ${s} ${tilt > 0 ? "further down" : "further up"}`);
-    if (p.x_m !== a.x_m || p.z_m !== a.z_m) add(`Move the antenna on sector ${s} on the roof`);
+    if (tilt) add(tilt > 0 ? "down" : "up", s);
+    if (p.x_m !== a.x_m || p.z_m !== a.z_m) add("move", s);
   }
-  for (const id of Object.keys(prev)) if (!next.has(id)) add(`Remove the antenna on sector ${sectorOf(id)}`);
-  return steps;
+  for (const id of Object.keys(prev)) if (!next.has(id)) add("remove", sectorOf(id));
+  return lines.map((line) => (STEP_TEXT[line] ? STEP_TEXT[line](sectorsOf.get(line)) : line));
 }
