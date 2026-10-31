@@ -552,21 +552,25 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
   .plan-dialog[open], .plan-dialog[open]::backdrop, .plan-dialog[open] .plan-body > *, .operator-steps li, .operator-steps li::before, #editor .row.just-added, .pressed { animation: none; }
 }
 
-/* Options the agent compared, side by side, each with its own Apply button. */
-.options-card { align-self: stretch; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface-0); padding: 10px 10px 6px; font-size: var(--text-sm); }
-.options-title { color: var(--text-secondary); font-weight: 600; margin-bottom: 6px; }
-.options-card table { width: 100%; border-collapse: collapse; }
-.options-card th { text-align: left; font-weight: 500; color: var(--muted); font-size: var(--text-xs); padding: 4px 4px; border-bottom: 1px solid var(--border); }
-.options-card td { padding: 6px 4px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-.options-card tr:last-child td { border-bottom: 0; }
-.options-card td.option-label { color: var(--text); overflow-wrap: anywhere; }
-.options-card td.ok { color: var(--ok); }
-.options-card td.warn { color: var(--warn); }
-.options-card td.bad { color: var(--bad); font-weight: 600; }
-.options-card td.coverage.warn { white-space: pre; }
-.options-card .apply-option { padding: 4px 10px; font-size: var(--text-xs); font-weight: 600; white-space: nowrap; color: var(--accent); background: var(--surface-0); border: 1px solid var(--accent); border-radius: var(--radius-control); cursor: pointer; }
-.options-card .apply-option:hover:not(:disabled) { background: var(--surface-selected); }
-.options-card .apply-option:disabled { color: var(--muted); border-color: var(--border); cursor: default; }
+/* The options the operator compared, open in the chat: the recommended one first, each with what it
+   does to EMF conflicts, roof, coverage and field work, and its own Apply. */
+.decision-card { align-self: stretch; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface-0); padding: 10px 12px; font-size: 13px; }
+.decision-title { color: var(--text-secondary); font-weight: 600; margin-bottom: 8px; }
+.decision-card ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.decision-card .option { border: 1px solid var(--border); border-radius: var(--radius-control); padding: 8px 10px; display: grid; gap: 6px; }
+.decision-card .option.recommended { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.decision-card .option.impossible { opacity: .7; }
+.option-head { display: flex; align-items: center; gap: 8px; }
+.option-name { flex: 1; color: var(--text); font-weight: 500; overflow-wrap: anywhere; }
+.option-head .badge { font-size: 11px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+.option-head button { min-height: 0; padding: 4px 12px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.metrics { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--text-secondary); font-size: 12px; }
+.metric { display: inline-flex; gap: 4px; align-items: baseline; }
+.metric-label { color: var(--muted); }
+.metric.ok > :nth-child(2) { color: var(--ok); }
+.metric.warn > :nth-child(2) { color: var(--medium); }
+.metric.bad > :nth-child(2) { color: var(--critical); font-weight: 600; }
+.metric-note { color: var(--muted); }
 
 /* Map page: the right panel opens for the selected site only; the operator sums up the portfolio
    on the left, with links to the sites and the actions that span them. */
@@ -602,8 +606,6 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
 .choices .choice:hover:not(:disabled) { background: var(--surface-selected); }
 .choices .choice.quiet { border-color: var(--border-control); color: var(--text-secondary); font-size: 13px; }
 .choices .choice:disabled { opacity: .55; cursor: default; }
-details.options-card > summary { cursor: pointer; margin-bottom: 0; font-weight: 500; }
-details.options-card[open] > summary { margin-bottom: 6px; }
 
 /* Start over: quiet in the top bar, it asks once before it forgets everything. */
 .start-over { margin-left: auto; padding: 4px 10px; min-height: 0; font-size: 13px; border: 1px solid var(--border-control); background: var(--surface-0); color: var(--text-secondary); }

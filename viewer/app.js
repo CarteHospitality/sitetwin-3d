@@ -752,7 +752,11 @@ const planner = {
   },
   evaluate(changes) {
     const { site: candidate, errors } = applyChanges(site, changes);
-    return errors.length ? { errors } : summarize(candidate);
+    if (errors.length) return { errors };
+    // What the option would take on site, so options can be weighed by their work too.
+    const crew = crewPlan(fieldWorkOrder(baseline, candidate, checkSite(candidate, siteZones(candidate, REGIMES[regimeKey]))), candidate);
+    const install = crew.visits.find((v) => v.name === "Installation visit");
+    return { ...summarize(candidate), field_work: install ? { people: crew.headcount, days: install.days } : { remote: crew.visits.some((v) => v.remote) } };
   },
   apply(changes, reason) {
     const { site: candidate, errors } = applyChanges(site, changes);
@@ -1421,6 +1425,8 @@ const chat = initConversation({
   transcriptKey: `twin:${absoluteUrl(src)}`,
   // The engineer picked one of the agent's choices: apply it here (the antennas move on the 3D view),
   // tell the agent, and bring the plan forward on the right, ready to send to the team.
+  // Today's EMF conflicts, beside each option's in the decision card.
+  stateNow: () => ({ conflicts: checkSite(site, siteZones(site, REGIMES[regimeKey])).findings.filter((f) => f.level === "bad").length }),
   onApplyOption: ({ label, changes }) => {
     const r = planner.apply(changes, label);
     if (r.errors) return chat.say("tool", `✕ ${r.errors.join(", ")}`);

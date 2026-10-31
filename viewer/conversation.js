@@ -22,7 +22,8 @@ const STEP_TEXT = {
   get_field_work_order: "Preparing the field work", set_view: "Adjusting the view",
 };
 const SCAN_MS = 650, REVEAL_MS = 380;
-export function initConversation({ onBusy = () => {}, onComplete = () => {}, speak = () => {}, transcriptKey = "default", onApplyOption = null, onChoice = null, scanLines = null } = {}) {
+// `stateNow()`: today's figures ({ conflicts }) shown beside each option's in the decision card.
+export function initConversation({ onBusy = () => {}, onComplete = () => {}, speak = () => {}, transcriptKey = "default", onApplyOption = null, onChoice = null, scanLines = null, stateNow = null } = {}) {
   const log = $("chatLog");
   const stored = readSession(`transcript:${transcriptKey}`, []);
   const transcript = Array.isArray(stored) ? stored.filter((item) => item && ["user", "assistant"].includes(item.role) && typeof item.text === "string").slice(-12) : [];
@@ -172,10 +173,13 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
           run.open = false;
         } else if (!rows.size && !runFailed) run?.remove();
         else if (title) title.textContent = `${runFailed ? "✕ Failed" : failed ? "✓ Done, some steps failed" : "✓ Done"} · ${rows.size} steps · ${seconds}s`;
-        // The choices come after the answer's last paragraph.
+        // After the answer's last paragraph: the options the operator compared, as one open card with
+        // the recommended one first; then any other choice (a question for the operator) as a button.
         const later = (node) => { node.classList.add("reveal"); node.style.animationDelay = `${revealEnd}ms`; return node; };
-        if (!runFailed && choices.length && (onApplyOption || onChoice)) change(() => log.append(later(choiceButtons(choices, compared))));
-        if (onApplyOption && !runFailed && !appliedInRun && compared.length) change(() => log.append(later(optionsTable(compared))));
+        const card = !runFailed && onApplyOption && !appliedInRun && compared.length ? decisionCard(choices, compared) : null;
+        if (card) change(() => log.append(later(card.element)));
+        const rest = card ? choices.filter((c) => !card.used.has(c)) : choices;
+        if (!runFailed && (rest.length || card) && (onApplyOption || onChoice)) change(() => log.append(later(choiceButtons(rest, card ? [] : compared))));
       });
       scanList = null;
     }
@@ -239,6 +243,9 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
   // The agent's wording of a choice may differ a little from its option label: match by shared words.
   const words = (text) => new Set(text.toLocaleLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean));
   function closestOption(text, options) {
+    // The operator is told to repeat the option's label exactly: that match comes first.
+    const exact = options.find((o) => o.label.trim().toLocaleLowerCase() === text.trim().toLocaleLowerCase());
+    if (exact) return exact;
     const a = words(text);
     let best = null, bestScore = 0.5;
     for (const o of options) {
@@ -267,35 +274,44 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
     liveButtons.push(...buttons);
     return el("div", { className: "choices" }, ...buttons);
   }
-  // The compared options side by side, folded: the technical view behind the choices.
-  function optionsTable(options) {
+  // The options the operator compared, open: what each one does to the EMF conflicts (beside today's),
+  // the roof, the coverage and the field work, the recommended one first (the operator's first choice),
+  // each with its own Apply. `used`: the choices the card answers.
+  function decisionCard(choiceList, options) {
+    const used = new Set(), picked = [];
+    for (const text of choiceList) {
+      const option = closestOption(text, options);
+      if (option && !picked.includes(option)) { picked.push(option); used.add(text); }
+    }
+    const rows = picked.length ? picked : options;
+    const today = stateNow?.();
     const buttons = [];
-    const cell = (text, className = "") => el("td", { className, textContent: text });
-    const rowsOut = options.map((o) => {
-      const r = o.result;
-      const label = el("td", { className: "option-label", textContent: o.label });
-      label.dataset.noI18n = "";
-      if (r?.errors?.length) return el("tr", { className: "impossible" }, label, el("td", { colSpan: 4, className: "muted", textContent: "Not possible" }));
-      const loss = r.heavy_coverage_loss ?? [];
-      const apply = el("button", { type: "button", className: "apply-option", textContent: "Apply" });
+    const metric = (label, value, tone = "", note = "") => el("span", { className: `metric ${tone}` },
+      el("span", { className: "metric-label", textContent: label }), el("span", { textContent: value }), ...(note ? [el("span", { className: "metric-note", textContent: note })] : []));
+    const items = rows.map((o, i) => {
+      const r = o.result, recommended = i === 0 && picked.length > 0;
+      const name = el("span", { className: "option-name", textContent: o.label });
+      name.dataset.noI18n = "";
+      if (r?.errors?.length) return el("li", { className: "option impossible" }, el("div", { className: "option-head" }, name), el("div", { className: "muted", textContent: "Not possible" }));
+      const loss = r.heavy_coverage_loss ?? [], work = r.field_work;
+      const apply = el("button", { type: "button", className: recommended ? "primary" : "", textContent: "Apply" });
       apply.onclick = () => {
         for (const b of buttons) b.disabled = true;
         apply.textContent = "Applied";
         onApplyOption(o);
       };
       buttons.push(apply);
-      return el("tr", {}, label,
-        cell(String(r.neighbour_conflicts.length), r.neighbour_conflicts.length ? "bad" : "ok"),
-        cell(String(r.roof_restrictions.length), r.roof_restrictions.length ? "warn" : "ok"),
-        cell(loss.length ? loss.map((l) => `${l.band} ${l.change_pct}%`).join("\n") : "No heavy loss", `coverage ${loss.length ? "warn" : "ok"}`),
-        el("td", {}, apply));
+      return el("li", { className: recommended ? "option recommended" : "option" },
+        el("div", { className: "option-head" }, name, ...(recommended ? [el("span", { className: "badge", textContent: "Recommended" })] : []), apply),
+        el("div", { className: "metrics" },
+          metric("EMF conflicts", String(r.neighbour_conflicts.length), r.neighbour_conflicts.length ? "bad" : "ok", today ? `today ${today.conflicts}` : ""),
+          metric("Roof", String(r.roof_restrictions.length), r.roof_restrictions.length ? "warn" : "ok"),
+          metric("Coverage", loss.length ? loss.map((l) => `${l.band} ${l.change_pct}%`).join(", ") : "no heavy loss", loss.length ? "warn" : "ok"),
+          metric("Field work", !work ? "–" : work.remote ? "remote only" : `${work.people} people · ${work.days} day(s)`)));
     });
     liveButtons.push(...buttons);
-    return el("details", { className: "options-card" },
-      el("summary", { className: "options-title", textContent: "Technical comparison of the options" }),
-      el("table", {},
-        el("thead", {}, el("tr", {}, ...["Option", "Conflicts", "Roof", "Coverage", ""].map((h) => el("th", { textContent: h })))),
-        el("tbody", {}, ...rowsOut)));
+    return { used, element: el("section", { className: "decision-card" },
+      el("div", { className: "decision-title", textContent: "Options the operator compared" }), el("ol", {}, ...items)) };
   }
   if (transcript.length) {
     restoring = true;
