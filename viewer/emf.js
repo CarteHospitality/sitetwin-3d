@@ -7,8 +7,8 @@ export const REGIMES = {
   icnirp: { name: "ICNIRP general public", fieldFraction: 1.0 },
 };
 // At health facilities the field from devices must stay below 3 V/m, whatever the band (plane
-// wave: S = E² / 377 Ω). The field falls with distance, so this reaches about four times as far
-// as the single-device zone: a hospital outside the drawn zone can still be above it.
+// wave: S = E² / 377 Ω). The field falls with distance, so this reaches two to four times as far
+// as the single-device zone, depending on the band: a hospital outside the drawn zone can still be above it.
 export const HEALTH = { name: "Health facility (3 V/m)", fieldVm: 3 };
 
 export function icnirpPublicPowerDensity(frequencyMhz) {

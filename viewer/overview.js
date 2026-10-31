@@ -19,7 +19,7 @@ export function siteProblem({ findings, hit }, population, { cell = null, reliev
   const busySector = !cell && busiest && busiest[1] > CAPACITY_PEOPLE_PER_ANTENNA;
   if (sensitive[0]?.health) return `The field from ${sensitive[0].antenna} at a hospital is above the 3 V/m health limit in the planning model: it needs a fix or a measurement.`;
   if (sensitive.length) return `A ${sensitive[0].use} is inside the EMF safety zone of ${sensitive[0].antenna} in the planning model: it needs a fix or a measurement.`;
-  if (bad.length) return `The EMF safety zone reaches ${hit.size} neighbouring ${hit.size === 1 ? "building" : "buildings"}: people there get more than the limit allows.`;
+  if (bad.length) return `The EMF safety zone reaches ${hit.size} neighbouring ${hit.size === 1 ? "building" : "buildings"} in the planning model: it needs a fix or a measurement.`;
   if (busyCell && cell.prb_dl_pct >= PRB_EXPAND) return `Cell ${cell.sector} ${cell.band} is ${cell.prb_dl_pct}% full in the busy hour: users there are likely slowed down.`;
   if (busyCell) return `Cell ${cell.sector} ${cell.band} runs at ${cell.prb_dl_pct}% in the busy hour: at about 20% growth a year it could fill up within roughly ${Math.max(1, monthsUntil(cell.prb_dl_pct, PRB_EXPAND))} months (a rough estimate).`;
   if (busySector) return `About ${Math.round(busiest[1] / 100) * 100} people rely on sector ${sectorOf(busiest[0])} alone: its capacity may soon not be enough.`;

@@ -120,7 +120,7 @@ export function actionPlan({ site, entry, before, after, changes, steps = [], re
   return {
     site: site.site_id,
     sections: [
-      { heading: "In short", lines: steps },
+      { heading: "In short", lines: [...steps, "Status: planning draft from a screening model; a field measurement and the operator's approval come before any work"] },
       { heading: "Site", lines: where },
       { heading: "Why", lines: why },
       { heading: "Work to do", lines: changes },

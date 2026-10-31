@@ -54,7 +54,7 @@ ICNIRP_PUBLIC = LimitRegime("ICNIRP general public")
 # uses for its reports.
 TR_SINGLE_DEVICE = LimitRegime("TR single device (20% field)", field_fraction=0.2)
 # At health facilities the field from devices must stay below 3 V/m. The field falls
-# with distance, so this reaches about four times as far as the single-device zone.
+# with distance, so this reaches two to four times as far as the single-device zone (by band).
 HEALTH_FACILITY = LimitRegime("Health facility (3 V/m)", field_v_per_m=3.0)
 
 

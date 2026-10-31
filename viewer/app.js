@@ -316,20 +316,20 @@ function renderTower(state) {
 }
 renderTower(twin.site);
 
-// The site is built in front of the engineer on opening (see intro.js).
+// The site is built in front of the engineer on opening (see intro.js): briefly, under a second.
 const standing = (mesh) => (mesh.rotation.x ? "extrude" : "box");
 const farthest = Math.max(1, ...(baseline.neighbours ?? []).map((n) => Math.hypot(n.x_m, n.z_m)));
 const intro = createIntro([
-  { object: siteBuilding, kind: standing(siteBuilding), delay: 0, duration: 600 },
-  { object: roofEdge, kind: standing(siteBuilding), delay: 0, duration: 600 },
-  { object: northArrow, kind: "lift", delay: 0, duration: 600 },
-  ...equipmentMeshes.map((object) => ({ object, kind: "box", delay: 0, duration: 600 })),
+  { object: siteBuilding, kind: standing(siteBuilding), delay: 0, duration: 250 },
+  { object: roofEdge, kind: standing(siteBuilding), delay: 0, duration: 250 },
+  { object: northArrow, kind: "lift", delay: 0, duration: 250 },
+  ...equipmentMeshes.map((object) => ({ object, kind: "box", delay: 0, duration: 250 })),
   ...(baseline.neighbours ?? []).map((n) => ({ object: neighbourMeshes[n.id], kind: standing(neighbourMeshes[n.id]),
-    delay: 150 + 550 * (Math.hypot(n.x_m, n.z_m) / farthest), duration: 450 })),
-  ...(contextBuildings ? [{ object: contextBuildings, kind: "up", delay: 450, duration: 800 }] : []),
-  ...(towerKind ? [{ object: towerGroup, kind: "up", delay: 500, duration: 700 }] : []),
-  { object: antennaGroup, kind: "up", delay: 900, duration: 550 },
-  { object: zoneGroup, kind: "grow", delay: 1300, duration: 500 },
+    delay: 60 + 200 * (Math.hypot(n.x_m, n.z_m) / farthest), duration: 220 })),
+  ...(contextBuildings ? [{ object: contextBuildings, kind: "up", delay: 150, duration: 300 }] : []),
+  ...(towerKind ? [{ object: towerGroup, kind: "up", delay: 200, duration: 300 }] : []),
+  { object: antennaGroup, kind: "up", delay: 300, duration: 250 },
+  { object: zoneGroup, kind: "grow", delay: 450, duration: 250 },
 ], { reducedMotion, onFrame: () => sceneMotion.changedGeometry() });
 intro.hide();
 
@@ -455,11 +455,9 @@ function scanLines(asked) {
   const population = populationContext(baseline);
   const zones = siteZones(baseline, REGIMES[regimeKey]);
   const lines = [
-    { step: tr("Scanning the site data") },
     { text: `${tr("Structure")}: ${tr((baseline.structure ?? "rooftop").replaceAll("_", " "))}, ${tr(`${sectors.size} sectors`)}` },
     { text: `${tr("Antennas")}: ${[...sectors].map(([s, az]) => `${s} ${az}°`).join(", ")} · ${[...new Set(bands.map((b) => b.name))].join(", ")}` },
     { text: tr(`About ${round(population.total_people_nearby)} people live and work nearby (estimated)`) },
-    { step: tr("Reviewing the technical data") },
     ...statusLines(baseline, checkSite(baseline, zones), population, { kpi }).map((l) => ({ text: tr(l.text), level: l.level })),
   ];
   if (bands.length) {
@@ -473,7 +471,6 @@ function scanLines(asked) {
   } else if (outlook) {
     lines.push({ text: tr(outlook.months_until_busy ? `The busiest sector gets crowded in about ${outlook.months_until_busy} months` : "The busiest sector is already crowded"), level: "warn" });
   }
-  lines.push({ step: tr("Weighing what to do") });
   return lines;
 }
 

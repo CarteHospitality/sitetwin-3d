@@ -22,7 +22,7 @@ const STEP_TEXT = {
   get_field_work_order: "Preparing the field work", set_view: "Adjusting the view",
 };
 // The account's lines follow each other quickly (they are known at once); paragraphs appear together.
-const SCAN_MS = 90, REVEAL_MS = 0;
+const SCAN_MS = 0, REVEAL_MS = 0;
 // The card ranks options by a fixed rule, so the same options always come out in the same order:
 // sensitive buildings in a zone, then other buildings, heavy coverage loss (how many bands, how
 // much), roof restrictions, then the field work (remote before a site visit, fewer people-days).
@@ -139,6 +139,8 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
     clearInterval(waitTimer);
     if (waitRow) waitRow.remove();
     waitRow = null;
+    // The model is really thinking now: one step for it in the account, ended by the next real event.
+    if (on && scanList && !scanSteps.has("thinking")) { scanSteps.add("thinking"); scanPush({ step: tr("The operator is thinking") }); }
     if (!on || !rail) return;
     const started = performance.now();
     const label = el("span", { textContent: "Waiting for operator response" });
@@ -168,7 +170,9 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
         // A question about the site: the clean account on top, the technical steps folded under it.
         scanList = el("ol", { className: "scan-lines" });
         groupTitle = el("summary", { textContent: "Analysing the site…" });
-        group = el("details", { className: "run-activity scanning", open: true }, groupTitle, scanList,
+        // The facts are the page's own calculation, said as such; the steps below them are the operator's real work.
+        group = el("details", { className: "run-activity scanning", open: true }, groupTitle,
+          el("div", { className: "scan-caption", textContent: "Site summary, calculated in this page" }), scanList,
           el("details", { className: "tech-steps" }, el("summary", { textContent: "Technical steps" }), rail));
       } else {
         scanList = null;
@@ -259,21 +263,11 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
   }
   // The agent's choices as buttons: one the agent compared is applied at once (no model call, the
   // antennas move on the 3D view); anything else goes back to the agent. Then a way to the details.
-  // The agent's wording of a choice may differ a little from its option label: match by shared words.
-  const words = (text) => new Set(text.toLocaleLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean));
+  // A choice applies an option only when it is that option's label exactly (the operator is told to
+  // repeat it): a near match could apply a different change from the one the engineer read.
+  const plain = (text) => text.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
   function closestOption(text, options) {
-    // The operator is told to repeat the option's label exactly: that match comes first.
-    const exact = options.find((o) => o.label.trim().toLocaleLowerCase() === text.trim().toLocaleLowerCase());
-    if (exact) return exact;
-    const a = words(text);
-    let best = null, bestScore = 0.5;
-    for (const o of options) {
-      const b = words(o.label);
-      const shared = [...a].filter((w) => b.has(w)).length;
-      const score = shared / new Set([...a, ...b]).size;
-      if (score >= bestScore) { best = o; bestScore = score; }
-    }
-    return best;
+    return options.find((o) => plain(o.label) === plain(text)) ?? null;
   }
   function choiceButtons(list, options) {
     const buttons = [];
