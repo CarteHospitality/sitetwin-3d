@@ -15,7 +15,7 @@ def test_cells_are_normalised_and_busiest_first():
     ]}})
     assert [(c["sector"], c["band"], c["prb_dl_pct"]) for c in kpi["cells"]] == [("S2", "L1800", 91), ("S1", "L800", 40)]
     assert kpi["cells"][0]["users"] == 252 and kpi["cells"][1]["users"] is None
-    assert kpi["file"] == "site file" and kpi["site_checked"] is True
+    assert kpi["source"] == "OSS"
 
 
 def test_unusable_cells_and_blocks_are_ignored():

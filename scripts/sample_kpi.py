@@ -1,22 +1,13 @@
-"""Write synthetic network KPI exports for the sample sites, to try "Load KPIs".
+"""Invented network KPIs for the sample sites, used by make_samples.py.
 
-    python scripts/make_kpi_samples.py   # -> samples/kpi/*.csv
-
-One day of hourly rows per cell of the current network, shaped like a PM export
-from an operator's OSS (cell name, time, DL PRB utilisation, RRC users, traffic).
-All values are invented.
-
-- portfolio.kpi.csv: all five sample sites in one file, for the portfolio map.
-- sample-04_adana.kpi.csv, sample-01_ankara.kpi.csv: one site each, for the 3D page.
-  The Ankara file is saved the way Turkish Excel saves CSV (semicolons, decimal
-  commas), so both layouts are covered.
+One day of hourly load per cell of the current network, as an operator's OSS
+would record it (DL PRB utilisation, RRC users, traffic); each sample site file
+carries the busiest hour of each cell as its `network_kpi` block.
 """
 
 import math
 import random
-from pathlib import Path
 
-OUT = Path("samples/kpi")
 DAY = "2026-10-28"
 
 # Busy-hour PRB per cell (sector, band) -> peak %. Adana's S2 is full although few people
@@ -32,7 +23,6 @@ SITES = {
     "SAMPLE-05_BURSA": {("S1", "L800"): 63, ("S1", "L1800"): 69, ("S1", "L2100"): 78, ("S2", "L800"): 42, ("S2", "L1800"): 48,
                         ("S2", "L2100"): 40, ("S3", "L800"): 35, ("S3", "L1800"): 46, ("S3", "L2100"): 37},
 }
-HEADER = ["Start Time", "Cell Name", "DL PRB Usage Rate (%)", "RRC Connected Users", "Traffic Volume (GB)"]
 
 
 def daily(hour: int) -> float:
@@ -43,6 +33,7 @@ def daily(hour: int) -> float:
 
 
 def rows(site_id: str, rnd: random.Random) -> list[list[float | str]]:
+    """Hourly rows: time, cell name, PRB %, RRC users, traffic GB."""
     out = []
     for hour in range(24):
         for (sector, band), peak in SITES[site_id].items():
@@ -52,7 +43,7 @@ def rows(site_id: str, rnd: random.Random) -> list[list[float | str]]:
 
 
 def busy_hour(site_id: str) -> dict:
-    """The `network_kpi` block of a site file: each cell's busiest hour from the same rows."""
+    """The `network_kpi` block of a site file: each cell's busiest hour."""
     best: dict[str, list] = {}
     for row in rows(site_id, random.Random(site_id)):
         if row[1] not in best or row[2] > best[row[1]][2]:
@@ -61,22 +52,3 @@ def busy_hour(site_id: str) -> dict:
               "prb_dl_pct": round(prb, 1), "rrc_users": round(users), "traffic_gb": round(traffic, 1)}
              for t, cell, prb, users, traffic in best.values()]
     return {"source": "OSS PM export, busy hour per cell (synthetic sample)", "period": DAY, "cells": cells}
-
-
-def write(path: Path, data: list[list[float | str]], sep: str = ",") -> None:
-    num = (lambda v: f"{v:.1f}".replace(".", ",")) if sep == ";" else (lambda v: f"{v:.1f}")
-    lines = [sep.join(HEADER)] + [sep.join([t, cell, num(prb), f"{users:.0f}", num(traffic)]) for t, cell, prb, users, traffic in data]
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(path)
-
-
-def main() -> None:
-    OUT.mkdir(parents=True, exist_ok=True)
-    data = {site_id: rows(site_id, random.Random(site_id)) for site_id in SITES}
-    write(OUT / "portfolio.kpi.csv", sorted((r for site in data.values() for r in site), key=lambda r: (r[0], r[1])))
-    write(OUT / "sample-04_adana.kpi.csv", data["SAMPLE-04_ADANA"])
-    write(OUT / "sample-01_ankara.kpi.csv", data["SAMPLE-01_ANKARA"], sep=";")
-
-
-if __name__ == "__main__":
-    main()

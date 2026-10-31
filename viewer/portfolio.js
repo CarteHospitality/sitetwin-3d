@@ -13,13 +13,12 @@ import { $, el, token, initShell, reducedMotion } from "./ui.js";
 import { startTour, readTour, endTour } from "./tour.js";
 import { combinePlans, openActionPlan, diffSites, sitePlan } from "./actionplan.js";
 import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
-import { parseKpi, twinKpi, PRB_BALANCE, PRB_EXPAND } from "./kpi.js";
+import { twinKpi, PRB_BALANCE, PRB_EXPAND } from "./kpi.js";
 import { capacityAdded, planSteps } from "./overview.js";
 
 initShell();
 initCards();
 $("loadTwin").onclick = () => $("upload").click();
-$("loadKpi").onclick = () => $("kpiUpload").click();
 
 const LEVELS = {
   critical: { label: "Critical", glyph: "!", rank: 4 },
@@ -35,7 +34,7 @@ const params = new URLSearchParams(location.search);
 const indexUrl = params.get("portfolio") || "data/private/portfolio.json";
 const mapKey = `map:${absoluteUrl(indexUrl)}`;
 const storedMap = readSession(mapKey, {}) || {};
-// The logo, or a first visit, opens the home view: every site in view, nothing selected, no filter.
+// The logo, or a first visit, opens the home view: every site in view, nothing selected.
 const homeView = params.get("home") === "1" || !storedMap.bounds;
 if (params.has("home")) { params.delete("home"); history.replaceState(history.state, "", `${location.pathname}${params.toString() ? `?${params}` : ""}`); }
 const mapActions = Array.isArray(storedMap.actions) ? storedMap.actions.filter((a) => a && typeof a.text === "string" && typeof a.time === "string") : [];
@@ -51,10 +50,6 @@ L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>', maxZoom: 19,
 }).addTo(map);
 
-// Measured load for a site, shared with its 3D page (same session key).
-const kpiKey = (entry) => `kpi:${absoluteUrl(entry.twin)}`;
-const readKpi = (entry) => { const k = readSession(kpiKey(entry)); return Array.isArray(k?.cells) && k.cells.length ? k : null; };
-
 // `source`: the twin as loaded; `site`: the plan as the engineer last left it.
 function assess(entry, source, site = source.site, regime = "tr", proposed = false) {
   const checks = checkSite(site, siteZones(site, REGIMES[regime]));
@@ -66,8 +61,8 @@ function assess(entry, source, site = source.site, regime = "tr", proposed = fal
   for (const f of sensitive) issues.push(`Sensitive building inside an EMF zone: ${f.text}`);
   for (const f of bad.filter((f) => !f.sensitive)) issues.push(f.text);
   for (const f of findings.filter((f) => f.level === "warn")) issues.push(f.text);
-  // Capacity: measured busy-hour PRB (a loaded KPI export, else the site file's own), otherwise estimated from people nearby.
-  const cell = (readKpi(entry) ?? twinKpi(source))?.cells[0];
+  // Capacity: measured busy-hour PRB from the site file, otherwise estimated from people nearby.
+  const cell = twinKpi(source)?.cells[0];
   let capacity = false, full = false, capacityText = "";
   if (cell) {
     const name = `${cell.sector} ${cell.band}`;
@@ -97,7 +92,6 @@ function assess(entry, source, site = source.site, regime = "tr", proposed = fal
 const sites = [];
 const markers = {};
 let selectedSite = null;
-let statusFilter = !homeView && LEVELS[storedMap.filter] ? storedMap.filter : null;
 let attentionCount = 0;
 let pageActive = true;
 window.addEventListener("pagehide", () => { pageActive = false; });
@@ -109,10 +103,13 @@ function pinIcon(level, selected = false, attention = false) {
   return L.divIcon({ className: "map-pin", html: pin, iconSize: [32, 32], iconAnchor: [16, 16] });
 }
 
+// The actions log lists only the selected site's entries: the panel speaks about one site at a time.
 function renderActions() {
-  setCardSummary("actions", mapActions.length ? `${mapActions.length}` : "");
-  if (mapActions.length) showCard("actions"); else hideCard("actions");
-  $("actions").replaceChildren(...mapActions.map((action) => el("li", {}, el("time", { textContent: new Date(action.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }), action.text)));
+  const id = selectedSite?.entry.site_id;
+  const mine = id ? mapActions.filter((a) => a.text.includes(id)) : [];
+  setCardSummary("actions", mine.length ? `${mine.length}` : "");
+  if (mine.length) showCard("actions"); else hideCard("actions");
+  $("actions").replaceChildren(...mine.map((action) => el("li", {}, el("time", { textContent: new Date(action.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }), action.text)));
 }
 function logAction(text) {
   mapActions.push({ time: new Date().toISOString(), text });
@@ -123,13 +120,12 @@ function logAction(text) {
 function saveMapState() {
   if (!map.getCenter || !map._loaded) return;
   const bounds = map.getBounds();
-  writeSession(mapKey, { selected: selectedSite?.entry.site_id, filter: statusFilter,
+  writeSession(mapKey, { selected: selectedSite?.entry.site_id,
     bounds: [[bounds.getSouth(), bounds.getWest()], [bounds.getNorth(), bounds.getEast()]],
     actions: mapActions, proposals: seenProposals });
 }
 map.on("moveend", saveMapState);
 window.addEventListener("pagehide", saveMapState);
-renderActions();
 
 function twinUrl(s, instruction, voice = false) {
   const p = new URLSearchParams({ twin: s.entry.twin, ...(instruction ? { ask: instruction } : { auto: "review" }),
@@ -143,91 +139,18 @@ function openTwin(s) {
   location.href = twinUrl(s);
 }
 
-const siteRows = new Map(), statButtons = new Map();
-let hoveredRow = null, rankPending = false, focusRequest = 0, focusedTarget = null;
-const rankingNotice = el("button", { textContent: "Ranking updated", hidden: true });
-$("list").before(rankingNotice);
-const rankingLocked = () => Boolean(hoveredRow || document.activeElement?.closest(".site"));
-function releaseRanking() { if (rankPending && !rankingLocked()) render(selectedSite, true); }
-rankingNotice.onclick = () => render(selectedSite, true);
-function render(selected = selectedSite, force = false) {
+let focusRequest = 0, focusedTarget = null;
+const byUrgency = (a, b) => LEVELS[b.a.level].rank - LEVELS[a.a.level].rank || b.a.score - a.a.score;
+// The right panel speaks about the selected site only; with none selected it stays closed.
+function render(selected = selectedSite) {
   selectedSite = selected;
-  const ranked = [...sites].sort((a, b) => LEVELS[b.a.level].rank - LEVELS[a.a.level].rank || b.a.score - a.a.score);
-  const locked = !force && rankingLocked();
-  if (!locked) sites.splice(0, sites.length, ...ranked);
-  rankPending = locked && ranked.some((s, i) => sites[i] !== s);
-  rankingNotice.hidden = !rankPending;
-  const counts = Object.fromEntries(Object.keys(LEVELS).map((k) => [k, sites.filter((s) => s.a.level === k).length]));
-  for (const [key, config] of [["all", { label: "Total sites" }], ...Object.entries(LEVELS)]) {
-    let button = statButtons.get(key);
-    if (!button) {
-      button = el("button", { className: "stat" }, el("b"), el("span", { textContent: config.label }));
-      if (key !== "all") button.style.borderLeft = `3px solid ${token(key)}`;
-      button.onclick = () => { statusFilter = key === "all" || statusFilter === key ? null : key; render(); };
-      statButtons.set(key, button); $("stats").append(button);
-    }
-    button.firstChild.textContent = key === "all" ? sites.length : counts[key];
-    button.hidden = key === "all" || !counts[key];
-    button.setAttribute("aria-pressed", String(key === "all" ? !statusFilter : statusFilter === key));
-  }
-  $("filterStatus").textContent = statusFilter ? `Filter: ${LEVELS[statusFilter].label}` : "All sites";
-  const urgent = (counts.critical ?? 0) + (counts.high ?? 0);
-  setCardSummary("portfolio", `${sites.length} sites${urgent ? ` · ${urgent} need action` : ""}`, counts.critical ? "bad" : urgent ? "warn" : "ok");
-  setCardSummary("sites", statusFilter ? LEVELS[statusFilter].label : "All");
+  sites.sort(byUrgency);
+  for (const s of sites) markers[s.entry.site_id]?.getElement()?.querySelector(".pin")?.classList.toggle("selected", s === selected);
+  document.body.classList.toggle("site-open", Boolean(selected));
   renderSelected(selected);
-  renderHome(selected);
-  $("clearFilter").hidden = !statusFilter;
-  const list = $("list"), panel = list.closest(".panel");
-  const before = new Map([...siteRows].map(([id, row]) => [id, row.getBoundingClientRect().top]));
-  const anchor = [...list.children].find((row) => !row.hidden && row.getBoundingClientRect().bottom > panel.getBoundingClientRect().top + 240);
-  const anchorTop = anchor?.getBoundingClientRect().top;
-  for (const s of sites) {
-    const id = s.entry.site_id, lv = LEVELS[s.a.level];
-    let row = siteRows.get(id);
-    if (!row) {
-      row = el("div", { className: "site", tabIndex: 0, role: "group" });
-      row.onclick = () => select(s);
-      row.onkeydown = (event) => { if (event.target === row && ["Enter", " "].includes(event.key)) { event.preventDefault(); select(s); } };
-      row.onpointerenter = () => { hoveredRow = id; };
-      row.onpointerleave = () => { if (hoveredRow === id) hoveredRow = null; releaseRanking(); };
-      row.onfocusout = () => queueMicrotask(releaseRanking);
-      siteRows.set(id, row);
-    }
-    const signature = JSON.stringify([s.a, s.regime, s.planInfo, s === selected]);
-    if (row.dataset.signature !== signature) {
-      const restoreActionFocus = document.activeElement !== row && row.contains(document.activeElement);
-      row.dataset.signature = signature;
-      row.replaceChildren(
-        el("div", { className: "head" }, el("span", { className: "dot", style: `background:${token(s.a.level)}`, textContent: lv.glyph }), el("span", { className: "id", textContent: id }), el("span", { className: "level", textContent: lv.label })),
-        el("div", { className: "tag", textContent: `${s.entry.structure.replaceAll("_", " ")} · ${lv.label} · ${s.regime === "tr" ? "TR 20%" : "ICNIRP"}` }),
-        el("div", { className: "muted", textContent: `${s.a.buildings} buildings · ~${s.a.people} people nearby (estimated)` }),
-        el("div", { className: "issue", textContent: s.a.summary }));
-      if (restoreActionFocus) (row.querySelector("button") ?? row).focus({ preventScroll: true });
-    }
-    row.onclick = () => select(s);
-    row.onkeydown = (event) => { if (event.target === row && ["Enter", " "].includes(event.key)) { event.preventDefault(); select(s); } };
-    row.classList.toggle("sel", s === selected);
-    row.title = `${REGIMES[s.regime].name} · ${s.planInfo}`;
-    row.setAttribute("aria-label", `${id}, ${lv.label}`); row.setAttribute("aria-expanded", String(s === selected));
-    row.hidden = Boolean(statusFilter && s.a.level !== statusFilter);
-    if (!row.isConnected) list.append(row);
-    markers[id]?.getElement()?.querySelector(".pin")?.classList.toggle("selected", s === selected);
-  }
-  if (!locked) {
-    const active = document.activeElement;
-    for (let i = 0; i < sites.length; i++) {
-      const row = siteRows.get(sites[i].entry.site_id);
-      if (list.children[i] !== row) list.insertBefore(row, list.children[i] ?? null);
-    }
-    if (anchor?.isConnected && !anchor.hidden) panel.scrollTop += anchor.getBoundingClientRect().top - anchorTop;
-    if (active?.isConnected && document.activeElement !== active) active.focus({ preventScroll: true });
-    if (!reducedMotion.matches) for (const [id, row] of siteRows) {
-      const from = before.get(id), delta = from - row.getBoundingClientRect().top;
-      if (!row.hidden && Number.isFinite(delta) && Math.abs(delta) > 1) row.animate([{ transform: `translateY(${delta}px)` }, { transform: "none" }], { duration: 240, easing: "cubic-bezier(.2,0,0,1)" });
-    }
-  }
+  renderActions();
+  renderLegend();
 }
-$("clearFilter").onclick = () => { statusFilter = null; render(); };
 let shownSelected = null;
 function renderSelected(s) {
   if (!s) { hideCard("selected"); shownSelected = null; return; }
@@ -238,7 +161,9 @@ function renderSelected(s) {
     el("div", { className: `headline ${s.a.level === "critical" || s.a.level === "high" ? "bad" : s.a.level === "ok" ? "ok" : ""}`, textContent: s.a.summary }),
     el("div", { className: "row" },
       Object.assign(el("button", { className: "primary", textContent: "Open in 3D →" }), { onclick: () => openTwin(s) }),
-      ...(isUpload(indexUrl, s.entry.site_id) ? [removeButton(s)] : [])),
+      Object.assign(el("button", { textContent: "Inspect surroundings" }), { onclick: () => select(s, { inspect: true }) }),
+      ...(isUpload(indexUrl, s.entry.site_id) ? [removeButton(s)] : []),
+      Object.assign(el("button", { textContent: "Close" }), { onclick: deselect })),
     el("details", { className: "more" }, el("summary", { textContent: "Details" }),
       el("div", { className: "muted", textContent: `${s.entry.structure.replaceAll("_", " ")} · ${s.regime === "tr" ? "TR 20%" : "ICNIRP"} · ${s.a.buildings} buildings · ~${s.a.people} people nearby (estimated)` }),
       el("ul", {}, ...(s.a.issues.length ? s.a.issues : ["No issues found"]).map((text) => el("li", { textContent: text })))),
@@ -246,75 +171,84 @@ function renderSelected(s) {
   showCard("selected", { reveal: shownSelected !== s });
   shownSelected = s;
 }
+function deselect() {
+  if (!selectedSite) return;
+  document.querySelector(".panel.drawer-open .drawer-close")?.click();
+  render(null);
+  saveMapState();
+}
 
-// ---------- home view: what needs attention and what work is planned, with nothing selected ----------
+// What the pin colours mean, with how many sites each.
+const legend = L.control({ position: "bottomleft" });
+legend.onAdd = () => el("div", { className: "map-legend" });
+legend.addTo(map);
+function renderLegend() {
+  legend.getContainer().replaceChildren(...Object.keys(LEVELS).map((k) => [k, sites.filter((s) => s.a.level === k).length]).filter(([, n]) => n)
+    .map(([k, n]) => el("div", {}, el("span", { className: "dot", style: `background:${token(k)}`, textContent: LEVELS[k].glyph }),
+      el("span", { textContent: LEVELS[k].label }), el("b", { textContent: String(n) }))));
+}
+
+// ---------- home: the operator sums the portfolio up; the right panel stays closed ----------
 const baselineOf = (s) => s.source.baseline ?? s.source.site;
 // Sites whose current plan (SiteTwin's or a session's) changes antennas: field work to do.
 const plannedWork = () => sites.filter((s) => diffSites(baselineOf(s), s.site).length);
-function homeRow(s, ...why) {
+function siteLink(s) {
   const row = el("button", { type: "button", className: "home-site" },
     el("span", { className: "dot", style: `background:${token(s.a.level)}`, textContent: LEVELS[s.a.level].glyph }),
-    el("span", { className: "id", textContent: s.entry.site_id }), el("span", { className: "why" }, ...why));
+    el("span", { className: "id", textContent: s.entry.site_id }), el("span", { className: "why", textContent: tr(s.a.summary) }));
   row.onclick = () => select(s);
   return row;
 }
-function renderHome(selected) {
-  if (selected) { hideCard("home"); return; }
-  const urgent = sites.filter((s) => ["critical", "high", "medium"].includes(s.a.level)).slice(0, 3);
-  $("homeUrgent").replaceChildren(...(urgent.length ? urgent.map((s) => homeRow(s, s.a.summary))
-    : [el("div", { className: "muted", textContent: "No site needs attention" })]));
-  $("homeFixAll").hidden = !sites.some((s) => ["critical", "high"].includes(s.a.level));
-  // The first few, so the combined plan button stays in view; the plan itself covers them all.
-  const work = plannedWork(), shown = work.slice(0, 4);
-  $("homeWork").replaceChildren(...(work.length ? shown.map((s) => {
-    const steps = planSteps(baselineOf(s), s.site);
-    return homeRow(s, el("span", { textContent: steps[0] ?? "" }), ...(steps.length > 1 ? [el("span", { className: "more", textContent: ` +${steps.length - 1}` })] : []));
-  }) : [el("div", { className: "muted", textContent: "No planned changes" })]),
-  ...(work.length > shown.length ? [el("div", { className: "muted", textContent: `+${work.length - shown.length} more site(s)` })] : []));
-  $("homePlan").hidden = !work.length;
-  $("homePlan").textContent = work.length > 1 ? `Combined action plan (${work.length} sites)` : "Action plan";
-  setCardSummary("home", urgent.length ? `${urgent.length} to look at` : "All clear", urgent.some((s) => s.a.level === "critical") ? "bad" : urgent.length ? "warn" : "ok");
-  showCard("home");
-}
-$("homePlan").onclick = () => {
+function openCombinedPlan() {
   const plans = plannedWork().map((s) => sitePlan({ site: s.site, baseline: baselineOf(s), entry: s.entry, regimeKey: s.regime,
-    reason: s.reason ?? s.entry.reason ?? null, kpi: readKpi(s.entry) ?? twinKpi(s.source) }).plan);
+    reason: s.reason ?? s.entry.reason ?? null, kpi: twinKpi(s.source) }).plan);
   logAction(`Combined action plan for ${plans.length} sites`);
   openActionPlan(combinePlans(plans));
-};
-$("homeFixAll").onclick = () => mapAgent.ask(document.documentElement.lang === "tr"
+}
+const fixUrgent = () => mapAgent.ask(document.documentElement.lang === "tr"
   ? "Aksiyon gerektiren tüm sahaları sırayla düzelt" : "Fix every site that needs action, one by one");
 
-// The operator's opening summary, written from the checks (no model call). Home starts a fresh
-// conversation: the earlier one is cleared, unless the operator is still working on it.
+// The operator's opening summary, written from the checks (no model call). Assistant messages are
+// not translated by the page, so it is put in the screen's language here. Home starts a fresh
+// conversation, unless the operator is still answering.
 let briefing = null;
 function showBriefing({ fresh = false } = {}) {
   if (fresh && !$("chatInput").disabled) { chat.clear(); mapAgent.reset(); }
-  const urgent = sites.filter((s) => ["critical", "high"].includes(s.a.level));
-  const work = plannedWork().length;
-  const lines = [`${tr(`Checked ${sites.length} sites automatically`)}.`,
-    urgent.length ? `${tr(`${urgent.length} site(s) need action, the most urgent is ${urgent[0].entry.site_id}`)}: ${tr(urgent[0].a.summary)}.` : tr("No site needs urgent action."),
-    ...(work ? [tr(`${work} site(s) have planned field work.`)] : []),
-    tr("Ask me about any site, or open one to plan its fix.")];
   briefing ??= el("div", { className: "msg assistant briefing" });
-  briefing.replaceChildren(...lines.map((text) => el("div", { textContent: text })));
+  renderBriefing();
   $("chatLog").append(briefing);
   $("chatLog").scrollTop = $("chatLog").scrollHeight;
 }
+function renderBriefing() {
+  if (!briefing) return;
+  const urgent = sites.filter((s) => ["critical", "high"].includes(s.a.level));
+  const work = plannedWork();
+  const allOpen = briefing.querySelector("details")?.open ?? false;
+  const button = (text, onclick) => Object.assign(el("button", { type: "button", textContent: tr(text) }), { onclick });
+  briefing.replaceChildren(
+    el("p", { textContent: urgent.length ? tr(`Checked ${sites.length} sites, ${urgent.length} need action:`)
+      : `${tr(`Checked ${sites.length} sites automatically`)}. ${tr("No site needs urgent action.")}` }),
+    ...(urgent.length ? [el("div", { className: "home-list" }, ...urgent.slice(0, 3).map(siteLink))] : []),
+    ...(work.length ? [el("p", { textContent: tr(`${work.length} site(s) have planned field work.`) })] : []),
+    el("div", { className: "briefing-actions" },
+      ...(urgent.length ? [button("Fix urgent sites one by one", fixUrgent)] : []),
+      ...(work.length ? [button(work.length > 1 ? `Combined action plan (${work.length} sites)` : "Action plan", openCombinedPlan)] : [])),
+    Object.assign(el("details", {}, el("summary", { textContent: tr(`All sites (${sites.length})`) }),
+      el("div", { className: "home-list" }, ...sites.map(siteLink))), { open: allOpen }));
+}
 function goHome() {
-  statusFilter = null;
-  map.closePopup();
   stopFollowing();
-  render(null, true);
+  document.querySelector(".panel.drawer-open .drawer-close")?.click();
+  render(null);
   if (sites.length) {
     const all = L.latLngBounds(sites.map((s) => [s.entry.lat, s.entry.lon])).pad(0.2);
     if (reducedMotion.matches) map.fitBounds(all, { animate: false }); else map.flyToBounds(all, { duration: 1 });
   }
-  $("list").closest(".panel").scrollTop = 0;
   showBriefing({ fresh: true });
   saveMapState();
 }
 document.querySelector(".app-brand").onclick = (event) => { event.preventDefault(); goHome(); };
+map.on("click", deselect);
 
 // A loaded file can be taken off the map again: the first click asks, the second removes.
 function removeButton(s) {
@@ -336,45 +270,40 @@ async function removeUpload(s) {
   const id = s.entry.site_id;
   forgetUpload(indexUrl, id);
   forgetPlan(s.entry.twin, id);
-  try { sessionStorage.removeItem(`sitetwin:${kpiKey(s.entry)}`); } catch { /* storage blocked */ }
-  map.closePopup();
   markers[id]?.remove(); delete markers[id];
-  siteRows.get(id)?.remove(); siteRows.delete(id);
   sites.splice(sites.indexOf(s), 1);
   delete seenProposals[id];
   const original = baseIndex.sites.find((e) => e.site_id === id);
   const back = original ? await add(original) : null;
   render(back);
+  renderBriefing();
   logAction(original ? `Removed the loaded file for ${id}, the portfolio version is back` : `Removed ${id} from the map`);
 }
 
 function select(s, { inspect = false, travel = true } = {}) {
   const same = selectedSite === s;
   render(s); saveMapState();
-  if (!travel || same && !inspect) { if (travel && !focusedTarget) markers[s.entry.site_id]?.openPopup(); return; }
+  // On narrow screens the panel is a drawer: open it for the site, as a wide screen shows it.
+  if (matchMedia("(max-width: 1179px)").matches && !document.querySelector(".panel.drawer-open")) {
+    [...document.querySelectorAll('[data-pane="inspect"]')].find((b) => b.offsetParent)?.click();
+  }
+  if (!travel || same && !inspect) return;
   const request = ++focusRequest;
   map.stop();
   focusedTarget = { s, zoom: inspect ? 17 : 15 };
-  const reveal = () => { if (request === focusRequest) { focusedTarget = null; markers[s.entry.site_id]?.openPopup(); } };
+  const reveal = () => { if (request === focusRequest) focusedTarget = null; };
   if (reducedMotion.matches) { map.setView([s.entry.lat, s.entry.lon], focusedTarget.zoom, { animate: false }); reveal(); }
   else { map.once("moveend", reveal); map.flyTo([s.entry.lat, s.entry.lon], focusedTarget.zoom, { duration: 1.15 }); }
 }
 function stopFollowing() { focusRequest++; focusedTarget = null; map.stop(); }
 map.on("dragstart", stopFollowing);
 $("map").addEventListener("wheel", stopFollowing, { passive: true });
-document.addEventListener("keydown", (event) => { if (event.key === "Escape") map.closePopup(); });
+// Escape closes the site (open drawers handle their own Escape).
+document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !event.defaultPrevented) deselect(); });
 reducedMotion.addEventListener("change", () => {
   map.options.fadeAnimation = map.options.zoomAnimation = map.options.markerZoomAnimation = !reducedMotion.matches;
-  for (const row of siteRows.values()) for (const animation of row.getAnimations()) animation.cancel();
   if (reducedMotion.matches && focusedTarget) { const { s, zoom } = focusedTarget; map.stop(); map.setView([s.entry.lat, s.entry.lon], zoom, { animate: false }); }
 });
-function siteCard(s) {
-  const card = el("div", {}, el("strong", { textContent: s.entry.site_id }),
-    el("div", { textContent: LEVELS[s.a.level].label }), el("p", { textContent: s.a.issues[0] ?? "No issues found" }));
-  card.append(Object.assign(el("button", { textContent: "Open 3D twin", className: "primary" }), { onclick: () => openTwin(s) }),
-    Object.assign(el("button", { textContent: "Inspect surroundings" }), { onclick: () => select(s, { inspect: true }) }));
-  return card;
-}
 function recordProposal(s, saved) {
   const latest = saved.actions.at(-1);
   if (!latest || seenProposals[s.entry.site_id] === latest.time) return;
@@ -408,13 +337,8 @@ async function add(entry) {
   markers[entry.site_id]?.remove();
   markers[entry.site_id] = L.marker([entry.lat, entry.lon], { icon: pinIcon(s.a.level, false, s.a.level === "critical" && attentionCount++ < 3), title: `${entry.site_id}: ${LEVELS[s.a.level].label}`, alt: `${entry.site_id}: ${LEVELS[s.a.level].label}` })
     .addTo(map).on("click", () => select(s))
-    .bindPopup(() => siteCard(s), { autoPan: false, maxWidth: 240 });
-  const marker = markers[entry.site_id];
-  let hoverTimer;
-  marker.on("mouseover", () => { hoverTimer = setTimeout(() => marker.openPopup(), 150); });
-  marker.on("mouseout", () => clearTimeout(hoverTimer));
-  marker.getElement()?.addEventListener("focus", () => { hoverTimer = setTimeout(() => marker.openPopup(), 150); });
-  marker.getElement()?.addEventListener("blur", () => clearTimeout(hoverTimer));
+    // Only the name on hover: what the site needs is said once, in the panel when it is selected.
+    .bindTooltip(entry.site_id, { direction: "top", offset: [0, -14] });
   return s;
 }
 
@@ -529,9 +453,8 @@ $("chatInput").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.pr
 $("upload").onchange = async (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  showCard("upload", { reveal: true });
-  setCardSummary("upload", "working…");
-  $("uploadStatus").textContent = "Importing and fetching surrounding buildings…";
+  // Progress goes to the chat: the right panel only opens for the site once it is on the map.
+  chat.say("tool", "Importing and fetching surrounding buildings…");
   try {
     // Checked here first, so a wrong file gets a plain answer instead of a parser message.
     let doc;
@@ -546,61 +469,14 @@ $("upload").onchange = async (e) => {
     const replaced = sites.some((x) => x.entry.site_id === entry.site_id);
     const s = await add(entry);
     rememberUpload(indexUrl, entry);
-    $("uploadStatus").textContent = `${replaced ? "Updated" : "Added"} ${s.entry.site_id}`;
-    setCardSummary("upload", "done", "ok");
-    setTimeout(() => hideCard("upload"), 4000);
+    chat.say("tool", `${replaced ? "Updated" : "Added"} ${s.entry.site_id}`);
     logAction(`Loaded SiteTwin file ${s.entry.site_id}: ${LEVELS[s.a.level].label}`);
+    renderBriefing();
     select(s);
   } catch (err) {
-    $("uploadStatus").textContent = `⚠️ ${String(err.message ?? err).slice(0, 240)}`;
-    setCardSummary("upload", "failed", "bad");
+    chat.say("tool", `⚠️ ${String(err.message ?? err).slice(0, 240)}`);
   }
   e.target.value = "";
-};
-
-// One KPI export for the whole map: each site takes the rows whose cell names (or
-// site column) name it. Read in the browser, never uploaded; each 3D page sees its share.
-function renderKpiCard(text, state) {
-  showCard("kpi", { reveal: true });
-  setCardSummary("kpi", state === "bad" ? "failed" : "done", state);
-  $("kpiStatus").textContent = text;
-  $("kpiClear").hidden = !sites.some((s) => readKpi(s.entry));
-}
-$("kpiUpload").onchange = async (e) => {
-  const file = e.target.files[0];
-  e.target.value = "";
-  if (!file) return;
-  try {
-    const text = await file.text();
-    const matched = [];
-    let firstError = null;
-    for (const s of sites) {
-      try {
-        const parsed = parseKpi(text, s.source.site);
-        // On the map a file must name the site: matching by sector alone would give every site the same rows.
-        if (!parsed.site_checked) continue;
-        writeSession(kpiKey(s.entry), { file: file.name, loaded: new Date().toISOString(), ...parsed });
-        matched.push(s);
-      } catch (err) { firstError ??= err; }
-    }
-    if (!matched.length) throw firstError && !/^No row/.test(firstError.message) ? firstError : new Error("No site on the map is named in this KPI file");
-    for (const s of matched) { reassess(s); updateMarker(s); }
-    render();
-    const full = matched.filter((s) => readKpi(s.entry).cells[0].prb_dl_pct >= PRB_EXPAND).map((s) => s.entry.site_id);
-    renderKpiCard(`Measured load for ${matched.length} of ${sites.length} sites${full.length ? ` · full cell: ${full.join(", ")}` : ""}`, "ok");
-    logAction(`Loaded network KPIs (${file.name}) for ${matched.length} sites`);
-  } catch (err) {
-    renderKpiCard(`⚠️ ${err.message ?? err}`, "bad");
-  }
-};
-$("kpiClear").onclick = () => {
-  for (const s of sites) {
-    try { sessionStorage.removeItem(`sitetwin:${kpiKey(s.entry)}`); } catch { /* storage blocked */ }
-    reassess(s); updateMarker(s);
-  }
-  render();
-  renderKpiCard("Loaded KPI files removed: sites use their own site file figures, or the estimate from people nearby", "ok");
-  logAction("Removed network KPIs from all sites");
 };
 
 window.addEventListener("pageshow", async (event) => {
@@ -616,5 +492,5 @@ window.addEventListener("pageshow", async (event) => {
       if (saved.status === "stale") logAction(`${s.entry.site_id}: ${saved.message}`);
     } catch (error) { logAction(`${s.entry.site_id}: reassessment unavailable (${error.message}); previous displayed assessment retained`); }
   }
-  render(); saveMapState();
+  render(); renderBriefing(); saveMapState();
 });

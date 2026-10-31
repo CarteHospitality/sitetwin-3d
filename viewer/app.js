@@ -15,8 +15,8 @@ import { populationContext } from "./population.js";
 import { initVoice } from "./voice.js";
 import { initConversation } from "./conversation.js";
 import { createSceneMotion } from "./scene.js";
-import { restoreProposed, saveProposed, sourceFingerprint, consumeHandoff, handoffId, absoluteUrl, withUploads, readSession, writeSession } from "./session.js";
-import { parseKpi, twinKpi } from "./kpi.js";
+import { restoreProposed, saveProposed, sourceFingerprint, consumeHandoff, handoffId, absoluteUrl, withUploads } from "./session.js";
+import { twinKpi } from "./kpi.js";
 import { fieldWorkOrder } from "./fieldwork.js";
 import { $, el, token, initShell, setText } from "./ui.js";
 import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
@@ -57,11 +57,8 @@ const baseline = twin.baseline ?? twin.site;
 const restored = restoreProposed(src, twin);
 const fingerprint = sourceFingerprint(twin);
 let site = clone(restored.site);
-// Measured load: the site file's own network_kpi, unless the engineer loaded a newer
-// OSS export here or on the map (kept in this browser session only).
-const kpiKey = `kpi:${absoluteUrl(src)}`;
-const fileKpi = twinKpi(twin);
-let kpi = Array.isArray(readSession(kpiKey)?.cells) ? readSession(kpiKey) : fileKpi;
+// Measured load: the busy hour per cell that the site file carries (network_kpi), if any.
+const kpi = twinKpi(twin);
 let selectedId = site.antennas.some((a) => a.id === restored.view.selected) ? restored.view.selected : null;
 let regimeKey = restored.regime;
 const layers = { zones: true, coverage: false, baseline: false };
@@ -310,8 +307,7 @@ const planner = {
     const { neighbours, ...state } = planner.state();
     const { buildings, ...people } = populationContext(site);
     return { site_id: site.site_id, structure: site.structure, ...state, people: { ...people, buildings: buildings.filter((b) => b.sensitive || b.distance_m <= 120) },
-      ...(kpi ? { network_kpi: { source: `measured: operator OSS export (${kpi === fileKpi ? "carried in the site file" : kpi.file}), busiest hour per cell, current network before the plan`, cells: kpi.cells,
-        ...(kpi.site_checked === false ? { warning: "the file does not name this site; cells were matched by sector only" } : {}) } } : {}) };
+      ...(kpi ? { network_kpi: { source: "measured: operator OSS data carried in the site file, busiest hour per cell, current network before the plan", cells: kpi.cells } } : {}) };
   },
   evaluate(changes) {
     const { site: candidate, errors } = applyChanges(site, changes);
@@ -524,45 +520,6 @@ function renderOverview(checks, changes, crew) {
   $("crewLine").textContent = crewText ? `${crewText} ›` : "";
 }
 $("crewLine").onclick = () => showCard("crew", { reveal: true });
-
-// Network KPIs: a CSV export from the operator's OSS, read here and never uploaded.
-function renderKpi(error) {
-  $("kpiLoad").textContent = kpi ? "Load another KPI file" : "Load network KPIs (CSV)";
-  // The site file's own figures cannot be removed, only replaced by a loaded export.
-  $("kpiRemove").hidden = !kpi || kpi === fileKpi;
-  const unchecked = kpi && kpi.site_checked === false;
-  $("kpiInfo").classList.toggle("error", Boolean(error || unchecked));
-  $("kpiInfo").textContent = error ? error
-    : unchecked ? `The file does not name ${site.site_id}: check it belongs to this site`
-    : kpi === fileKpi && kpi ? `Measured load from the site file · ${kpi.cells.length} cell(s)`
-    : kpi ? `Measured load: ${kpi.file} · ${kpi.cells.length} cell(s)` : "Busy-hour PRB per cell from the OSS export · stays in this browser";
-}
-const kpiInput = Object.assign(document.createElement("input"), { type: "file", accept: ".csv,text/csv,text/plain", hidden: true });
-$("kpiLoad").after(kpiInput);
-$("kpiLoad").onclick = () => kpiInput.click();
-kpiInput.onchange = async () => {
-  const file = kpiInput.files[0];
-  kpiInput.value = "";
-  if (!file) return;
-  try {
-    const parsed = parseKpi(await file.text(), site);
-    kpi = { file: file.name, loaded: new Date().toISOString(), ...parsed };
-    writeSession(kpiKey, kpi);
-    renderKpi();
-    update();
-    const top = kpi.cells[0];
-    chat.say("tool", `✓ Network KPIs loaded: ${kpi.cells.length} cell(s), busiest ${top.sector} ${top.band} at ${top.prb_dl_pct}% PRB`);
-  } catch (e) {
-    renderKpi(e.message ?? String(e));
-  }
-};
-$("kpiRemove").onclick = () => {
-  kpi = fileKpi;
-  try { sessionStorage.removeItem(`sitetwin:${kpiKey}`); } catch { /* storage blocked */ }
-  renderKpi();
-  update();
-};
-renderKpi();
 
 let crewSignature = "";
 function renderCrew(plan) {

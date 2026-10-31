@@ -163,7 +163,7 @@ def network_kpi(doc: dict) -> dict | None:
     if not cells:
         return None
     cells.sort(key=lambda c: -c["prb_dl_pct"])
-    return {"file": "site file", "source": block.get("source"), "period": block.get("period"), "cells": cells, "site_checked": True}
+    return {"source": block.get("source"), "period": block.get("period"), "cells": cells}
 
 
 def neighbours_from_draft(path: Path) -> list[Neighbour]:

@@ -11,7 +11,7 @@ They are not real base-station locations.
 import json
 from pathlib import Path
 
-from make_kpi_samples import busy_hour
+from sample_kpi import busy_hour
 
 OUT = Path("samples/sitetwin")
 

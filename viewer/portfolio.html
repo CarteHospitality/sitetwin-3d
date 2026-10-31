@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SiteTwin Portfolio</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="ui.css?v=ui-15">
+<link rel="stylesheet" href="ui.css?v=ui-19">
 </head>
-<body>
+<body class="portfolio-page">
 <header class="topbar">
   <a class="app-brand" href="portfolio.html">SiteTwin <span>3D</span></a>
   <div class="breadcrumb">Portfolio</div>
@@ -15,7 +15,6 @@
   <label class="contrast-control"><input id="projector" type="checkbox"><span>Projector contrast</span></label>
   <button class="drawer-trigger operator-trigger" data-pane="operator" aria-expanded="false">Operator</button>
   <button class="drawer-trigger inspect-trigger" data-pane="inspect" aria-expanded="false">Inspect</button>
-  <button class="upload-btn" id="loadKpi" title="Load a network KPI export (CSV) for the sites on the map">Load KPIs</button><input type="file" id="kpiUpload" accept=".csv,text/csv,text/plain" hidden>
   <button class="upload-btn" id="loadTwin" title="Load SiteTwin file">Load file</button><input type="file" id="upload" accept=".json,application/json" hidden>
 </header>
 <div class="layout">
@@ -42,51 +41,15 @@
     </div>
   </aside>
 
-  <!-- Right: the map, site information and actions taken -->
+  <!-- Right: the map, and the selected site (the panel stays closed with none) -->
   <main class="work">
     <div id="map" class="stage" aria-label="Portfolio map"><div id="loading" class="hud loading-state" role="status">Loading and assessing sites…</div></div>
     <section class="panel cards">
       <div class="panel-top"><button class="drawer-close" aria-label="Close inspector">Close</button></div>
 
-      <section class="card" data-card="portfolio">
-        <button class="card-head" aria-expanded="true"><span class="card-icon">📊</span><span class="card-title">Portfolio</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
-        <div class="card-body">
-          <div class="muted">Every site checked automatically with the same code as the 3D planner.</div>
-          <div class="stats" id="stats"></div>
-          <div class="row"><span class="muted" id="filterStatus">All sites</span><button id="clearFilter" hidden>Clear filter</button></div>
-        </div>
-      </section>
-
-      <section class="card" data-card="home">
-        <button class="card-head" aria-expanded="true"><span class="card-icon">🏠</span><span class="card-title">Where to start</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
-        <div class="card-body home">
-          <h3>Most urgent</h3>
-          <div id="homeUrgent" class="home-list"></div>
-          <button type="button" id="homeFixAll" hidden>Fix urgent sites one by one</button>
-          <h3>Planned field work</h3>
-          <div id="homeWork" class="home-list"></div>
-          <button type="button" class="primary" id="homePlan" hidden>Combined action plan</button>
-        </div>
-      </section>
-
-      <section class="card" data-card="upload" hidden>
-        <button class="card-head" aria-expanded="true"><span class="card-icon">⬆</span><span class="card-title">Loading SiteTwin file</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
-        <div class="card-body"><div class="muted" id="uploadStatus" role="status"></div></div>
-      </section>
-
-      <section class="card" data-card="kpi" hidden>
-        <button class="card-head" aria-expanded="true"><span class="card-icon">📶</span><span class="card-title">Network KPIs</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
-        <div class="card-body"><div class="muted" id="kpiStatus" role="status"></div><button type="button" class="kpi-clear" id="kpiClear" hidden>Remove loaded KPI files</button></div>
-      </section>
-
       <section class="card" data-card="selected" hidden>
         <button class="card-head" aria-expanded="true"><span class="card-icon">📍</span><span class="card-title">Selected site</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
         <div class="card-body" id="selectedSite"></div>
-      </section>
-
-      <section class="card" data-card="sites">
-        <button class="card-head" aria-expanded="true"><span class="card-icon">🗂</span><span class="card-title">Sites by urgency</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
-        <div class="card-body"><div id="list"></div></div>
       </section>
 
       <section class="card" data-card="actions" hidden data-folded>
@@ -100,6 +63,6 @@
 <nav class="mobile-nav" aria-label="Workspace navigation"><button data-pane="workspace" aria-pressed="true">Workspace</button><button data-pane="operator" aria-expanded="false">Operator</button><button data-pane="inspect" aria-expanded="false">Inspect</button></nav>
 <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
 <div id="liveStatus" class="sr-only" role="status" aria-live="polite"></div>
-<script type="module" src="portfolio.js?v=ui-15"></script>
+<script type="module" src="portfolio.js?v=ui-19"></script>
 </body>
 </html>
