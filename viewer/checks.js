@@ -61,6 +61,17 @@ function closestInside(a, z, n) {
       if (insideZone(a, z, x, y, zz)) closest = Math.min(closest, Math.hypot(x - a.x_m, y - a.height_agl_m, zz - a.z_m));
   return closest;
 }
+// A school or hospital whose height was assumed (no height in the open data, sitetwin3d/osm.py):
+// the lowest storey count at which the check still finds it, so a finding can say whether it hangs
+// on that assumption and a height measurement can settle it.
+const STOREY_M = 3, MAX_STOREYS = 12;
+function heightCheck(n, finds) {
+  if (!n.height_assumed) return {};
+  let from = null;
+  for (let storeys = 1; storeys <= MAX_STOREYS && from === null; storeys++) if (finds({ ...n, height_m: storeys * STOREY_M })) from = storeys;
+  return { height_assumed: true, assumed_storeys: n.storeys, holds_from_storeys: from };
+}
+
 // Health facilities have their own, stricter limit (3 V/m, see emf.js).
 const HEALTH_USES = new Set(["hospital"]);
 
@@ -103,7 +114,8 @@ export function checkSite(s, zones) {
         const occ = occupancy(n);
         const sensitive = SENSITIVE_USES.has(n.use);
         const who = `${sensitive ? `SENSITIVE ${n.use}, ` : ""}${occ.estimated ? "~" : ""}${occ.people} people`;
-        findings.push({ level: "bad", sensitive, use: n.use, antenna: a.id, building: n.id, text: `${a.id} zone reaches ${n.id} [${who}] (${closest.toFixed(1)} m from antenna, zone ${z.front_m} m)` });
+        findings.push({ level: "bad", sensitive, use: n.use, antenna: a.id, building: n.id, text: `${a.id} zone reaches ${n.id} [${who}] (${closest.toFixed(1)} m from antenna, zone ${z.front_m} m)`,
+          ...(sensitive ? heightCheck(n, (m) => closestInside(a, z, m) < Infinity) : {}) });
       }
     }
     let roofCells = 0;
@@ -137,7 +149,8 @@ export function checkSite(s, zones) {
     if (single) {
       hit.add(n.id);
       findings.push({ level: "bad", sensitive: true, health: true, use: n.use, antenna: single.a.id, building: n.id,
-        text: `${single.a.id} field above 3 V/m at ${n.id} [${who}] (${single.closest.toFixed(1)} m from antenna, 3 V/m up to ${single.z.front_m} m)` });
+        text: `${single.a.id} field above 3 V/m at ${n.id} [${who}] (${single.closest.toFixed(1)} m from antenna, 3 V/m up to ${single.z.front_m} m)`,
+        ...heightCheck(n, (m) => closestInside(single.a, single.z, m) < Infinity) });
       continue;
     }
     const combined = combinedAt(health, n);

@@ -66,6 +66,12 @@ const baseline = twin.site;
 const restored = restoreProposed(src, twin);
 const fingerprint = sourceFingerprint(twin);
 let site = clone(restored.site);
+// Schools and hospitals in a zone whose height was assumed: from how many storeys up the finding holds.
+function heightChecks() {
+  const found = checkSite(site, siteZones(site, REGIMES[regimeKey])).findings.filter((f) => f.height_assumed && f.holds_from_storeys);
+  return found.length ? { height_checks: found.map((f) => ({ building: f.building, use: f.use, assumed_storeys: f.assumed_storeys, finding_holds_from_storeys: f.holds_from_storeys })) } : {};
+}
+
 // Measured load: the busy hour per cell that the site file carries (network_kpi), if any.
 const kpi = twinKpi(twin);
 // Where the busiest cell will be in a year, for "what if nothing changes" (growth: see kpi.js).
@@ -752,7 +758,8 @@ const planner = {
     return { site_id: site.site_id, structure: site.structure, ...state, people: { ...people, buildings: buildings.filter((b) => b.sensitive || b.distance_m <= 120) },
       ...(kpi ? { network_kpi: { source: loadTag(kpi) === "measured" ? "measured: operator OSS data carried in the site file, busiest hour per cell, current network before the plan"
         : "sample data: invented for this demo site, not a measurement; call it sample data, never measured", cells: kpi.cells } } : {}),
-      ...(outlook ? { capacity_outlook: outlook } : {}) };
+      ...(outlook ? { capacity_outlook: outlook } : {}),
+      ...heightChecks() };
   },
   evaluate(changes) {
     const { site: candidate, errors } = applyChanges(site, changes);

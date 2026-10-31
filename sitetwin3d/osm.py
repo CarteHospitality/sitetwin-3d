@@ -164,7 +164,8 @@ def surroundings(lat: float, lon: float, radius_m: int = 150) -> tuple[Neighbour
         height = b["height"]
         if height is None and storeys is not None:
             height = storeys * STOREY_M
-        if height is None:
+        height_assumed = height is None
+        if height_assumed:
             storeys, height, assumed = ASSUMED_STOREYS, ASSUMED_STOREYS * STOREY_M, assumed + 1
         use, name = _osm_use(tags), tags.get("name")
         for p in pois:
@@ -175,7 +176,7 @@ def surroundings(lat: float, lon: float, radius_m: int = 150) -> tuple[Neighbour
             id=name or f"B{i:03d}", x_m=round(sum(xs) / len(xs), 1), z_m=round(sum(zs) / len(zs), 1),
             width_m=round(max(xs) - min(xs), 1), depth_m=round(max(zs) - min(zs), 1), height_m=round(height, 1),
             use=use or "residential", storeys=storeys or max(1, round(height / STOREY_M)),
-            footprint=[(round(x, 2), round(z, 2)) for x, z in poly],
+            footprint=[(round(x, 2), round(z, 2)) for x, z in poly], height_assumed=height_assumed,
         )
         if host is None and _point_in_polygon(0.0, 0.0, poly):
             host = n

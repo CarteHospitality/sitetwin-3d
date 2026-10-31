@@ -75,6 +75,7 @@ class Neighbour(BaseModel):
     storeys: int | None = None
     population: int | None = Field(default=None, description="Known occupancy; estimated from floor area when missing")
     footprint: list[tuple[float, float]] | None = Field(default=None, description="Outline in the site frame (x, z); the box fields are its bounds")
+    height_assumed: bool = Field(default=False, description="No height or storey count in the data: a typical storey count was assumed")
 
 
 class SiteModel(BaseModel):

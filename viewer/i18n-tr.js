@@ -870,6 +870,8 @@ export const PATTERNS = [
   ["^(\\S+) is off the roof$", "", "$1 çatının dışında"],
   ["^(\\S+) height out of range \\((.+)\\)$", "", "$1 yüksekliği aralık dışında ($2)"],
   ["^(\\S+) power out of range \\(1-80 W below 3 GHz, up to 240 W above\\)$", "", "$1 gücü aralık dışında (3 GHz altında 1-80 W, üstünde en çok 240 W)"],
+  ["^Height of (.+?) assumed \\((\\d+) storeys\\): the zone reaches it only from (\\d+) storeys up, so measure it$", "", "$1 yüksekliği varsayıldı ($2 kat): bölge ona ancak $3 kattan itibaren ulaşıyor, yüksekliğini ölçün"],
+  ["^Height of (.+?) assumed \\((\\d+) storeys\\): the zone reaches it at any height$", "", "$1 yüksekliği varsayıldı ($2 kat): bölge ona her yükseklikte ulaşıyor"],
   ["^(\\S+) has no band (\\S+)$", "", "$1 üzerinde $2 bandı yok"],
   ["^unknown tool (.+)$", "", "bilinmeyen araç: $1"],
   ["^no site (.+) in the portfolio$", "", "portföyde $1 sahası yok"],

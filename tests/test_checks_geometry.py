@@ -54,3 +54,21 @@ console.log(JSON.stringify({ health, hit: [...checks.hit] }));
 """)
     assert result["health"] == ["Hospital 2"]
     assert "Hospital 2" in result["hit"]
+
+
+def test_a_finding_on_an_assumed_height_says_from_how_many_storeys_it_holds():
+    # The Ankara school has no height in the open data: 5 storeys are assumed, and the zone reaches
+    # it only from 5 storeys up, so the status asks for its height to be measured. A building with
+    # a known height gets no such line.
+    result = run("""
+const { heightLines } = await import(pathToFileURL(root + "/viewer/overview.js").href);
+const twin = JSON.parse(readFileSync(root + "/viewer/data/samples/sites/sample-01_ankara.twin.json", "utf8"));
+const school = (f) => f.building === "School 62";
+const assumed = checkSite(twin.site, emf.siteZones(twin.site)).findings.find(school);
+const known = { ...twin.site, neighbours: twin.site.neighbours.map((n) => ({ ...n, height_assumed: false })) };
+const measured = checkSite(known, emf.siteZones(known)).findings.find(school);
+console.log(JSON.stringify({ assumed: [assumed.assumed_storeys, assumed.holds_from_storeys], lines: heightLines([assumed]), measured: "holds_from_storeys" in measured }));
+""")
+    assert result["assumed"] == [5, 5]
+    assert result["lines"] == ["Height of School 62 assumed (5 storeys): the zone reaches it only from 5 storeys up, so measure it"]
+    assert result["measured"] is False

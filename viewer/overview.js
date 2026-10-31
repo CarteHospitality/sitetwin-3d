@@ -43,6 +43,7 @@ export function statusLines(site, checks, population, { coverageLoss = [], kpi =
   const others = new Set(bad.filter((f) => !f.sensitive).map((f) => f.building));
   if (bad.some((f) => f.health)) lines.push({ level: "bad", text: "A hospital is above the 3 V/m health-facility level (screening, not a measurement)" });
   for (const use of sensitiveUses) lines.push({ level: "bad", text: `A ${use} is inside an EMF zone` });
+  for (const line of heightLines(bad)) lines.push({ level: "warn", text: line });
   // One all-clear line: about schools and hospitals when other buildings are hit, else about all.
   const sensitiveHit = sensitiveUses.length || bad.some((f) => f.health);
   if (others.size) {
@@ -72,6 +73,16 @@ export function statusLines(site, checks, population, { coverageLoss = [], kpi =
   const healthReach = Math.max(0, ...site.antennas.filter((a) => a.bands.length).map((a) => safetyZone(a, HEALTH).front_m));
   if (healthReach > CHECK_RADIUS_M) lines.push({ level: "warn", text: `Health facilities are checked within ${CHECK_RADIUS_M} m; the 3 V/m distance reaches ${Math.round(healthReach)} m` });
   return lines;
+}
+
+// A school or hospital whose height was assumed (no height in the open data): whether the finding
+// hangs on that assumption, from the check's lowest storey count (viewer/checks.js), one line each.
+export function heightLines(findings) {
+  const seen = new Map();
+  for (const f of findings) if (f.height_assumed && f.holds_from_storeys && !seen.has(f.building)) seen.set(f.building, f);
+  return [...seen.values()].map((f) => (f.holds_from_storeys > 1
+    ? `Height of ${f.building} assumed (${f.assumed_storeys} storeys): the zone reaches it only from ${f.holds_from_storeys} storeys up, so measure it`
+    : `Height of ${f.building} assumed (${f.assumed_storeys} storeys): the zone reaches it at any height`));
 }
 
 // Sectors where the plan adds capacity: a new antenna or a new band (more spectrum). More power

@@ -8,7 +8,7 @@ import { REGIMES, siteZones } from "./emf.js";
 import { checkSite, headline } from "./checks.js";
 import { fieldWorkOrder } from "./fieldwork.js";
 import { crewPlan } from "./crew.js";
-import { planSteps, capacityAdded, CAPACITY_PEOPLE_PER_ANTENNA } from "./overview.js";
+import { planSteps, capacityAdded, heightLines, CAPACITY_PEOPLE_PER_ANTENNA } from "./overview.js";
 import { busyCells, monthsUntil, PRB_BALANCE } from "./kpi.js";
 import { populationContext } from "./population.js";
 
@@ -66,11 +66,13 @@ export function sitePlan({ site, baseline, entry, regimeKey = "tr", reason = nul
   const checks = checkSite(site, zones);
   const order = fieldWorkOrder(baseline, site, checks);
   const changes = diffSites(baseline, site);
-  const before = headline(checkSite(baseline, siteZones(baseline, regime)));
+  const baseChecks = checkSite(baseline, siteZones(baseline, regime));
+  const before = headline(baseChecks);
   const gained = [...capacityAdded(baseline, site)].sort();
   const plan = actionPlan({
     site, entry, regime: regime.name, reason, order, crew: crewPlan(order, site), changes, steps: planSteps(baseline, site),
     findings: planFindings(baseline, before, gained, kpi), gained, measured: busyCells(kpi), before, after: headline(checks),
+    heights: heightLines(baseChecks.findings.filter((f) => f.level === "bad")),
   });
   return { plan, zones, checks, order, changes };
 }
@@ -109,7 +111,8 @@ export function result(before, after) {
 
 // Sections of plain English lines; the page and the e-mail translate them.
 // `measured`: busy cells from the operator's KPI export, if one was loaded.
-export function actionPlan({ site, entry, before, after, changes, steps = [], reason, order, crew, regime, measured = [], findings = [{ text: before.text }], gained = [] }) {
+// `heights`: lines on a school or hospital whose finding hangs on an assumed height (overview.js).
+export function actionPlan({ site, entry, before, after, changes, steps = [], reason, order, crew, regime, measured = [], findings = [{ text: before.text }], gained = [], heights = [] }) {
   const where = [...(entry?.twin?.includes("/samples/") ? ["Data: synthetic sample site (antennas and load invented for the demo)"] : []),
     `Structure: ${(site.structure ?? "rooftop").replaceAll("_", " ")}`];
   if (entry?.address) where.push(`Address: ${entry.address}`);
@@ -137,7 +140,7 @@ export function actionPlan({ site, entry, before, after, changes, steps = [], re
       { heading: "Work steps", lines: order.items.flatMap((i) => i.steps) },
       { heading: "Tools and equipment", lines: crew.tools },
       { heading: "Materials", lines: uniq(order.items.flatMap((i) => i.materials)) },
-      { heading: "Precautions and approvals", lines: uniq([...gardens, ...order.items.flatMap((i) => i.precautions), ...order.general]) },
+      { heading: "Precautions and approvals", lines: uniq([...heights.filter((l) => l.endsWith("so measure it")), ...gardens, ...order.items.flatMap((i) => i.precautions), ...order.general]) },
     ].filter((s) => s.lines.length),
     note: crew.note, date: new Date().toLocaleDateString(),
   };
