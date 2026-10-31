@@ -56,6 +56,17 @@ export function azimuthTo(antenna, x, z) {
   return (deg + 360) % 360;
 }
 
+// The share of the limit one antenna's field takes at a point (1 = at the limit), in the same
+// geometry as insideZone: the main lobe falls off as (front / r)², elsewhere in the slab as
+// (back / r)², nothing above or below the slab. Summed over antennas it gives the combined field.
+export function exposureRatio(antenna, zone, x, y, z) {
+  if (Math.abs(y - antenna.height_agl_m) > zone.half_height_m) return 0;
+  const r = Math.max(0.5, Math.hypot(x - antenna.x_m, z - antenna.z_m));
+  const diff = ((azimuthTo(antenna, x, z) - antenna.azimuth_deg + 540) % 360) - 180;
+  const reach = Math.abs(diff) <= zone.horizontal_beamwidth_deg / 2 ? zone.front_m : zone.back_m;
+  return (reach / r) ** 2;
+}
+
 // Same volume the viewer draws: a horizontal sector slab in front, a small cylinder behind.
 export function insideZone(antenna, zone, x, y, z) {
   if (Math.abs(y - antenna.height_agl_m) > zone.half_height_m) return false;

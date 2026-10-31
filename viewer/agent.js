@@ -7,6 +7,8 @@ import { tr } from "./i18n.js";
 
 // A goal usually takes three model calls: compare options, apply one, answer.
 const MAX_STEPS = 12;
+// One model call that has not answered by then is treated as an outage (a normal call takes 2-15 s).
+const MODEL_TIMEOUT_MS = 60000;
 // Steps left at which the agent is told to stop exploring and commit to its best option.
 const DECIDE_AT = 4;
 
@@ -256,11 +258,18 @@ export function createAgent({ definitions, handlers, systemPrompt, ui, limits = 
 
   async function callModel(messages, withTools = true) {
     ui.waiting?.(true);
+    // A model call that hangs ends after MODEL_TIMEOUT_MS like any other outage: the page stays usable.
+    const timeout = new AbortController();
+    const timer = setTimeout(() => timeout.abort(), MODEL_TIMEOUT_MS);
     try {
       const res = await fetch("api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages, tools: withTools ? definitions : [] }),
+      signal: timeout.signal,
+      }).catch((error) => {
+        if (error.name !== "AbortError") throw error;
+        throw new Error(tr(`The Expert Operator did not answer within ${MODEL_TIMEOUT_MS / 1000} s. The 3D twin, the checks and manual changes still work.`));
       });
       // Said plainly, with what still works; the server's own text goes to the console.
       if (!res.ok) {
@@ -268,7 +277,7 @@ export function createAgent({ definitions, handlers, systemPrompt, ui, limits = 
         throw new Error(tr(`The Expert Operator cannot be reached right now (${res.status}). The 3D twin, the checks and manual changes still work.`));
       }
       return await res.json();
-    } finally { ui.waiting?.(false); }
+    } finally { clearTimeout(timer); ui.waiting?.(false); }
   }
 
   // `voice`: the request was spoken, so the answer is spoken back; typed requests get text only.

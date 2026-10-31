@@ -678,6 +678,8 @@ export const PATTERNS = [
   ["^Field work: (\\d+) people · (\\d+) day\\(s\\) ›$", "", "Saha işi: $1 kişi · $2 gün ›"],
   ["^Field work: (\\d+) people · (\\d+) day\\(s\\)$", "", "Saha işi: $1 kişi · $2 gün"],
   ["^Select (\\S+)$", "", "$1 antenini seç"],
+  ["^(.+) together reach (\\S+) \\[(.+)\\] \\(([\\d.]+)x the limit at the worst point, each antenna below it alone\\)$", "", "$1 birlikte $2 binasına ulaşıyor [$3] (en kötü noktada sınırın $4 katı; her anten tek başına sınırın altında)"],
+  ["^(.+) together above 3 V/m at (\\S+) \\[(.+)\\] \\(([\\d.]+)x the 3 V/m level at the worst point, each antenna below it alone\\)$", "", "$1 birlikte $2 binasında 3 V/m'nin üzerinde [$3] (en kötü noktada 3 V/m düzeyinin $4 katı; her anten tek başına altında)"],
   ["^today (\\d+)$", "", "bugün $1"],
   ["^(\\d+) people · (\\d+) day\\(s\\)$", "", "$1 kişi · $2 gün"],
   ["^(\\S+) is open\\.$", "", "$1 açıldı."],
@@ -803,6 +805,7 @@ export const PATTERNS = [
   ["^no site (.+)$", "", "$1 sahası yok"],
   ["^assistant unavailable \\((\\d+)\\): (.+)$", "", "asistan kullanılamıyor ($1): $2"],
   ["^The Expert Operator cannot be reached right now \\((\\d+)\\)\\. The 3D twin, the checks and manual changes still work\\.$", "", "Uzman Operatöre şu an ulaşılamıyor ($1). 3B ikiz, kontroller ve elle değişiklikler çalışmaya devam ediyor."],
+  ["^The Expert Operator did not answer within (\\d+) s\\. The 3D twin, the checks and manual changes still work\\.$", "", "Uzman Operatör $1 saniye içinde cevap vermedi. 3B ikiz, kontroller ve elle değişiklikler çalışmaya devam ediyor."],
 
   // ---- Voice
   ["^⚠️? Microphone: (.+)\\. Typed input is available\\.$", "", "⚠ Mikrofon: $1. Yazarak devam edebilirsiniz."],
