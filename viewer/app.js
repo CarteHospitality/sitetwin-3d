@@ -796,6 +796,9 @@ function renderOverview(checks, changes, crew) {
     .map((text) => (after.level !== "ok" && text === after.text ? `Still open: ${text}` : text)).slice(0, 2)
     // Translated in two parts here: the page translator knows each part, not the joined line.
     .map((text) => ({ open: text.startsWith("Still open: "), text: text.startsWith("Still open: ") ? `${tr("Still open")}: ${tr(text.slice(12))}` : text }));
+  // A plan that answers the busy sector says so first: that is usually why it was made.
+  const relieved = lines.find((l) => l.relieves)?.relieves;
+  if (changes.length && relieved) outcome.unshift({ open: false, text: `More capacity on sector ${relieved}` });
   const install = crew.visits.find((v) => v.name === "Installation visit");
   const crewText = !changes.length || !crew.visits.length ? "" : install ? `Field work: ${crew.headcount} people · ${install.days} day(s)` : "Field work: remote only, no site visit";
   const signature = JSON.stringify([lines, steps, outcome, crewText]);

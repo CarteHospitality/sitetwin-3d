@@ -584,6 +584,8 @@ export const PATTERNS = [
   ["^A hospital is inside an EMF zone$", "", "Bir hastane EMF bölgesinde"],
   ["^EMF zone reaches (\\d+) other building\\(s\\)$", "", "EMF bölgesi $1 binaya daha ulaşıyor"],
   ["^Sector (\\S+) is busy: about (\\d+) people$", "", "$1 sektörü yoğun: yaklaşık $2 kişi"],
+  ["^Sector (\\S+) has about (\\d+) people: the plan adds capacity there$", "", "$1 sektöründe yaklaşık $2 kişi var: plan orada kapasiteyi artırıyor"],
+  ["^More capacity on sector (\\S+)$", "", "$1 sektörünün kapasitesi artıyor"],
   ["^Coverage drops sharply: (.+)$", "", "Kapsama ciddi düşüyor: $1"],
   ["^(\\S+ \\S+) (\\d+)% PRB \\(busy hour\\)$", "", "$1: yoğun saatte %$2 PRB"],
   ["^Cell (\\S+ \\S+) is full: (\\d+)% PRB in the busy hour \\(measured\\)$", "", "$1 hücresi dolu: yoğun saatte %$2 PRB (ölçülen)"],

@@ -29,12 +29,15 @@ export function statusLines(site, checks, population, { coverageLoss = [], kpi =
   if (cell) {
     const name = `${cell.sector} ${cell.band}`, prb = cell.prb_dl_pct;
     if (prb < PRB_BALANCE) lines.push({ level: "ok", text: `Capacity is sufficient: busiest cell ${name} at ${prb}% PRB (measured)` });
-    else if (before && capacityAdded(before, site).has(cell.sector)) lines.push({ level: "ok", text: `Cell ${name} at ${prb}% PRB (measured): the plan adds capacity there` });
+    else if (before && capacityAdded(before, site).has(cell.sector)) lines.push({ level: "ok", relieves: cell.sector, text: `Cell ${name} at ${prb}% PRB (measured): the plan adds capacity there` });
     else lines.push({ level: prb >= PRB_EXPAND ? "bad" : "warn", text: `Cell ${name} is ${prb >= PRB_EXPAND ? "full" : "busy"}: ${prb}% PRB in the busy hour (measured)` });
   } else {
+    // The busy sector stays busy in people, but a plan that adds capacity there answers it.
     const busiest = Object.entries(population.people_per_antenna).sort((a, b) => b[1] - a[1])[0];
-    if (busiest && busiest[1] > CAPACITY_PEOPLE_PER_ANTENNA) lines.push({ level: "warn", text: `Sector ${sectorOf(busiest[0])} is busy: about ${Math.round(busiest[1] / 100) * 100} people` });
-    else lines.push({ level: "ok", text: "Capacity is sufficient" });
+    const sector = busiest && sectorOf(busiest[0]), people = busiest && Math.round(busiest[1] / 100) * 100;
+    if (!busiest || busiest[1] <= CAPACITY_PEOPLE_PER_ANTENNA) lines.push({ level: "ok", text: "Capacity is sufficient" });
+    else if (before && capacityAdded(before, site).has(sector)) lines.push({ level: "ok", relieves: sector, text: `Sector ${sector} has about ${people} people: the plan adds capacity there` });
+    else lines.push({ level: "warn", text: `Sector ${sector} is busy: about ${people} people` });
   }
   if (coverageLoss.length) lines.push({ level: "warn", text: `Coverage drops sharply: ${coverageLoss.map((l) => `${l.band} ${l.change_pct}%`).join(", ")}` });
   return lines;
