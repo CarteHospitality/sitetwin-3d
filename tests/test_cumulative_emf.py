@@ -51,6 +51,29 @@ console.log(JSON.stringify(out));
     assert " together reach B1 " in result["icnirp-two"][0]["text"]
 
 
+def test_small_shares_from_far_antennas_count_in_the_sum():
+    # One antenna gives 0.8 of the limit at the building, three farther ones 0.21 each: each far one is
+    # under 1/N of the limit, yet together they push the building past it (0.8 + 3 x 0.21 = 1.42).
+    result = run(HEAD + """
+const strong = { ...band, tx_power_w: 200 };
+const at = (id, x) => ({ id, x_m: x, z_m: 0, height_agl_m: 30, azimuth_deg: 90, length_m: 1.5, bands: [strong] });
+const regime = emf.REGIMES.icnirp;
+const front = emf.safetyZone(at("S1-1", 0), regime).front_m;
+const face = 1.118 * front;                     // the near antenna's distance to the building's face
+const x = face + 2;                             // the building is 4 m wide
+const near = at("S1-1", 0), far = [1, 2, 3].map((i) => at(`S2-${i}`, face - 2.2 * front));
+const out = {};
+for (const [name, antennas] of [["alone", [near]], ["together", [near, ...far]]]) {
+  const s = site(antennas, x);
+  out[name] = checkSite(s, emf.siteZones(s, regime)).findings.filter((f) => f.level === "bad").map((f) => ({ combined: Boolean(f.combined), text: f.text }));
+}
+console.log(JSON.stringify(out));
+""")
+    assert result["alone"] == []
+    assert len(result["together"]) == 1 and result["together"][0]["combined"]
+    assert "S1-1" in result["together"][0]["text"] and "S2-1" in result["together"][0]["text"]
+
+
 def test_exposure_ratio_agrees_with_the_drawn_zone():
     result = run(HEAD + """
 const a = antenna("S1-1", 0), zone = emf.safetyZone(a);

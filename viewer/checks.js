@@ -45,12 +45,14 @@ const HEALTH_USES = new Set(["hospital"]);
 // Several antennas can each stay below their own limit at a building and still exceed the limit for
 // all of them together: their exposure ratios add up, each scaled to that combined limit (in Turkey 70%
 // of the ICNIRP field for the total against 20% for one device; one limit under ICNIRP and at 3 V/m).
-// The worst point of the building where the sum reaches 1, or null. Only antennas that could matter
-// are summed: within reach x sqrt(N x scale) and at the building's height.
+// The worst point of the building where the sum reaches 1, or null. Of N antennas at the building's
+// height, the sum can reach 1 only if one of them gives at least 1/N of it, that is one lies within
+// its front x sqrt(N x scale): with none that close the building is skipped. Otherwise all N are
+// summed, the far ones too, as their small shares can add up past the limit.
 function combinedAt(pairs, n) {
-  const near = pairs.filter(({ a, z }) => n.height_m >= a.height_agl_m - z.half_height_m
-    && Math.hypot(n.x_m - a.x_m, n.z_m - a.z_m) - Math.hypot(n.width_m, n.depth_m) / 2 <= z.front_m * Math.sqrt(pairs.length * (z.combined_scale ?? 1)));
-  if (near.length < 2) return null;
+  const near = pairs.filter(({ a, z }) => n.height_m >= a.height_agl_m - z.half_height_m);
+  const close = ({ a, z }) => Math.hypot(n.x_m - a.x_m, n.z_m - a.z_m) - Math.hypot(n.width_m, n.depth_m) / 2 <= z.front_m * Math.sqrt(near.length * (z.combined_scale ?? 1));
+  if (near.length < 2 || !near.some(close)) return null;
   const yLow = Math.max(0, Math.floor(Math.min(...near.map(({ a, z }) => a.height_agl_m - z.half_height_m))));
   let worst = 0, at = null;
   for (let x = n.x_m - n.width_m / 2; x <= n.x_m + n.width_m / 2; x += 1)
