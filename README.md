@@ -18,17 +18,20 @@ Built for the Meta Global AI Developer Hackathon (Indie track). Demo video: _lin
 
 ## Does the agent hold up?
 
-Fourteen requests on the five sample sites against the real models, one run each ([docs/eval/agent-eval.md](docs/eval/agent-eval.md), measured with `scripts/agent_eval.js`). Single runs on sample data, not a reliability rate:
+Thirteen requests on the five sample sites, three runs each against the real models, every run on a fresh page ([docs/eval/agent-eval.md](docs/eval/agent-eval.md); the 39 raw records in [runs-2026-10-31.json](docs/eval/runs-2026-10-31.json); measured with `scripts/agent_eval.js`). Each request has a pass rule fixed before the runs. Sample data, a small set:
 
 | | Result |
 |---|---|
-| Answered without an error | 14 / 14 |
-| Failed tool calls | 0 |
-| Analyses that left the plan unchanged | 6 / 6, each with a decision card of 3–4 options |
-| Instructions and goals carried out | 7 / 7 |
-| School or hospital out of the zone after a safety goal | 3 / 3 |
-| Model calls per request | 2–3, median 18 s |
-| Answered by the fallback | 1 call: Baseten ran past 30 s, Muse Spark 1.3 answered |
+| Answered without an error | 39 / 39 |
+| Met the request's pass rule | 37 / 39: 12 of 13 requests in all three runs |
+| Analyses that left the plan unchanged | 15 / 15, each with a decision card of 3–4 options |
+| Direct instructions carried out | 15 / 15, including "already done, nothing changed" |
+| Safety goals | School 3 / 3, hospital 3 / 3; school plus capacity (the Turkish request in step 5) 1 / 3, see below |
+| Tool steps | 55, 1 failed |
+| Model calls per request | 2–4, median 22 s, longest 66 s |
+| Answered by the fallback | 5 of 94 calls (Baseten failed or ran past 30 s); every run still completed |
+
+The weak one is the request with three constraints at once (capacity in the south, the school out of the zone, the least field work): one run applied a fitting change, one found no option that met all three and said so, one recommended a fitting option on the card without adding it itself. None applied a change that left the school in the zone.
 
 ## Meta models used
 
