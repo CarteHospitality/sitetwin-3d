@@ -1,6 +1,7 @@
 import { $, el } from "./ui.js";
 import { replyHtml } from "./agent.js";
 import { readSession, writeSession } from "./session.js";
+import { tr } from "./i18n.js";
 
 const LABELS = {
   get_site_state: "Reading site state", get_population_context: "Checking nearby occupancy",
@@ -9,9 +10,10 @@ const LABELS = {
   set_view: "Adjusting view", list_sites: "Reading portfolio", focus_site: "Focusing site", open_site: "Opening twin",
 };
 
-// `onApplyOption`: when given, options the agent compared but did not apply are shown
-// as a table under its answer, each with an Apply button that calls it.
-export function initConversation({ onBusy = () => {}, onComplete = () => {}, speak = () => {}, transcriptKey = "default", onApplyOption = null } = {}) {
+// `onApplyOption`: when given, options the agent compared but did not apply can be applied
+// from the chat: its choices ("▸ " lines) become buttons, and a folded technical table lists them.
+// `onChoice`: a choice that matches no compared option is sent back to the agent as a request.
+export function initConversation({ onBusy = () => {}, onComplete = () => {}, speak = () => {}, transcriptKey = "default", onApplyOption = null, onChoice = null } = {}) {
   const log = $("chatLog");
   const stored = readSession(`transcript:${transcriptKey}`, []);
   const transcript = Array.isArray(stored) ? stored.filter((item) => item && ["user", "assistant"].includes(item.role) && typeof item.text === "string").slice(-12) : [];
@@ -25,7 +27,7 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
   const queuedRequests = new Map();
   let runFailed = false;
   // Options compared in the current run, and Apply buttons of earlier tables (stale once the plan moves on).
-  let compared = [], appliedInRun = false, liveButtons = [];
+  let compared = [], appliedInRun = false, liveButtons = [], choices = [];
   const nearBottom = () => log.scrollHeight - log.scrollTop - log.clientHeight <= 48;
   function change(fn) {
     const follow = nearBottom();
@@ -36,13 +38,16 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
   function say(role, text) {
     change(() => {
       if (role !== "assistant") return log.append(el("div", { className: `msg ${role}`, textContent: text }));
-      const lines = text.split("\n");
+      // The agent's choices ("▸ " lines) are shown as buttons after the run, not as text.
+      const all = text.split("\n");
+      const lines = all.filter((line) => !line.trim().startsWith("▸"));
+      if (!restoring) choices = all.filter((line) => line.trim().startsWith("▸")).map((line) => line.trim().replace(/^▸\s*/, "")).filter(Boolean);
       const message = el("div", { className: "msg assistant" });
-      // Preserve all safely escaped content; long answers retain expandable detail.
-      if (lines.length > 5) {
+      // Preserve all safely escaped content; only really long answers fold their tail (blank lines do not count).
+      if (lines.filter((line) => line.trim()).length > 10) {
         message.append(el("div", { innerHTML: replyHtml(lines.slice(0, 3).join("\n")) }),
           el("details", {}, el("summary", { textContent: "Answer details" }), el("div", { innerHTML: replyHtml(lines.slice(3).join("\n")) })));
-      } else message.innerHTML = replyHtml(text);
+      } else message.innerHTML = replyHtml(lines.join("\n"));
       log.append(message);
     });
     if (role === "assistant") announce(text.split("\n")[0]);
@@ -74,7 +79,7 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
     if (on) {
       rows = new Map(); trialCount = completedTrials = failedTrials = 0;
       runFailed = false;
-      compared = []; appliedInRun = false;
+      compared = []; appliedInRun = false; choices = [];
       for (const b of liveButtons) b.disabled = true;
       liveButtons = [];
       runStart = performance.now(); trials = null;
@@ -89,6 +94,7 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
       // A plain answer with no tool steps needs no activity row.
       if (!rows.size && !runFailed) group?.remove();
       else if (groupTitle) groupTitle.textContent =`${runFailed ? "✕ Failed" : failed ? "✓ Done, some steps failed" : "✓ Done"} · ${rows.size} steps · ${Math.round((performance.now() - runStart) / 1000)}s`;
+      if (!runFailed && choices.length && (onApplyOption || onChoice)) change(() => log.append(choiceButtons(choices, compared)));
       if (onApplyOption && !runFailed && !appliedInRun && compared.length) change(() => log.append(optionsTable(compared)));
     }
     onBusy(on, mode);
@@ -141,7 +147,28 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
       } else announce(text);
     });
   }
-  // The compared options side by side; nothing changes until the engineer picks one.
+  // The agent's choices as buttons: one the agent compared is applied at once (no model call, the
+  // antennas move on the 3D view); anything else goes back to the agent. Then a way to the details.
+  const sameLabel = (a, b) => a.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim() === b.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  function choiceButtons(list, options) {
+    const buttons = [];
+    const pick = (fn) => () => { for (const b of buttons) b.disabled = true; fn(); };
+    for (const text of list) {
+      const option = options.find((o) => sameLabel(o.label, text));
+      const button = el("button", { type: "button", className: "choice", textContent: text });
+      button.dataset.noI18n = "";
+      button.onclick = pick(() => (option && onApplyOption ? onApplyOption(option) : onChoice?.(text)));
+      buttons.push(button);
+    }
+    if (onChoice) {
+      const details = el("button", { type: "button", className: "choice quiet", textContent: "Explain the technical details" });
+      details.onclick = pick(() => onChoice(tr("Explain the technical details of this")));
+      buttons.push(details);
+    }
+    liveButtons.push(...buttons);
+    return el("div", { className: "choices" }, ...buttons);
+  }
+  // The compared options side by side, folded: the technical view behind the choices.
   function optionsTable(options) {
     const buttons = [];
     const cell = (text, className = "") => el("td", { className, textContent: text });
@@ -165,8 +192,8 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
         el("td", {}, apply));
     });
     liveButtons.push(...buttons);
-    return el("div", { className: "options-card" },
-      el("div", { className: "options-title", textContent: "Options compared · nothing changes until you apply one" }),
+    return el("details", { className: "options-card" },
+      el("summary", { className: "options-title", textContent: "Technical comparison of the options" }),
       el("table", {},
         el("thead", {}, el("tr", {}, ...["Option", "Conflicts", "Roof", "Coverage", ""].map((h) => el("th", { textContent: h })))),
         el("tbody", {}, ...rowsOut)));

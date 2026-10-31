@@ -5,7 +5,7 @@
 import { PRB_BALANCE, PRB_EXPAND } from "./kpi.js";
 
 // Indicative, as on the portfolio map: people in one antenna's main lobe worth a capacity look.
-const CAPACITY_PEOPLE_PER_ANTENNA = 1500;
+export const CAPACITY_PEOPLE_PER_ANTENNA = 1500;
 const sectorOf = (id) => id.split("-")[0];
 
 // One line per topic, good or bad: [{ level: "ok" | "warn" | "bad", text }].

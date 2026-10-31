@@ -412,6 +412,8 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
 .plan-steps li.outcome::before { content: "✓"; background: none; width: auto; height: auto; top: 0; left: 2px; font-size: 12px; }
 .plan-steps li.outcome.open { color: var(--medium); }
 .plan-steps li.outcome.open::before { content: "!"; left: 5px; }
+.send-plan { margin-top: 8px; width: 100%; }
+.msg.welcome { color: var(--text-secondary); }
 .crew-line { margin-top: 12px; width: 100%; text-align: left; background: var(--surface-2); border-color: var(--border); color: var(--text-secondary); font-size: 13px; }
 
 /* Options the agent compared, side by side, each with its own Apply button. */
@@ -460,3 +462,12 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
 .coverage-key { display: flex; align-items: center; gap: 3px; }
 .coverage-key .sw { margin-right: 0; }
 .coverage-key span:last-child { margin-left: 6px; }
+
+/* The agent's choices under its answer: one click applies one (or asks for it). */
+.choices { display: flex; flex-direction: column; align-items: stretch; gap: 6px; align-self: stretch; }
+.choices .choice { text-align: left; padding: 8px 12px; min-height: 0; font-size: 14px; font-weight: 500; border: 1px solid var(--accent); color: var(--accent); background: var(--surface-0); border-radius: var(--radius-control); }
+.choices .choice:hover:not(:disabled) { background: var(--surface-selected); }
+.choices .choice.quiet { border-color: var(--border-control); color: var(--text-secondary); font-size: 13px; }
+.choices .choice:disabled { opacity: .55; cursor: default; }
+details.options-card > summary { cursor: pointer; margin-bottom: 0; font-weight: 500; }
+details.options-card[open] > summary { margin-bottom: 6px; }

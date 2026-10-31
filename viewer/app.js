@@ -25,7 +25,7 @@ import { $, el, token, initShell, setText, reducedMotion } from "./ui.js";
 import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
 import { crewPlan } from "./crew.js";
 import { openActionPlan, result, diffSites, sitePlan, FIELDS } from "./actionplan.js";
-import { statusLines, planSteps } from "./overview.js";
+import { statusLines, planSteps, CAPACITY_PEOPLE_PER_ANTENNA } from "./overview.js";
 
 initShell();
 initCards();
@@ -62,7 +62,29 @@ const fingerprint = sourceFingerprint(twin);
 let site = clone(restored.site);
 // Measured load: the busy hour per cell that the site file carries (network_kpi), if any.
 const kpi = twinKpi(twin);
-let selectedId = site.antennas.some((a) => a.id === restored.view.selected) ? restored.view.selected : null;
+// Where the busiest cell will be in a year, for "what if nothing changes". Indicative: mobile data
+// traffic per site grows about 20% a year (operator and industry outlooks give roughly 15-30%).
+const TRAFFIC_GROWTH = 0.2;
+function capacityOutlook() {
+  const cell = kpi?.cells[0];
+  const monthsUntil = (now, target) => (now >= target ? 0 : Math.round((12 * Math.log(target / now)) / Math.log(1 + TRAFFIC_GROWTH)));
+  if (!cell) {
+    // No measured load: the same outlook from the people in the busiest antenna's main lobe.
+    const [antenna, people] = Object.entries(populationContext(site).people_per_antenna).sort((a, b) => b[1] - a[1])[0] ?? [];
+    if (!antenna || !people) return null;
+    return { busiest_antenna: antenna, people_in_main_lobe_estimated: people, busy_threshold_people: CAPACITY_PEOPLE_PER_ANTENNA,
+      months_until_busy: monthsUntil(people, CAPACITY_PEOPLE_PER_ANTENNA),
+      assumption: "estimated from the people around the site, not measured; demand grows about 20% a year (indicative)" };
+  }
+  const monthsTo = (target) => monthsUntil(cell.prb_dl_pct, target);
+  return { busiest_cell: `${cell.sector} ${cell.band}`, busy_hour_load_pct_now: cell.prb_dl_pct,
+    load_pct_in_one_year: Math.min(100, Math.round(cell.prb_dl_pct * (1 + TRAFFIC_GROWTH))),
+    months_until_busy_70pct: monthsTo(70), months_until_full_85pct: monthsTo(85),
+    assumption: "traffic grows about 20% a year (indicative); measured load is before the plan" };
+}
+// Opened from the map without a task: a quiet start (fresh chat, nothing selected).
+const freshOpen = params.get("fresh") === "1";
+let selectedId = !freshOpen && site.antennas.some((a) => a.id === restored.view.selected) ? restored.view.selected : null;
 let regimeKey = restored.regime;
 // Coverage is on by default: where each antenna reaches is half of what the twin shows.
 const layers = { zones: true, coverage: true, baseline: false };
@@ -363,8 +385,10 @@ const planner = {
   briefing: () => {
     const { neighbours, ...state } = planner.state();
     const { buildings, ...people } = populationContext(site);
+    const outlook = capacityOutlook();
     return { site_id: site.site_id, structure: site.structure, ...state, people: { ...people, buildings: buildings.filter((b) => b.sensitive || b.distance_m <= 120) },
-      ...(kpi ? { network_kpi: { source: "measured: operator OSS data carried in the site file, busiest hour per cell, current network before the plan", cells: kpi.cells } } : {}) };
+      ...(kpi ? { network_kpi: { source: "measured: operator OSS data carried in the site file, busiest hour per cell, current network before the plan", cells: kpi.cells } } : {}),
+      ...(outlook ? { capacity_outlook: outlook } : {}) };
   },
   evaluate(changes) {
     const { site: candidate, errors } = applyChanges(site, changes);
@@ -401,10 +425,10 @@ const planner = {
     if (progress(site.site_id)) return { error: "This site is one stop of a portfolio tour: fix this site only; the next site opens by itself." };
     const s = (await portfolioIndex()).sites.find((x) => x.site_id.toLowerCase().includes(String(site_id).toLowerCase()));
     if (!s) return { error: `no site ${site_id} in the portfolio` };
-    const p = new URLSearchParams({ twin: s.twin, ...(instruction ? { ask: instruction } : { auto: "review" }), from: backTo, portfolio: portfolioUrl, handoff: handoffId() });
+    const p = new URLSearchParams({ twin: s.twin, ...(instruction ? { ask: instruction } : { fresh: "1" }), from: backTo, portfolio: portfolioUrl, handoff: handoffId() });
     if (agent.voice) p.set("voice", "1");
     pendingOpen = `index.html?${p}`;
-    return { opening: s.site_id, instruction: instruction ?? "full review" };
+    return { opening: s.site_id, instruction: instruction ?? "none: ready for questions" };
   },
   setView({ zones, coverage, baseline: showBaseline, coverage_band, select_antenna }) {
     const previousSelection = selectedId;
@@ -574,9 +598,12 @@ function renderOverview(checks, changes, crew) {
     ? [...steps.map((t) => el("li", { textContent: t })), ...outcome.map((o) => el("li", { className: o.open ? "outcome open" : "outcome", textContent: o.text }))]
     : [el("li", { className: "muted", textContent: "No changes yet. Ask the Expert Operator, or select an antenna to edit it." })]));
   $("crewLine").hidden = !crewText;
+  $("sendPlan").hidden = !changes.length;
   $("crewLine").textContent = crewText ? `${crewText} ›` : "";
 }
 $("crewLine").onclick = () => showCard("crew", { reveal: true });
+// The action plan opens with e-mail, copy, print and share for the site chief.
+$("sendPlan").onclick = () => $("export").click();
 
 let crewSignature = "";
 function renderCrew(plan) {
@@ -934,13 +961,18 @@ const chat = initConversation({
   speak: (text) => voice.speak(text),
   // One conversation per site: switching sites must not show another site's chat.
   transcriptKey: `twin:${absoluteUrl(src)}`,
-  // The engineer picked an option from the comparison table: apply it here and tell the agent.
+  // The engineer picked one of the agent's choices: apply it here (the antennas move on the 3D view),
+  // tell the agent, and bring the plan forward on the right, ready to send to the team.
   onApplyOption: ({ label, changes }) => {
     const r = planner.apply(changes, label);
     if (r.errors) return chat.say("tool", `✕ ${r.errors.join(", ")}`);
     chat.say("tool", `✓ Applied to plan: ${label}`);
-    agent.note(`I applied option "${label}" from the comparison table myself (apply_change done). Do not apply it again.`);
+    agent.note(`I applied option "${label}" from your choices myself (apply_change done). Do not apply it again.`);
+    chat.say("assistant", tr("The plan is ready: the field work is on the right, and you can send the action plan to the team from there."));
+    showCard("crew", { reveal: true });
   },
+  // A choice that is not one of the compared options (or a question): the agent takes it from there.
+  onChoice: (text) => agent.ask(text),
 });
 const agent = initAgent(planner, chat);
 const voice = initVoice({
@@ -1012,9 +1044,19 @@ update();
 $("loading").hidden = true;
 intro.play();
 
-// Opened from the portfolio map: the Expert Operator carries out what was asked
-// there, or reviews the site straight away and recommends a fix without applying it.
+// Opened from the portfolio map: the Expert Operator carries out what was asked there.
+// Without a task, the page starts quietly: a fresh chat, a short welcome and ready questions.
 const handoff = consumeHandoff(params);
+if (freshOpen) {
+  chat.clear();
+  const url = new URL(location.href);
+  url.searchParams.delete("fresh");
+  history.replaceState(history.state, "", url.href);
+}
+if (!handoff && !$("chatLog").children.length) {
+  $("chatLog").append(el("div", { className: "msg assistant welcome", textContent:
+    tr(`${site.site_id} is open: its current state is on the right. Pick a question below, or ask your own.`) }));
+}
 const stop = progress(site.site_id);
 if (stop) $("breadcrumbSite").textContent = `${site.site_id} · ${stop.done}/${stop.total}`;
 if (handoff) {

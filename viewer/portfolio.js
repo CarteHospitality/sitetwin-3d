@@ -132,13 +132,13 @@ map.on("moveend", saveMapState);
 window.addEventListener("pagehide", saveMapState);
 
 function twinUrl(s, instruction, voice = false) {
-  const p = new URLSearchParams({ twin: s.entry.twin, ...(instruction ? { ask: instruction } : { auto: "review" }),
+  const p = new URLSearchParams({ twin: s.entry.twin, ...(instruction ? { ask: instruction } : { fresh: "1" }),
     from: location.pathname + location.search, portfolio: indexUrl, handoff: handoffId() });
   if (voice) p.set("voice", "1");
   return `index.html?${p}`;
 }
 function openTwin(s) {
-  logAction(`Opened ${s.entry.site_id} in 3D for a full review`);
+  logAction(`Opened ${s.entry.site_id} in 3D`);
   selectedSite = s; saveMapState();
   location.href = twinUrl(s);
 }
@@ -365,7 +365,7 @@ const MAP_TOOLS = [
   { type: "function", function: { name: "list_sites", description: "All sites on the map, most urgent first, with urgency level, structure, estimated people nearby and the issues found by the automatic checks.", parameters: { type: "object", properties: { level: { type: "string", enum: Object.keys(LEVELS), description: "Only sites at this urgency level" } } } } },
   { type: "function", function: { name: "focus_site", description: "Zoom the map to a site and show its issues to the engineer.", parameters: { type: "object", properties: { site_id: { type: "string" } }, required: ["site_id"] } } },
   { type: "function", function: { name: "fix_sites", description: "Fix several sites one after another: each site's 3D twin opens in turn, the Expert Operator there applies the smallest fix, and at the end the map shows one combined action plan for the field teams. Use when the engineer asks to fix all, several or every problem site.", parameters: { type: "object", properties: { site_ids: { type: "array", items: { type: "string" }, description: "Most urgent first" } }, required: ["site_ids"] } } },
-  { type: "function", function: { name: "open_site", description: "Open the site's 3D twin, where the Expert Operator there carries out `instruction` (or a full review when it is omitted) and simulates the fix. Use when the engineer wants to fix, simulate, change or inspect a site in 3D.", parameters: { type: "object", properties: { site_id: { type: "string" }, instruction: { type: "string", description: "What to do on the twin, in the engineer's language, e.g. 'fix the school conflict' or 'add 5G on sector 2'" } }, required: ["site_id"] } } },
+  { type: "function", function: { name: "open_site", description: "Open the site's 3D twin, where the Expert Operator there carries out `instruction` (without one, the twin opens ready for the engineer's questions). Use when the engineer wants to fix, simulate, change or inspect a site in 3D.", parameters: { type: "object", properties: { site_id: { type: "string" }, instruction: { type: "string", description: "What to do on the twin, in the engineer's language, e.g. 'fix the school conflict' or 'add 5G on sector 2'" } }, required: ["site_id"] } } },
 ];
 
 const chat = initConversation({
@@ -409,8 +409,8 @@ const mapAgent = createAgent({
       select(s);
       pendingOpen = twinUrl(s, instruction, mapAgent.voice);
       saveMapState();
-      logAction(`Opening ${s.entry.site_id} in 3D: ${instruction ?? "full review"}`);
-      return { opening: s.entry.site_id, instruction: instruction ?? "full review" };
+      logAction(`Opening ${s.entry.site_id} in 3D${instruction ? `: ${instruction}` : ""}`);
+      return { opening: s.entry.site_id, instruction: instruction ?? "none: ready for questions" };
     },
   },
   systemPrompt: ({ voice } = {}) => `You are the Expert Operator on the SiteTwin portfolio map: a senior RF and site engineer who helps
