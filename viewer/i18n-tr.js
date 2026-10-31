@@ -371,6 +371,9 @@ export const EXACT = {
 
   // ---- Data notes (whole-note matches)
   "OpenStreetMap unavailable; building uses unknown.": "OpenStreetMap kullanılamıyor; bina kullanım türleri bilinmiyor.",
+  "Building uses are unknown here (OpenStreetMap was unavailable when the site file was loaded): schools and hospitals are not identified, so load the file again.": "Burada bina kullanım türleri bilinmiyor (saha dosyası yüklenirken OpenStreetMap'e ulaşılamadı): okul ve hastaneler tanınamıyor, dosyayı yeniden yükleyin.",
+  "Building uses unknown (OpenStreetMap was unavailable): schools and hospitals are not identified, load the site file again": "Bina kullanım türleri bilinmiyor (OpenStreetMap'e ulaşılamadı): okul ve hastaneler tanınamıyor, saha dosyasını yeniden yükleyin",
+  "Building uses unknown: schools and hospitals not identified": "Bina kullanım türleri bilinmiyor: okul ve hastaneler tanınamıyor",
   "All values are synthetic and for demonstration only.": "Tüm değerler sentetiktir ve yalnızca gösterim amaçlıdır.",
 
   // ---- Simpler interface: one-sentence states, details on demand
@@ -455,6 +458,8 @@ export const EXACT = {
   "Muse Spark 1.3 · Meta Model API (fallback)": "Muse Spark 1.3 · Meta Model API (yedek)",
   "Download the list (CSV)": "Listeyi indir (CSV)",
   "none in the online demo": "çevrimiçi demoda yok",
+  "Nothing to add": "Eklenecek değişiklik yok",
+  "none": "yok",
   "remote · EMF measurement on site": "uzaktan · sahada EMF ölçümü",
   "Try a change by hand in the Manual adjustment card, then open the action plan.": "Manuel müdahale kartında elle bir değişiklik deneyin, sonra eylem planını açın.",
   "This online demo has no model server: the Expert Operator answers when SiteTwin 3D runs on your machine with a model key (see the README). The 3D twin, the checks, manual changes and the action plan work here.": "Bu çevrimiçi demoda model sunucusu yok: Uzman Operatör, SiteTwin 3D kendi bilgisayarınızda bir model anahtarıyla çalıştığında cevap verir (README'ye bakın). 3B ikiz, kontroller, elle değişiklikler ve eylem planı burada çalışır.",
@@ -679,6 +684,9 @@ export const PHRASES = {
   "Assumed, not in the SiteTwin file: ": "SiteTwin dosyasında yok, varsayıldı: ",
   "antenna gain and beamwidths (typical values by band)": "anten kazancı ve hüzme genişlikleri (banda göre tipik değerler)",
   "antenna positions on the roof (sector edge)": "çatıdaki anten konumları (sektör kenarı)",
+  "antenna positions on the lattice tower (one side per sector)": "kafes kuledeki anten konumları (sektör başına bir yüz)",
+  "antenna positions on the monopole (one side per sector)": "monopol direkteki anten konumları (sektör başına bir yüz)",
+  "antenna positions on the pole (one side per sector)": "direkteki anten konumları (sektör başına bir yüz)",
   "ground compound (": "zemin sahası (",
   ") around the lattice tower": ") kafes kule çevresinde",
   ") around the monopole": ") monopol direk çevresinde",
@@ -887,6 +895,7 @@ export const PATTERNS = [
   ["^Height of (.+?) assumed \\((\\d+) storeys\\): the zone reaches it only from (\\d+) storeys up, so measure it$", "", "$1 yüksekliği varsayıldı ($2 kat): bölge ona ancak $3 kattan itibaren ulaşıyor, yüksekliğini ölçün"],
   ["^Height of (.+?) assumed \\((\\d+) storeys\\): the zone reaches it even at one storey, the lowest height tried$", "", "$1 yüksekliği varsayıldı ($2 kat): bölge ona denenen en düşük yükseklikte, tek katta bile ulaşıyor"],
   ["^(\\S+) has no band (\\S+)$", "", "$1 üzerinde $2 bandı yok"],
+  ["^(\\S+) has no band (\\S+) \\(it has (.+); add a band with add_bands\\)$", "", "$1 üzerinde $2 bandı yok (bantları: $3; bant eklemek için add_bands)"],
   ["^unknown tool (.+)$", "", "bilinmeyen araç: $1"],
   ["^no site (.+) in the portfolio$", "", "portföyde $1 sahası yok"],
   ["^no site (.+)$", "", "$1 sahası yok"],

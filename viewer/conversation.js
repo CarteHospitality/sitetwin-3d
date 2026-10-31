@@ -33,7 +33,8 @@ const MODEL_NAMES = { "meta-models/muse-spark-open-1026": "Muse Spark Open · Ba
 function optionScore(r) {
   const sensitive = r.neighbour_conflicts.filter((t) => t.includes("SENSITIVE")).length;
   const loss = r.heavy_coverage_loss ?? [];
-  const work = !r.field_work || r.field_work.remote ? 0 : r.field_work.people * Math.max(1, r.field_work.days);
+  // No visit (a remote change, or no change at all) is no field work.
+  const work = !r.field_work?.people || r.field_work.remote ? 0 : r.field_work.people * Math.max(1, r.field_work.days);
   return [sensitive, r.neighbour_conflicts.length - sensitive, loss.length, loss.reduce((s, l) => s + Math.abs(l.change_pct), 0), r.roof_restrictions.length, work];
 }
 function byScore(p, q) {
@@ -43,8 +44,15 @@ function byScore(p, q) {
   const a = optionScore(p.result), b = optionScore(q.result);
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] - b[i];
   // On a tie the smaller change goes first; then the label keeps one order whatever order they came in.
-  const size = (o) => o.changes?.length ?? 0;
-  return size(p) - size(q) || p.label.localeCompare(q.label);
+  return changeSize(p) - changeSize(q) || p.label.localeCompare(q.label);
+}
+// The size of an option: every parameter it sets (a height, a tilt, a band's power, a band added or
+// removed), an added or removed antenna counting one more. Raising alone is smaller than raising and
+// lowering the power of three bands, though both are one change of one antenna.
+const PARAMS = ["azimuth_deg", "mechanical_tilt_deg", "electrical_tilt_deg", "height_agl_m", "x_m", "z_m"];
+function changeSize(o) {
+  return (o.changes ?? []).reduce((n, c) => n + (c.action === "modify" ? 0 : 1) + PARAMS.filter((k) => typeof c[k] === "number").length
+    + (c.add_bands?.length ?? 0) + (c.remove_bands?.length ?? 0) + Object.keys(c.band_power_w ?? {}).length, 0);
 }
 // `stateNow()`: today's figures ({ conflicts }) shown beside each option's in the decision card.
 // `describeOption(changes)`: an option's changes as lines from today's values to the new ones.
@@ -321,8 +329,10 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
       name.dataset.noI18n = "";
       if (r?.errors?.length) return el("li", { className: "option impossible" }, el("div", { className: "option-head" }, name), el("div", { className: "muted", textContent: "Not possible" }));
       const loss = r.heavy_coverage_loss ?? [], work = r.field_work;
-      // It adds the option to the simulated plan; nothing reaches the network.
-      const apply = el("button", { type: "button", className: recommended ? "primary" : "", textContent: "Add to plan (simulation)" });
+      // It adds the option to the simulated plan; nothing reaches the network. An option that keeps
+      // the site as it is ("keep and monitor") has nothing to add.
+      const empty = !o.changes?.length;
+      const apply = el("button", { type: "button", className: recommended && !empty ? "primary" : "", textContent: empty ? "Nothing to add" : "Add to plan (simulation)", disabled: empty });
       apply.onclick = () => {
         for (const b of buttons) b.disabled = true;
         if (stale(o.at)) { apply.textContent = "Plan changed: compare again"; return; }
@@ -338,7 +348,8 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
           metric("EMF conflicts", String(r.neighbour_conflicts.length), r.neighbour_conflicts.length ? "bad" : "ok", today ? `today ${today.conflicts}` : ""),
           metric("Roof", String(r.roof_restrictions.length), r.roof_restrictions.length ? "warn" : "ok"),
           metric("Coverage", loss.length ? loss.map((l) => `${l.band} ${l.change_pct}%`).join(", ") : "no heavy loss", loss.length ? "warn" : "ok"),
-          metric("Field work", !work ? "–" : work.remote ? (work.measurement ? "remote · EMF measurement on site" : "remote only") : `${work.people} people · ${work.days} day(s)`)),
+          metric("Field work", !work ? "–" : work.remote ? (work.measurement ? "remote · EMF measurement on site" : "remote only")
+            : work.people ? `${work.people} people · ${work.days} day(s)` : "none")),
         ...(changes.length ? [el("ul", { className: "option-changes" }, ...changes.map((line) => el("li", { textContent: line })))] : []));
     });
     liveButtons.push(...buttons);

@@ -128,6 +128,10 @@ def from_sitetwin(doc: dict, neighbours: list[Neighbour] | None = None, host: Ne
                          structure=kind or "rooftop", building=building, antennas=antennas, neighbours=neighbours or [])
 
     existing, proposed = model(EXISTING), model(PROPOSED)
+    if kind in GROUND_STRUCTURES:
+        # On a tower or a mast the antennas hang on its sides, not on a roof edge.
+        assumed.discard("antenna positions on the roof (sector edge)")
+        assumed.add(f"antenna positions on the {kind.replace('_', ' ')} (one side per sector)")
     notes = [f"Imported from SiteTwin ({SCHEMA})."]
     if app.get("reason"):
         notes.append(f"SiteTwin application: {app['reason']}")

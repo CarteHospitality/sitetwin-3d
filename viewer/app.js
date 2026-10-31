@@ -25,7 +25,7 @@ import { $, el, token, initShell, setText, reducedMotion, confirmClick } from ".
 import { initCards, showCard, hideCard, setCardSummary, foldCard } from "./cards.js";
 import { crewPlan } from "./crew.js";
 import { openActionPlan, result, diffSites, diffSteps, sitePlan, FIELDS, sendByEmail } from "./actionplan.js";
-import { statusLines, planSteps, siteProblem, CAPACITY_PEOPLE_PER_ANTENNA } from "./overview.js";
+import { statusLines, planSteps, siteProblem, usesUnknown, CAPACITY_PEOPLE_PER_ANTENNA } from "./overview.js";
 
 initShell();
 initCards();
@@ -398,7 +398,8 @@ function applyChanges(s, changes) {
     a.bands = a.bands.filter((x) => !(c.remove_bands ?? []).includes(x.name));
     for (const [name, w] of Object.entries(c.band_power_w ?? {})) {
       const band = a.bands.find((x) => x.name === name);
-      if (band) band.tx_power_w = w; else errors.push(`${a.id} has no band ${name}`);
+      // Said with the bands it has, so the operator can retry with the right one (or add it).
+      if (band) band.tx_power_w = w; else errors.push(`${a.id} has no band ${name} (it has ${a.bands.map((x) => x.name).join(", ") || "none"}; add a band with add_bands)`);
     }
     if (c.action === "add_antenna" && !a.bands.length) a.bands.push(clone(BAND_PRESETS.N3500));
     // Only a move is checked: surveyed antennas often sit on the roof edge or facade,
@@ -443,6 +444,10 @@ function currentCoverageLoss() {
   return coverageMemo.loss;
 }
 
+// The direction an antenna faces, in words, so the operator names it the same way every time.
+const COMPASS = ["north", "north-northeast", "northeast", "east-northeast", "east", "east-southeast", "southeast", "south-southeast",
+  "south", "south-southwest", "southwest", "west-southwest", "west", "west-northwest", "northwest", "north-northwest"];
+const facing = (azimuth) => COMPASS[Math.round((((azimuth % 360) + 360) % 360) / 22.5) % 16];
 function summarize(s) {
   const coverage = coverageMetric(s);
   const zones = siteZones(s, REGIMES[regimeKey]);
@@ -450,7 +455,7 @@ function summarize(s) {
   const { findings } = checkSite(s, zones);
   return {
     antennas: s.antennas.map((a) => ({
-      id: a.id, azimuth_deg: a.azimuth_deg, mechanical_tilt_deg: a.mechanical_tilt_deg, electrical_tilt_deg: a.electrical_tilt_deg,
+      id: a.id, azimuth_deg: a.azimuth_deg, facing: facing(a.azimuth_deg), mechanical_tilt_deg: a.mechanical_tilt_deg, electrical_tilt_deg: a.electrical_tilt_deg,
       height_agl_m: a.height_agl_m, x_m: a.x_m, z_m: a.z_m,
       bands: a.bands.map((x) => `${x.name} ${x.tx_power_w} W`), zone_front_m: zoneById[a.id]?.front_m ?? 0,
     })),
@@ -771,6 +776,7 @@ const planner = {
       ...(kpi ? { network_kpi: { source: loadTag(kpi) === "measured" ? "measured: operator OSS data carried in the site file, busiest hour per cell, current network before the plan"
         : "sample data: invented for this demo site, not a measurement; call it sample data, never measured", cells: kpi.cells } } : {}),
       ...(outlook ? { capacity_outlook: outlook } : {}),
+      ...(usesUnknown(site) ? { building_uses_unknown: "OpenStreetMap was unavailable when the site file was loaded: every building counts as a home, schools and hospitals are not identified. Say so whenever safety comes up; never say no school or hospital is affected." } : {}),
       ...heightChecks() };
   },
   evaluate(changes) {
@@ -1603,7 +1609,7 @@ $("sourcesButton").onclick = () => {
 
 // The problem the map showed for this site, said again on opening, with one button to analyse it.
 if (!handoff && !$("chatLog").children.length) {
-  const problem = siteProblem(checkSite(site, siteZones(site, REGIMES[regimeKey])), populationContext(site), { cell: kpi?.cells?.[0] ?? null });
+  const problem = siteProblem(checkSite(site, siteZones(site, REGIMES[regimeKey])), populationContext(site), { cell: kpi?.cells?.[0] ?? null, unknownUses: usesUnknown(site) });
   const clean = problem.startsWith("No problem found");
   const welcome = el("div", { className: "msg assistant welcome" },
     el("div", { textContent: tr(`${site.site_id} is open.`) }),

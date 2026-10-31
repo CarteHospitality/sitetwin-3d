@@ -14,7 +14,7 @@ import { startTour, readTour, endTour } from "./tour.js";
 import { combinePlans, openActionPlan, diffSites, sitePlan } from "./actionplan.js";
 import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
 import { twinKpi, PRB_BALANCE, PRB_EXPAND } from "./kpi.js";
-import { capacityAdded, planSteps, siteProblem } from "./overview.js";
+import { capacityAdded, planSteps, siteProblem, usesUnknown } from "./overview.js";
 
 initShell();
 initCards();
@@ -84,13 +84,16 @@ function assess(entry, source, site = source.site, regime = "tr", proposed = fal
   const applied = Object.entries(entry.antenna_actions ?? {}).filter(([k]) => k !== "retain");
   if (applied.length) issues.push(`Last SiteTwin application: ${applied.map(([k, v]) => `${v} ${k}`).join(", ")}${entry.reason ? ` (${entry.reason})` : ""}`);
   if (proposed) issues.push("Session proposal · applied to plan; source file unchanged");
-  const level = sensitive.length ? "critical" : bad.length || full ? "high" : findings.some((f) => f.level === "warn") || capacity ? "medium" : proposed ? "planned" : "ok";
+  const unknownUses = usesUnknown(site);
+  if (unknownUses) issues.push("Building uses unknown (OpenStreetMap was unavailable): schools and hospitals are not identified, load the site file again");
+  const level = sensitive.length ? "critical" : bad.length || full ? "high" : findings.some((f) => f.level === "warn") || capacity || unknownUses ? "medium" : proposed ? "planned" : "ok";
   const score = 100 * sensitive.length + 30 * bad.length + (full ? 25 : 0) + 5 * findings.filter((f) => f.level === "warn").length + (capacity ? 10 : 0) + (proposed ? 1 : 0);
   // One sentence for the list: the EMF state, or else the next most important thing.
   const head = headline(checks);
-  const summary = head.level !== "ok" ? head.text : capacity ? capacityText : proposed ? "Change planned" : "No issues found";
+  const summary = head.level !== "ok" ? head.text : unknownUses ? "Building uses unknown: schools and hospitals not identified"
+    : capacity ? capacityText : proposed ? "Change planned" : "No issues found";
   // The problem in one plain sentence, with what it means: the most serious one only.
-  const problem = siteProblem(checks, pop, { cell, relieved: Boolean(cell) && capacityAdded(source.site, site).has(cell.sector), proposed });
+  const problem = siteProblem(checks, pop, { cell, relieved: Boolean(cell) && capacityAdded(source.site, site).has(cell.sector), proposed, unknownUses });
   return { level, score, issues, summary, problem, hitBuildings: hit.size, findingCount: bad.length, people: pop.total_people_nearby, buildings: site.neighbours.length };
 }
 

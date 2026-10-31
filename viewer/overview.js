@@ -11,11 +11,15 @@ const CHECK_RADIUS_M = 150;
 // Indicative, as on the portfolio map: people in one antenna's main lobe worth a capacity look.
 export const CAPACITY_PEOPLE_PER_ANTENNA = 1500;
 const sectorOf = (id) => id.split("-")[0];
+// When OpenStreetMap was unavailable as the site file was loaded, every building counts as a home:
+// schools and hospitals around the site are not identified (sitetwin3d/osm.py notes it).
+export const usesUnknown = (site) => (site.notes ?? []).some((n) => n.startsWith("OpenStreetMap unavailable"));
 
 // The site's most serious problem in one plain sentence, with what it means: on the map's card and
 // in the twin's welcome. `cell`: the busiest measured cell, if any; `relieved`: the plan adds capacity
 // on that cell's sector; `proposed`: a change is planned in SiteTwin 3D.
-export function siteProblem({ findings, hit }, population, { cell = null, relieved = false, proposed = false } = {}) {
+// `unknownUses`: schools and hospitals could not be identified (usesUnknown).
+export function siteProblem({ findings, hit }, population, { cell = null, relieved = false, proposed = false, unknownUses = false } = {}) {
   const bad = findings.filter((f) => f.level === "bad");
   const sensitive = bad.filter((f) => f.sensitive);
   const busiest = Object.entries(population.people_per_antenna).sort((a, b) => b[1] - a[1])[0];
@@ -24,6 +28,7 @@ export function siteProblem({ findings, hit }, population, { cell = null, reliev
   if (sensitive[0]?.health) return `The field from ${sensitive[0].antenna} at a hospital is above 3 V/m in the planning model, the level set for health facilities and used here as a screen: it needs a fix or a measurement.`;
   if (sensitive.length) return `A ${sensitive[0].use} is inside the EMF safety zone of ${sensitive[0].antenna} in the planning model: it needs a fix or a measurement.`;
   if (bad.length) return `The EMF safety zone reaches ${hit.size} neighbouring ${hit.size === 1 ? "building" : "buildings"} in the planning model: it needs a fix or a measurement.`;
+  if (unknownUses) return "Building uses are unknown here (OpenStreetMap was unavailable when the site file was loaded): schools and hospitals are not identified, so load the file again.";
   if (busyCell && cell.prb_dl_pct >= PRB_EXPAND) return `Cell ${cell.sector} ${cell.band} is ${cell.prb_dl_pct}% full in the busy hour: users there are likely slowed down.`;
   if (busyCell) return `Cell ${cell.sector} ${cell.band} runs at ${cell.prb_dl_pct}% in the busy hour: at about 20% growth a year it could fill up within roughly ${Math.max(1, monthsUntil(cell.prb_dl_pct, PRB_EXPAND))} months (a rough estimate).`;
   if (busySector) return `About ${Math.round(busiest[1] / 100) * 100} people rely on sector ${sectorOf(busiest[0])} alone: its capacity may soon not be enough.`;
@@ -46,8 +51,10 @@ export function statusLines(site, checks, population, { coverageLoss = [], kpi =
   for (const line of heightLines(bad)) lines.push({ level: "warn", text: line });
   // One all-clear line: about schools and hospitals when other buildings are hit, else about all.
   const sensitiveHit = sensitiveUses.length || bad.some((f) => f.health);
+  const unknown = usesUnknown(site);
+  if (unknown && !before) lines.push({ level: "warn", text: "Building uses unknown (OpenStreetMap was unavailable): schools and hospitals are not identified, load the site file again" });
   if (others.size) {
-    if (!sensitiveHit) lines.push({ level: "ok", text: "No school or hospital building found in an EMF zone (school gardens not checked)" });
+    if (!sensitiveHit && !unknown) lines.push({ level: "ok", text: "No school or hospital building found in an EMF zone (school gardens not checked)" });
     lines.push({ level: "bad", text: `EMF zone reaches ${others.size} other building(s)` });
   } else if (!sensitiveHit) lines.push({ level: "ok", text: "No building found in an EMF zone (school gardens not checked)" });
   if (site.structure === "rooftop") {
