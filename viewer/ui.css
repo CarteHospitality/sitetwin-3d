@@ -151,6 +151,7 @@ li { margin: 6px 0; }
 .saved-toast strong { color: var(--ok); white-space: nowrap; }
 .saved-note { margin-top: 8px; font-size: 12px; }
 .plan-tools { display: flex; flex-wrap: wrap; gap: 6px; }
+.model-note { margin: 10px 0 0; font-size: 12px; line-height: 16px; }
 .plan-reset { margin-top: 8px; padding: 5px 12px; min-height: 0; border: 1px solid var(--border-control); border-radius: var(--radius-control); background: var(--surface-0); color: var(--text-secondary); font-size: 13px; font-weight: 600; cursor: pointer; }
 .plan-reset:hover { border-color: var(--accent); color: var(--accent); }
 .map-attribution { position: absolute; right: 8px; bottom: 6px; z-index: 500; font-size: 11px; color: var(--text-secondary); background: rgb(255 255 255 / 70%); padding: 1px 6px; border-radius: 4px; }

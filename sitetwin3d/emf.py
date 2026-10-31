@@ -39,8 +39,12 @@ class LimitRegime:
     # Fraction of the ICNIRP *electric field* level allowed for this source.
     # Power density scales with E^2, so the power-density fraction is its square.
     field_fraction: float = 1.0
+    # Or a fixed field strength whatever the band, V/m (plane wave: S = E^2 / 377 ohm).
+    field_v_per_m: float | None = None
 
     def power_density_limit(self, frequency_mhz: float) -> float:
+        if self.field_v_per_m:
+            return self.field_v_per_m**2 / 377.0
         return icnirp_public_power_density(frequency_mhz) * self.field_fraction**2
 
 
@@ -49,6 +53,9 @@ ICNIRP_PUBLIC = LimitRegime("ICNIRP general public")
 # 20% of the ICNIRP field strength, e.g. 12.3 V/m above 2 GHz, the value SiteTwin
 # uses for its reports.
 TR_SINGLE_DEVICE = LimitRegime("TR single device (20% field)", field_fraction=0.2)
+# At health facilities the field from devices must stay below 3 V/m. The field falls
+# with distance, so this reaches about four times as far as the single-device zone.
+HEALTH_FACILITY = LimitRegime("Health facility (3 V/m)", field_v_per_m=3.0)
 
 
 def eirp_w(band: Band) -> float:

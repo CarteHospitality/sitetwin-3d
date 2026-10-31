@@ -15,27 +15,28 @@ const sectorOf = (id) => id.split("-")[0];
 export function statusLines(site, checks, population, { coverageLoss = [], kpi = null, before = null } = {}) {
   const lines = [];
   const bad = checks.findings.filter((f) => f.level === "bad");
-  const sensitiveUses = [...new Set(bad.filter((f) => f.sensitive).map((f) => f.use))];
+  const sensitiveUses = [...new Set(bad.filter((f) => f.sensitive && !f.health).map((f) => f.use))];
   const others = new Set(bad.filter((f) => !f.sensitive).map((f) => f.building));
-  if (sensitiveUses.length) for (const use of sensitiveUses) lines.push({ level: "bad", text: `A ${use} is inside an EMF zone` });
-  else lines.push({ level: "ok", text: "No school or hospital in an EMF zone" });
+  if (bad.some((f) => f.health)) lines.push({ level: "bad", text: "A hospital is above the 3 V/m health limit" });
+  for (const use of sensitiveUses) lines.push({ level: "bad", text: `A ${use} is inside an EMF zone` });
+  if (!sensitiveUses.length && !bad.some((f) => f.health)) lines.push({ level: "ok", text: "No school or hospital found in an EMF zone" });
   if (others.size) lines.push({ level: "bad", text: `EMF zone reaches ${others.size} other building(s)` });
-  else if (!sensitiveUses.length) lines.push({ level: "ok", text: "EMF zone reaches no building" });
+  else if (!sensitiveUses.length && !bad.some((f) => f.health)) lines.push({ level: "ok", text: "No building found in an EMF zone" });
   if (site.structure === "rooftop") {
     const roof = checks.findings.filter((f) => f.level === "warn").length;
-    lines.push(roof ? { level: "warn", text: "Part of the roof must be closed off" } : { level: "ok", text: "Roof is safe to walk" });
+    lines.push(roof ? { level: "warn", text: "Part of the roof must be closed off" } : { level: "ok", text: "No roof area inside a zone at head height" });
   }
   const cell = kpi?.cells?.[0];
   if (cell) {
     const name = `${cell.sector} ${cell.band}`, prb = cell.prb_dl_pct;
-    if (prb < PRB_BALANCE) lines.push({ level: "ok", text: `Capacity is sufficient: busiest cell ${name} at ${prb}% PRB (measured)` });
+    if (prb < PRB_BALANCE) lines.push({ level: "ok", text: `No busy cell: busiest ${name} at ${prb}% PRB (measured)` });
     else if (before && capacityAdded(before, site).has(cell.sector)) lines.push({ level: "ok", text: `Cell ${name} at ${prb}% PRB (measured): the plan adds capacity there` });
     else lines.push({ level: prb >= PRB_EXPAND ? "bad" : "warn", text: `Cell ${name} is ${prb >= PRB_EXPAND ? "full" : "busy"}: ${prb}% PRB in the busy hour (measured)` });
   } else {
     // The busy sector stays busy in people, but a plan that adds capacity there answers it.
     const busiest = Object.entries(population.people_per_antenna).sort((a, b) => b[1] - a[1])[0];
     const sector = busiest && sectorOf(busiest[0]), people = busiest && Math.round(busiest[1] / 100) * 100;
-    if (!busiest || busiest[1] <= CAPACITY_PEOPLE_PER_ANTENNA) lines.push({ level: "ok", text: "Capacity is sufficient" });
+    if (!busiest || busiest[1] <= CAPACITY_PEOPLE_PER_ANTENNA) lines.push({ level: "ok", text: "No busy sector (estimated from the people nearby)" });
     else if (before && capacityAdded(before, site).has(sector)) lines.push({ level: "ok", text: `Sector ${sector} has about ${people} people: the plan adds capacity there` });
     else lines.push({ level: "warn", text: `Sector ${sector} is busy: about ${people} people` });
   }
@@ -43,14 +44,14 @@ export function statusLines(site, checks, population, { coverageLoss = [], kpi =
   return lines;
 }
 
-// Sectors where the plan adds capacity: a new antenna, a new band or more power.
+// Sectors where the plan adds capacity: a new antenna or a new band (more spectrum). More power
+// is not capacity: it widens the coverage, the cell has the same resource blocks to share.
 export function capacityAdded(before, after) {
   const prev = Object.fromEntries(before.antennas.map((a) => [a.id, a]));
   const out = new Set();
   for (const a of after.antennas) {
     const p = prev[a.id];
-    const more = (b) => { const old = p?.bands.find((x) => x.name === b.name); return !old || b.tx_power_w > old.tx_power_w; };
-    if (!p || a.bands.some(more)) out.add(sectorOf(a.id));
+    if (!p || a.bands.some((b) => !p.bands.some((x) => x.name === b.name))) out.add(sectorOf(a.id));
   }
   return out;
 }
@@ -63,7 +64,7 @@ const STEP_TEXT = {
   addBand: (s) => `Add a new frequency on ${on(s)}`,
   switchOff: (s) => `Switch off a frequency on ${on(s)}`,
   lowerPower: (s) => `Lower the power on ${on(s)} (remote)`,
-  raisePower: (s) => `Raise the power on ${on(s)} for more capacity`,
+  raisePower: (s) => `Raise the power on ${on(s)} for wider coverage`,
   raise: (s) => `Raise the ${antennaOn(s)}`,
   lower: (s) => `Lower the ${antennaOn(s)}`,
   turn: (s) => `Turn the ${antennaOn(s)}`,

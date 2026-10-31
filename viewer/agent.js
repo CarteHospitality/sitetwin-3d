@@ -160,6 +160,7 @@ Two kinds of request:
 
 What makes an operator change a site, and the usual remedies:
 - Capacity: many people served by one sector, or a growing area -> add a band (L2100, N3500 5G), split or add a sector.
+  More power widens the coverage; it does not add capacity (the cell has the same resource blocks), so never offer it as a capacity fix.
 - Coverage holes or weak edge -> reduce tilt, raise the antenna, re-point azimuth towards the demand.
 - Overshoot / interference with neighbour sites -> increase tilt or lower power.
 - EMF compliance: a zone reaching an occupied building, above all a sensitive one (school, kindergarten, hospital) -> raise height, lower power, re-point, or move the antenna on the roof. Treat sensitive buildings with extra margin and always mention them.

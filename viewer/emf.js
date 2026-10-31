@@ -6,6 +6,10 @@ export const REGIMES = {
   tr: { name: "TR single device (20% field)", fieldFraction: 0.2 },
   icnirp: { name: "ICNIRP general public", fieldFraction: 1.0 },
 };
+// At health facilities the field from devices must stay below 3 V/m, whatever the band (plane
+// wave: S = E² / 377 Ω). The field falls with distance, so this reaches about four times as far
+// as the single-device zone: a hospital outside the drawn zone can still be above it.
+export const HEALTH = { name: "Health facility (3 V/m)", fieldVm: 3 };
 
 export function icnirpPublicPowerDensity(frequencyMhz) {
   if (frequencyMhz < 400) throw new Error("bands below 400 MHz are out of scope");
@@ -23,7 +27,7 @@ export function safetyZone(antenna, regime = REGIMES.tr) {
   const front = [];
   const back = [];
   for (const band of antenna.bands) {
-    const limit = icnirpPublicPowerDensity(band.frequency_mhz) * regime.fieldFraction ** 2;
+    const limit = regime.fieldVm ? regime.fieldVm ** 2 / 377 : icnirpPublicPowerDensity(band.frequency_mhz) * regime.fieldFraction ** 2;
     const ratio = eirpW(band) / limit;
     front.push(ratio);
     back.push(ratio * 10 ** (-(band.front_to_back_db ?? 25) / 10));
