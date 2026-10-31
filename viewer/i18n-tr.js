@@ -385,6 +385,7 @@ export const EXACT = {
   "Crew, tasks and materials": "Ekip, görevler ve malzemeler",
   "Working…": "Çalışıyor…",
   "Analysing the site…": "Saha analiz ediliyor…",
+  "✕ Failed": "✕ Başarısız",
   "Options the operator compared": "Operatörün karşılaştırdığı seçenekler",
   "Recommended": "Önerilen",
   "EMF conflicts": "EMF çakışması",
@@ -801,6 +802,7 @@ export const PATTERNS = [
   ["^no site (.+) in the portfolio$", "", "portföyde $1 sahası yok"],
   ["^no site (.+)$", "", "$1 sahası yok"],
   ["^assistant unavailable \\((\\d+)\\): (.+)$", "", "asistan kullanılamıyor ($1): $2"],
+  ["^The Expert Operator cannot be reached right now \\((\\d+)\\)\\. The 3D twin, the checks and manual changes still work\\.$", "", "Uzman Operatöre şu an ulaşılamıyor ($1). 3B ikiz, kontroller ve elle değişiklikler çalışmaya devam ediyor."],
 
   // ---- Voice
   ["^⚠️? Microphone: (.+)\\. Typed input is available\\.$", "", "⚠ Mikrofon: $1. Yazarak devam edebilirsiniz."],

@@ -3,6 +3,8 @@
 // tool to call; the tools run here on the live twin, so every option it
 // tries is scored by the same EMF, conflict and coverage code as the UI.
 
+import { tr } from "./i18n.js";
+
 // A goal usually takes three model calls: compare options, apply one, answer.
 const MAX_STEPS = 12;
 // Steps left at which the agent is told to stop exploring and commit to its best option.
@@ -260,7 +262,11 @@ export function createAgent({ definitions, handlers, systemPrompt, ui, limits = 
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages, tools: withTools ? definitions : [] }),
       });
-      if (!res.ok) throw new Error(`assistant unavailable (${res.status}): ${await res.text()}`);
+      // Said plainly, with what still works; the server's own text goes to the console.
+      if (!res.ok) {
+        console.warn("assistant unavailable", res.status, await res.text());
+        throw new Error(tr(`The Expert Operator cannot be reached right now (${res.status}). The 3D twin, the checks and manual changes still work.`));
+      }
       return await res.json();
     } finally { ui.waiting?.(false); }
   }

@@ -333,6 +333,7 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
   return { user: (text) => say("user", text), assistant: (text) => say("assistant", text), photo, clear,
     queued: (id, text) => { const row = el("div", { className: "msg tool", textContent: `◷ Queued · ${text}` }); queuedRequests.set(id, row); change(() => log.append(row)); },
     requestStart: (id) => { queuedRequests.get(id)?.remove(); queuedRequests.delete(id); },
-    failed: () => { runFailed = true; },
+    // A failed run says so at once: the account's remaining lines are dropped.
+    failed: () => { runFailed = true; scanQueue = []; },
     model: (model) => { $("chatModel").textContent = model; }, busy, waiting, toolStart, toolEnd, speak, say };
 }
