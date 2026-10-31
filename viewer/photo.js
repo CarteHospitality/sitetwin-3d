@@ -38,7 +38,13 @@ export function initPhoto({ button, status, onRead }) {
     status("Reading photo with Muse Spark 1.3…");
     try {
       const res = await fetch("api/photo", { method: "POST", headers: { "Content-Type": file.type || "image/jpeg" }, body: file });
-      if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 200)}`);
+      if (!res.ok) {
+        // The server's `detail` is a plain sentence (e.g. a missing key); show it rather than the JSON.
+        const text = await res.text();
+        let detail = text;
+        try { detail = JSON.parse(text).detail ?? text; } catch { /* plain text */ }
+        throw new Error(`${res.status} ${String(detail).slice(0, 200)}`);
+      }
       const record = await res.json();
       status("");
       onRead(record.observation, URL.createObjectURL(file));

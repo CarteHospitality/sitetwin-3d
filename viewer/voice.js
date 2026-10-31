@@ -29,7 +29,13 @@ async function toWav(blob) {
 
 export async function transcribe(wav, signal) {
   const res = await fetch("api/transcribe", { method: "POST", headers: { "Content-Type": "audio/wav" }, body: wav, signal });
-  if (!res.ok) throw new Error(`transcription failed (${res.status}): ${await res.text()}`);
+  // The server says what went wrong in `detail` (e.g. a missing key); show that sentence, not the JSON.
+  if (!res.ok) {
+    const text = await res.text();
+    let detail = text;
+    try { detail = JSON.parse(text).detail ?? text; } catch { /* plain text */ }
+    throw new Error(`transcription failed (${res.status}): ${detail}`);
+  }
   return (await res.json()).text;
 }
 

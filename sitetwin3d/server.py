@@ -15,6 +15,7 @@ import json
 import os
 import re
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -70,15 +71,22 @@ def _providers() -> list[str]:
     return [p for p in (first, *(p for p in AGENT_MODELS if p != first)) if os.environ.get(AGENT_MODELS[p]["key_env"])]
 
 
-# Both tries together stay under the page's 60 s limit for one model call (viewer/agent.js).
+# Each provider's whole budget, its leak retries included: both together stay under the page's
+# 60 s limit for one model call (viewer/agent.js).
 TIMEOUTS_S = (30, 25)
+# A leaked turn is asked again only while this much of the budget is left.
+RETRY_MIN_S = 5
 
 
-def _ask(cfg: dict, req: ChatRequest, timeout: float) -> dict:
-    client = OpenAI(base_url=cfg["base_url"], api_key=os.environ[cfg["key_env"]], timeout=timeout, max_retries=0)
-    for _ in range(3):
+def _ask(cfg: dict, req: ChatRequest, budget: float) -> dict:
+    client = OpenAI(base_url=cfg["base_url"], api_key=os.environ[cfg["key_env"]], max_retries=0)
+    deadline = time.monotonic() + budget
+    for attempt in range(3):
+        left = deadline - time.monotonic()
+        if attempt and left < RETRY_MIN_S:
+            break
         response = client.chat.completions.create(
-            model=cfg["model"], messages=req.messages, temperature=0.2,
+            model=cfg["model"], messages=req.messages, temperature=0.2, timeout=left,
             **({"tools": req.tools} if req.tools else {}),
         )
         message = response.choices[0].message.model_dump(exclude_none=True)
@@ -110,9 +118,16 @@ def chat(req: ChatRequest) -> dict:
 TRANSCRIBE_URL = "https://api.meta.ai/v1/asr/transcribe"
 
 
+def _need_meta_key(what: str) -> None:
+    """Voice and photo run on the Meta Model API: without its key, say so instead of failing."""
+    if not os.environ.get("MODEL_API_KEY"):
+        raise HTTPException(status_code=503, detail=f"{what} needs MODEL_API_KEY (Meta Model API) in .env, see the README")
+
+
 @app.post("/api/transcribe")
 async def transcribe(request: Request) -> dict:
     """Voice mode: the browser posts a 16 kHz mono WAV; Muse Voice Transcribe returns the text."""
+    _need_meta_key("Voice")
     wav = await request.body()
     async with httpx.AsyncClient(timeout=60) as client:
         r = await client.post(
@@ -131,6 +146,7 @@ async def transcribe(request: Request) -> dict:
 @app.post("/api/photo")
 async def read_photo(request: Request) -> dict:
     """Photo mode: Muse Spark 1.3 reads one site photo into equipment, labels and safety notes."""
+    _need_meta_key("Photo reading")
     data = await request.body()
     try:
         Image.open(io.BytesIO(data)).verify()
