@@ -2,13 +2,17 @@
 // what the plan changes, without antenna parameters. The detailed cards
 // (checks, changes, crew, work order) stay below for whoever needs them.
 
+import { PRB_BALANCE, PRB_EXPAND } from "./kpi.js";
+
 // Indicative, as on the portfolio map: people in one antenna's main lobe worth a capacity look.
 const CAPACITY_PEOPLE_PER_ANTENNA = 1500;
 const sectorOf = (id) => id.split("-")[0];
 
 // One line per topic, good or bad: [{ level: "ok" | "warn" | "bad", text }].
 // `coverageLoss`: bands that lose a large share of their coverage against the baseline.
-export function statusLines(site, checks, population, coverageLoss = []) {
+// `kpi`: measured busy-hour load per cell; when given it replaces the population estimate.
+// `before`: the site before the plan, to tell whether the plan adds capacity on the busy sector.
+export function statusLines(site, checks, population, { coverageLoss = [], kpi = null, before = null } = {}) {
   const lines = [];
   const bad = checks.findings.filter((f) => f.level === "bad");
   const sensitiveUses = [...new Set(bad.filter((f) => f.sensitive).map((f) => f.use))];
@@ -21,11 +25,31 @@ export function statusLines(site, checks, population, coverageLoss = []) {
     const roof = checks.findings.filter((f) => f.level === "warn").length;
     lines.push(roof ? { level: "warn", text: "Part of the roof must be closed off" } : { level: "ok", text: "Roof is safe to walk" });
   }
-  const busiest = Object.entries(population.people_per_antenna).sort((a, b) => b[1] - a[1])[0];
-  if (busiest && busiest[1] > CAPACITY_PEOPLE_PER_ANTENNA) lines.push({ level: "warn", text: `Sector ${sectorOf(busiest[0])} is busy: about ${Math.round(busiest[1] / 100) * 100} people` });
-  else lines.push({ level: "ok", text: "Capacity is sufficient" });
+  const cell = kpi?.cells?.[0];
+  if (cell) {
+    const name = `${cell.sector} ${cell.band}`, prb = cell.prb_dl_pct;
+    if (prb < PRB_BALANCE) lines.push({ level: "ok", text: `Capacity is sufficient: busiest cell ${name} at ${prb}% PRB (measured)` });
+    else if (before && capacityAdded(before, site).has(cell.sector)) lines.push({ level: "ok", text: `Cell ${name} at ${prb}% PRB (measured): the plan adds capacity there` });
+    else lines.push({ level: prb >= PRB_EXPAND ? "bad" : "warn", text: `Cell ${name} is ${prb >= PRB_EXPAND ? "full" : "busy"}: ${prb}% PRB in the busy hour (measured)` });
+  } else {
+    const busiest = Object.entries(population.people_per_antenna).sort((a, b) => b[1] - a[1])[0];
+    if (busiest && busiest[1] > CAPACITY_PEOPLE_PER_ANTENNA) lines.push({ level: "warn", text: `Sector ${sectorOf(busiest[0])} is busy: about ${Math.round(busiest[1] / 100) * 100} people` });
+    else lines.push({ level: "ok", text: "Capacity is sufficient" });
+  }
   if (coverageLoss.length) lines.push({ level: "warn", text: `Coverage drops sharply: ${coverageLoss.map((l) => `${l.band} ${l.change_pct}%`).join(", ")}` });
   return lines;
+}
+
+// Sectors where the plan adds capacity: a new antenna, a new band or more power.
+export function capacityAdded(before, after) {
+  const prev = Object.fromEntries(before.antennas.map((a) => [a.id, a]));
+  const out = new Set();
+  for (const a of after.antennas) {
+    const p = prev[a.id];
+    const more = (b) => { const old = p?.bands.find((x) => x.name === b.name); return !old || b.tx_power_w > old.tx_power_w; };
+    if (!p || a.bands.some(more)) out.add(sectorOf(a.id));
+  }
+  return out;
 }
 
 // One line per kind of work; the same work on several sectors is one line ("on sectors S1, S2, S3").

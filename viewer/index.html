@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SiteTwin 3D</title>
-<link rel="stylesheet" href="ui.css?v=ui-8">
+<link rel="stylesheet" href="ui.css?v=ui-9">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -59,6 +59,11 @@
       <section class="overview" id="overview" aria-live="polite">
         <h2>Current state</h2>
         <ul class="status-lines" id="statusLines"></ul>
+        <div class="kpi-row">
+          <button type="button" class="kpi-load" id="kpiLoad">Load network KPIs (CSV)</button>
+          <button type="button" class="kpi-remove" id="kpiRemove" hidden>Remove</button>
+          <div class="muted" id="kpiInfo" role="status">Busy-hour PRB per cell from the OSS export · stays in this browser</div>
+        </div>
         <h2>Action plan</h2>
         <ul class="plan-steps" id="planSteps"></ul>
         <button class="crew-line" id="crewLine" hidden></button>
@@ -155,6 +160,6 @@
 <nav class="mobile-nav" aria-label="Workspace navigation"><button data-pane="workspace" aria-pressed="true">Workspace</button><button data-pane="operator" aria-expanded="false">Operator</button><button data-pane="inspect" aria-expanded="false">Inspect</button></nav>
 <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
 <div id="liveStatus" class="sr-only" role="status" aria-live="polite"></div>
-<script type="module" src="app.js?v=ui-8"></script>
+<script type="module" src="app.js?v=ui-9"></script>
 </body>
 </html>

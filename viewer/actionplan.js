@@ -17,11 +17,13 @@ export function result(before, after) {
 }
 
 // Sections of plain English lines; the page and the e-mail translate them.
-export function actionPlan({ site, entry, before, after, changes, steps = [], reason, order, crew, regime }) {
+// `measured`: busy cells from the operator's KPI export, if one was loaded.
+export function actionPlan({ site, entry, before, after, changes, steps = [], reason, order, crew, regime, measured = [] }) {
   const where = [`Structure: ${(site.structure ?? "rooftop").replaceAll("_", " ")}`];
   if (entry?.address) where.push(`Address: ${entry.address}`);
   if (entry?.lat != null) where.push(`Coordinates: ${entry.lat}, ${entry.lon}`, `Map: https://www.google.com/maps?q=${entry.lat},${entry.lon}`);
-  const why = [`Finding: ${before.text}`, ...(reason ? [`Reason for the change: ${reason}`] : []), `EMF limit: ${regime}`];
+  const why = [`Finding: ${before.text}`, ...measured.map((c) => `Measured load: ${c.sector} ${c.band} ${c.prb_dl_pct}% PRB (busy hour)`),
+    ...(reason ? [`Reason for the change: ${reason}`] : []), `EMF limit: ${regime}`];
   const visits = crew.visits.map((v) => `${v.name}: ${v.remote ? `${v.people} engineer, ~${v.hours} h, remote` : `${v.people} people, ${v.days} day(s)`}`);
   return {
     site: site.site_id,

@@ -15,7 +15,8 @@ import { populationContext } from "./population.js";
 import { initVoice } from "./voice.js";
 import { initConversation } from "./conversation.js";
 import { createSceneMotion } from "./scene.js";
-import { restoreProposed, saveProposed, sourceFingerprint, consumeHandoff, handoffId, absoluteUrl, withUploads } from "./session.js";
+import { restoreProposed, saveProposed, sourceFingerprint, consumeHandoff, handoffId, absoluteUrl, withUploads, readSession, writeSession } from "./session.js";
+import { parseKpi, busyCells } from "./kpi.js";
 import { fieldWorkOrder } from "./fieldwork.js";
 import { $, el, token, initShell, setText } from "./ui.js";
 import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
@@ -56,6 +57,9 @@ const baseline = twin.baseline ?? twin.site;
 const restored = restoreProposed(src, twin);
 const fingerprint = sourceFingerprint(twin);
 let site = clone(restored.site);
+// Measured load from the operator's OSS export, when the engineer loaded one; kept in this browser session only.
+const kpiKey = `kpi:${absoluteUrl(src)}`;
+let kpi = Array.isArray(readSession(kpiKey)?.cells) ? readSession(kpiKey) : null;
 let selectedId = site.antennas.some((a) => a.id === restored.view.selected) ? restored.view.selected : null;
 let regimeKey = restored.regime;
 const layers = { zones: true, coverage: false, baseline: false };
@@ -325,7 +329,9 @@ const planner = {
   briefing: () => {
     const { neighbours, ...state } = planner.state();
     const { buildings, ...people } = populationContext(site);
-    return { site_id: site.site_id, structure: site.structure, ...state, people: { ...people, buildings: buildings.filter((b) => b.sensitive || b.distance_m <= 120) } };
+    return { site_id: site.site_id, structure: site.structure, ...state, people: { ...people, buildings: buildings.filter((b) => b.sensitive || b.distance_m <= 120) },
+      ...(kpi ? { network_kpi: { source: "measured: operator OSS export, busiest hour per cell, current network before the plan", file: kpi.file, cells: kpi.cells,
+        ...(kpi.site_checked === false ? { warning: "the file does not name this site; cells were matched by sector only" } : {}) } } : {}) };
   },
   evaluate(changes) {
     const { site: candidate, errors } = applyChanges(site, changes);
@@ -515,7 +521,7 @@ function renderPanels(zones, checks, changes) {
 // The overview on top of the panel: good and bad points, then the plan in plain words.
 let overviewSignature = "";
 function renderOverview(checks, changes, crew) {
-  const lines = statusLines(site, checks, populationContext(site), changes.length ? currentCoverageLoss() : []);
+  const lines = statusLines(site, checks, populationContext(site), { coverageLoss: changes.length ? currentCoverageLoss() : [], kpi, before: baseline });
   const steps = planSteps(baseline, site);
   // What the plan achieves; a problem it leaves is said as still open, never with a tick.
   const after = headline(checks);
@@ -538,6 +544,43 @@ function renderOverview(checks, changes, crew) {
   $("crewLine").textContent = crewText ? `${crewText} ›` : "";
 }
 $("crewLine").onclick = () => showCard("crew", { reveal: true });
+
+// Network KPIs: a CSV export from the operator's OSS, read here and never uploaded.
+function renderKpi(error) {
+  $("kpiLoad").textContent = kpi ? "Load another KPI file" : "Load network KPIs (CSV)";
+  $("kpiRemove").hidden = !kpi;
+  const unchecked = kpi && kpi.site_checked === false;
+  $("kpiInfo").classList.toggle("error", Boolean(error || unchecked));
+  $("kpiInfo").textContent = error ? error
+    : unchecked ? `The file does not name ${site.site_id}: check it belongs to this site`
+    : kpi ? `Measured load: ${kpi.file} · ${kpi.cells.length} cell(s)` : "Busy-hour PRB per cell from the OSS export · stays in this browser";
+}
+const kpiInput = Object.assign(document.createElement("input"), { type: "file", accept: ".csv,text/csv,text/plain", hidden: true });
+$("kpiLoad").after(kpiInput);
+$("kpiLoad").onclick = () => kpiInput.click();
+kpiInput.onchange = async () => {
+  const file = kpiInput.files[0];
+  kpiInput.value = "";
+  if (!file) return;
+  try {
+    const parsed = parseKpi(await file.text(), site);
+    kpi = { file: file.name, loaded: new Date().toISOString(), ...parsed };
+    writeSession(kpiKey, kpi);
+    renderKpi();
+    update();
+    const top = kpi.cells[0];
+    chat.say("tool", `✓ Network KPIs loaded: ${kpi.cells.length} cell(s), busiest ${top.sector} ${top.band} at ${top.prb_dl_pct}% PRB`);
+  } catch (e) {
+    renderKpi(e.message ?? String(e));
+  }
+};
+$("kpiRemove").onclick = () => {
+  kpi = null;
+  try { sessionStorage.removeItem(`sitetwin:${kpiKey}`); } catch { /* storage blocked */ }
+  renderKpi();
+  update();
+};
+renderKpi();
 
 let crewSignature = "";
 function renderCrew(plan) {
@@ -756,7 +799,7 @@ async function buildPlan() {
   };
   const entry = (await portfolioIndex().catch(() => ({ sites: [] }))).sites.find((s) => s.site_id === site.site_id);
   const plan = actionPlan({
-    site, entry, regime: regime.name, reason: lastReason, order, crew: crewPlan(order, site), changes: data.changes, steps: planSteps(baseline, site),
+    site, entry, regime: regime.name, reason: lastReason, order, crew: crewPlan(order, site), changes: data.changes, steps: planSteps(baseline, site), measured: busyCells(kpi),
     before: headline(checkSite(baseline, siteZones(baseline, regime))), after: headline(checks),
   });
   return { plan, data };

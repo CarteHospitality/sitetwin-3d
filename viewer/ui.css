@@ -396,6 +396,11 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
 .plan-steps li.outcome::before { content: "✓"; background: none; width: auto; height: auto; top: 0; left: 2px; font-size: 12px; }
 .plan-steps li.outcome.open { color: var(--medium); }
 .plan-steps li.outcome.open::before { content: "!"; left: 5px; }
+.kpi-row { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; font-size: 12px; }
+.kpi-row button { padding: 0; border: 0; background: none; color: var(--accent); font-size: 12px; font-weight: 600; cursor: pointer; }
+.kpi-row button:hover { text-decoration: underline; }
+.kpi-row #kpiInfo { flex-basis: 100%; }
+.kpi-row #kpiInfo.error { color: var(--critical); }
 .crew-line { margin-top: 12px; width: 100%; text-align: left; background: var(--surface-2); border-color: var(--border); color: var(--text-secondary); font-size: 13px; }
 
 /* Options the agent compared, side by side, each with its own Apply button. */
