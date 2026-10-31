@@ -16,7 +16,7 @@ import { initVoice } from "./voice.js";
 import { initConversation } from "./conversation.js";
 import { createSceneMotion } from "./scene.js";
 import { restoreProposed, saveProposed, sourceFingerprint, consumeHandoff, handoffId, absoluteUrl, withUploads, readSession, writeSession } from "./session.js";
-import { parseKpi, busyCells } from "./kpi.js";
+import { parseKpi, busyCells, twinKpi } from "./kpi.js";
 import { fieldWorkOrder } from "./fieldwork.js";
 import { $, el, token, initShell, setText } from "./ui.js";
 import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
@@ -57,9 +57,11 @@ const baseline = twin.baseline ?? twin.site;
 const restored = restoreProposed(src, twin);
 const fingerprint = sourceFingerprint(twin);
 let site = clone(restored.site);
-// Measured load from the operator's OSS export, when the engineer loaded one; kept in this browser session only.
+// Measured load: the site file's own network_kpi, unless the engineer loaded a newer
+// OSS export here or on the map (kept in this browser session only).
 const kpiKey = `kpi:${absoluteUrl(src)}`;
-let kpi = Array.isArray(readSession(kpiKey)?.cells) ? readSession(kpiKey) : null;
+const fileKpi = twinKpi(twin);
+let kpi = Array.isArray(readSession(kpiKey)?.cells) ? readSession(kpiKey) : fileKpi;
 let selectedId = site.antennas.some((a) => a.id === restored.view.selected) ? restored.view.selected : null;
 let regimeKey = restored.regime;
 const layers = { zones: true, coverage: false, baseline: false };
@@ -330,7 +332,7 @@ const planner = {
     const { neighbours, ...state } = planner.state();
     const { buildings, ...people } = populationContext(site);
     return { site_id: site.site_id, structure: site.structure, ...state, people: { ...people, buildings: buildings.filter((b) => b.sensitive || b.distance_m <= 120) },
-      ...(kpi ? { network_kpi: { source: "measured: operator OSS export, busiest hour per cell, current network before the plan", file: kpi.file, cells: kpi.cells,
+      ...(kpi ? { network_kpi: { source: `measured: operator OSS export (${kpi === fileKpi ? "carried in the site file" : kpi.file}), busiest hour per cell, current network before the plan`, cells: kpi.cells,
         ...(kpi.site_checked === false ? { warning: "the file does not name this site; cells were matched by sector only" } : {}) } } : {}) };
   },
   evaluate(changes) {
@@ -548,11 +550,13 @@ $("crewLine").onclick = () => showCard("crew", { reveal: true });
 // Network KPIs: a CSV export from the operator's OSS, read here and never uploaded.
 function renderKpi(error) {
   $("kpiLoad").textContent = kpi ? "Load another KPI file" : "Load network KPIs (CSV)";
-  $("kpiRemove").hidden = !kpi;
+  // The site file's own figures cannot be removed, only replaced by a loaded export.
+  $("kpiRemove").hidden = !kpi || kpi === fileKpi;
   const unchecked = kpi && kpi.site_checked === false;
   $("kpiInfo").classList.toggle("error", Boolean(error || unchecked));
   $("kpiInfo").textContent = error ? error
     : unchecked ? `The file does not name ${site.site_id}: check it belongs to this site`
+    : kpi === fileKpi && kpi ? `Measured load from the site file · ${kpi.cells.length} cell(s)`
     : kpi ? `Measured load: ${kpi.file} · ${kpi.cells.length} cell(s)` : "Busy-hour PRB per cell from the OSS export · stays in this browser";
 }
 const kpiInput = Object.assign(document.createElement("input"), { type: "file", accept: ".csv,text/csv,text/plain", hidden: true });
@@ -575,7 +579,7 @@ kpiInput.onchange = async () => {
   }
 };
 $("kpiRemove").onclick = () => {
-  kpi = null;
+  kpi = fileKpi;
   try { sessionStorage.removeItem(`sitetwin:${kpiKey}`); } catch { /* storage blocked */ }
   renderKpi();
   update();

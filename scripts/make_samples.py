@@ -11,6 +11,8 @@ They are not real base-station locations.
 import json
 from pathlib import Path
 
+from make_kpi_samples import busy_hour
+
 OUT = Path("samples/sitetwin")
 
 
@@ -75,7 +77,9 @@ def main():
             "sectors": {str(i + 1): {"azimuth_deg": a} for i, a in enumerate(s["azimuths"])},
             "antennas": s["antennas"](s["azimuths"]),
             "structure": {"kind": s["kind"], "building_height_m": s["bh"]},
-            "notes": ["Synthetic sample for SiteTwin 3D. Antenna data is invented; the location is an ordinary city block."],
+            # Measured load of the current cells, as an operator's OSS would give it (invented values).
+            "network_kpi": busy_hour(s["site_id"]),
+            "notes": ["Synthetic sample for SiteTwin 3D. Antenna data and network KPIs are invented; the location is an ordinary city block."],
         }
         path = OUT / f"{s['site_id'].lower()}.json"
         path.write_text(json.dumps(doc, indent=2, ensure_ascii=False), encoding="utf-8")

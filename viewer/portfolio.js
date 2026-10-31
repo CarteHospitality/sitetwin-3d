@@ -13,7 +13,7 @@ import { $, el, token, initShell, reducedMotion } from "./ui.js";
 import { startTour, readTour, endTour } from "./tour.js";
 import { combinePlans, openActionPlan } from "./actionplan.js";
 import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
-import { parseKpi, PRB_BALANCE, PRB_EXPAND } from "./kpi.js";
+import { parseKpi, twinKpi, PRB_BALANCE, PRB_EXPAND } from "./kpi.js";
 import { capacityAdded } from "./overview.js";
 
 initShell();
@@ -62,8 +62,8 @@ function assess(entry, source, site = source.site, regime = "tr", proposed = fal
   for (const f of sensitive) issues.push(`Sensitive building inside an EMF zone: ${f.text}`);
   for (const f of bad.filter((f) => !f.sensitive)) issues.push(f.text);
   for (const f of findings.filter((f) => f.level === "warn")) issues.push(f.text);
-  // Capacity: measured busy-hour PRB when a KPI export was loaded, otherwise estimated from people nearby.
-  const cell = readKpi(entry)?.cells[0];
+  // Capacity: measured busy-hour PRB (a loaded KPI export, else the site file's own), otherwise estimated from people nearby.
+  const cell = (readKpi(entry) ?? twinKpi(source))?.cells[0];
   let capacity = false, full = false, capacityText = "";
   if (cell) {
     const name = `${cell.sector} ${cell.band}`;
@@ -524,7 +524,7 @@ $("kpiClear").onclick = () => {
     reassess(s); updateMarker(s);
   }
   render();
-  renderKpiCard("Measured load removed: capacity is estimated from people nearby again", "ok");
+  renderKpiCard("Loaded KPI files removed: sites use their own site file figures, or the estimate from people nearby", "ok");
   logAction("Removed network KPIs from all sites");
 };
 

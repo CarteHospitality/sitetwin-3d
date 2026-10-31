@@ -98,5 +98,11 @@ export function parseKpi(text, site) {
   return { cells, rows, skipped, site_checked: col.site !== undefined || named };
 }
 
+// Measured load the site file itself carries (`network_kpi`, carried into the twin by the importer).
+export function twinKpi(twin) {
+  const cells = (twin?.network_kpi?.cells ?? []).filter((c) => typeof c?.sector === "string" && typeof c.band === "string" && Number.isFinite(c.prb_dl_pct));
+  return cells.length ? { ...twin.network_kpi, file: "site file", site_checked: true, cells: [...cells].sort((a, b) => b.prb_dl_pct - a.prb_dl_pct) } : null;
+}
+
 // Cells at or above the load-balancing threshold, busiest first.
 export const busyCells = (kpi) => (kpi?.cells ?? []).filter((c) => c.prb_dl_pct >= PRB_BALANCE);

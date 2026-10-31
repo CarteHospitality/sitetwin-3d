@@ -194,7 +194,40 @@
     "kind": "rooftop",
     "building_height_m": 18.0
   },
+  "network_kpi": {
+    "source": "OSS PM export, busy hour per cell (synthetic sample)",
+    "period": "2026-10-28",
+    "cells": [
+      {
+        "cell": "SAMPLE-02_IZMIR_S1_L1800",
+        "sector": 1,
+        "band": "L1800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 61.0,
+        "rrc_users": 164,
+        "traffic_gb": 28.1
+      },
+      {
+        "cell": "SAMPLE-02_IZMIR_S2_L1800",
+        "sector": 2,
+        "band": "L1800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 57.0,
+        "rrc_users": 141,
+        "traffic_gb": 24.1
+      },
+      {
+        "cell": "SAMPLE-02_IZMIR_S3_L1800",
+        "sector": 3,
+        "band": "L1800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 93.0,
+        "rrc_users": 257,
+        "traffic_gb": 43.6
+      }
+    ]
+  },
   "notes": [
-    "Synthetic sample for SiteTwin 3D. Antenna data is invented; the location is an ordinary city block."
+    "Synthetic sample for SiteTwin 3D. Antenna data and network KPIs are invented; the location is an ordinary city block."
   ]
 }

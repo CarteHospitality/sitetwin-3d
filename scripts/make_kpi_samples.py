@@ -51,6 +51,18 @@ def rows(site_id: str, rnd: random.Random) -> list[list[float | str]]:
     return out
 
 
+def busy_hour(site_id: str) -> dict:
+    """The `network_kpi` block of a site file: each cell's busiest hour from the same rows."""
+    best: dict[str, list] = {}
+    for row in rows(site_id, random.Random(site_id)):
+        if row[1] not in best or row[2] > best[row[1]][2]:
+            best[row[1]] = row
+    cells = [{"cell": cell, "sector": int(cell.split("_S")[-1].split("_")[0]), "band": cell.rsplit("_", 1)[1], "busy_hour": t,
+              "prb_dl_pct": round(prb, 1), "rrc_users": round(users), "traffic_gb": round(traffic, 1)}
+             for t, cell, prb, users, traffic in best.values()]
+    return {"source": "OSS PM export, busy hour per cell (synthetic sample)", "period": DAY, "cells": cells}
+
+
 def write(path: Path, data: list[list[float | str]], sep: str = ",") -> None:
     num = (lambda v: f"{v:.1f}".replace(".", ",")) if sep == ";" else (lambda v: f"{v:.1f}")
     lines = [sep.join(HEADER)] + [sep.join([t, cell, num(prb), f"{users:.0f}", num(traffic)]) for t, cell, prb, users, traffic in data]

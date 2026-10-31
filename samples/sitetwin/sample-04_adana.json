@@ -107,7 +107,67 @@
     "kind": "lattice_tower",
     "building_height_m": null
   },
+  "network_kpi": {
+    "source": "OSS PM export, busy hour per cell (synthetic sample)",
+    "period": "2026-10-28",
+    "cells": [
+      {
+        "cell": "SAMPLE-04_ADANA_S1_L800",
+        "sector": 1,
+        "band": "L800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 48.0,
+        "rrc_users": 133,
+        "traffic_gb": 21.0
+      },
+      {
+        "cell": "SAMPLE-04_ADANA_S1_L1800",
+        "sector": 1,
+        "band": "L1800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 55.0,
+        "rrc_users": 130,
+        "traffic_gb": 24.5
+      },
+      {
+        "cell": "SAMPLE-04_ADANA_S2_L800",
+        "sector": 2,
+        "band": "L800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 76.0,
+        "rrc_users": 194,
+        "traffic_gb": 36.8
+      },
+      {
+        "cell": "SAMPLE-04_ADANA_S2_L1800",
+        "sector": 2,
+        "band": "L1800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 91.0,
+        "rrc_users": 219,
+        "traffic_gb": 38.9
+      },
+      {
+        "cell": "SAMPLE-04_ADANA_S3_L800",
+        "sector": 3,
+        "band": "L800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 39.0,
+        "rrc_users": 99,
+        "traffic_gb": 17.9
+      },
+      {
+        "cell": "SAMPLE-04_ADANA_S3_L1800",
+        "sector": 3,
+        "band": "L1800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 44.0,
+        "rrc_users": 106,
+        "traffic_gb": 20.4
+      }
+    ]
+  },
   "notes": [
-    "Synthetic sample for SiteTwin 3D. Antenna data is invented; the location is an ordinary city block."
+    "Synthetic sample for SiteTwin 3D. Antenna data and network KPIs are invented; the location is an ordinary city block."
   ]
 }

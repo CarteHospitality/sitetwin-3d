@@ -138,6 +138,34 @@ def from_sitetwin(doc: dict, neighbours: list[Neighbour] | None = None, host: Ne
     return existing, proposed
 
 
+def network_kpi(doc: dict) -> dict | None:
+    """Measured busy-hour load per cell, if the site file carries it (optional `network_kpi`).
+
+    Each cell: sector (1 or "S1"), band ("L1800"), prb_dl_pct (0-100), optionally busy_hour,
+    rrc_users and traffic_gb. Returned in the viewer's form, busiest cell first; unusable
+    cells are dropped, and a block without any usable cell is ignored.
+    """
+    block = doc.get("network_kpi")
+    if not isinstance(block, dict) or not isinstance(block.get("cells"), list):
+        return None
+    cells = []
+    for c in block["cells"]:
+        if not isinstance(c, dict):
+            continue
+        sector = str(c.get("sector", "")).upper().removeprefix("S")
+        band, prb = c.get("band"), c.get("prb_dl_pct")
+        if not sector.isdigit() or not isinstance(band, str) or not isinstance(prb, (int, float)) or not 0 <= prb <= 100:
+            continue
+        users, traffic = c.get("rrc_users"), c.get("traffic_gb")
+        cells.append({"sector": f"S{int(sector)}", "band": band.upper(), "prb_dl_pct": round(prb),
+                      "users": users if isinstance(users, (int, float)) else None,
+                      "traffic_gb": traffic if isinstance(traffic, (int, float)) else None, "time": c.get("busy_hour")})
+    if not cells:
+        return None
+    cells.sort(key=lambda c: -c["prb_dl_pct"])
+    return {"file": "site file", "source": block.get("source"), "period": block.get("period"), "cells": cells, "site_checked": True}
+
+
 def neighbours_from_draft(path: Path) -> list[Neighbour]:
     draft = json.loads(path.read_text(encoding="utf-8"))
     fields = Neighbour.model_fields
@@ -166,6 +194,8 @@ def main() -> None:
     existing, proposed = from_sitetwin(doc, neighbours, host, notes)
     twin = build_twin(proposed, args.regime)
     twin["baseline"] = existing.model_dump()
+    if kpi := network_kpi(doc):
+        twin["network_kpi"] = kpi
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(twin, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"{proposed.site_id}: {len(existing.antennas)} existing -> {len(proposed.antennas)} proposed antennas")

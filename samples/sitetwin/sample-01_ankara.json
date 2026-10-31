@@ -128,7 +128,94 @@
     "kind": "rooftop",
     "building_height_m": 15.0
   },
+  "network_kpi": {
+    "source": "OSS PM export, busy hour per cell (synthetic sample)",
+    "period": "2026-10-28",
+    "cells": [
+      {
+        "cell": "SAMPLE-01_ANKARA_S1_L800",
+        "sector": 1,
+        "band": "L800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 52.0,
+        "rrc_users": 131,
+        "traffic_gb": 26.6
+      },
+      {
+        "cell": "SAMPLE-01_ANKARA_S1_L1800",
+        "sector": 1,
+        "band": "L1800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 58.0,
+        "rrc_users": 153,
+        "traffic_gb": 29.7
+      },
+      {
+        "cell": "SAMPLE-01_ANKARA_S1_L2100",
+        "sector": 1,
+        "band": "L2100",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 47.0,
+        "rrc_users": 114,
+        "traffic_gb": 20.2
+      },
+      {
+        "cell": "SAMPLE-01_ANKARA_S2_L800",
+        "sector": 2,
+        "band": "L800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 45.0,
+        "rrc_users": 116,
+        "traffic_gb": 22.3
+      },
+      {
+        "cell": "SAMPLE-01_ANKARA_S2_L1800",
+        "sector": 2,
+        "band": "L1800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 50.0,
+        "rrc_users": 140,
+        "traffic_gb": 24.0
+      },
+      {
+        "cell": "SAMPLE-01_ANKARA_S2_L2100",
+        "sector": 2,
+        "band": "L2100",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 41.0,
+        "rrc_users": 97,
+        "traffic_gb": 19.6
+      },
+      {
+        "cell": "SAMPLE-01_ANKARA_S3_L800",
+        "sector": 3,
+        "band": "L800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 68.0,
+        "rrc_users": 164,
+        "traffic_gb": 28.9
+      },
+      {
+        "cell": "SAMPLE-01_ANKARA_S3_L1800",
+        "sector": 3,
+        "band": "L1800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 84.0,
+        "rrc_users": 224,
+        "traffic_gb": 42.6
+      },
+      {
+        "cell": "SAMPLE-01_ANKARA_S3_L2100",
+        "sector": 3,
+        "band": "L2100",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 71.0,
+        "rrc_users": 192,
+        "traffic_gb": 33.3
+      }
+    ]
+  },
   "notes": [
-    "Synthetic sample for SiteTwin 3D. Antenna data is invented; the location is an ordinary city block."
+    "Synthetic sample for SiteTwin 3D. Antenna data and network KPIs are invented; the location is an ordinary city block."
   ]
 }

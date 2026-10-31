@@ -17,7 +17,7 @@ import re
 from pathlib import Path
 
 from .export import build_twin
-from .importers.sitetwin import GROUND_STRUCTURES, from_sitetwin
+from .importers.sitetwin import GROUND_STRUCTURES, from_sitetwin, network_kpi
 from .osm import dms_to_deg, surroundings
 
 
@@ -42,6 +42,8 @@ def import_site(doc: dict, out_dir: Path, web_root: Path = Path("viewer"), with_
     existing, proposed = from_sitetwin(doc, neighbours, host, notes)
     twin = build_twin(proposed)
     twin["baseline"] = existing.model_dump()
+    if kpi := network_kpi(doc):
+        twin["network_kpi"] = kpi
     path = out_dir / "sites" / f"{slug(doc['site_id'])}.twin.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(twin, ensure_ascii=False), encoding="utf-8")
