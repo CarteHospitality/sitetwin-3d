@@ -134,8 +134,9 @@ function saveMapState() {
 map.on("moveend", saveMapState);
 window.addEventListener("pagehide", saveMapState);
 
+// The twin opens with a fresh chat (its plan kept), with or without a task to carry out.
 function twinUrl(s, instruction, voice = false) {
-  const p = new URLSearchParams({ twin: s.entry.twin, ...(instruction ? { ask: instruction } : { fresh: "1" }),
+  const p = new URLSearchParams({ twin: s.entry.twin, fresh: "1", ...(instruction ? { ask: instruction } : {}),
     from: location.pathname + location.search, portfolio: indexUrl, handoff: handoffId() });
   if (voice) p.set("voice", "1");
   return `index.html?${p}`;
@@ -216,8 +217,11 @@ function downloadSiteList() {
   link.click();
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }
-const fixUrgent = () => mapAgent.ask(document.documentElement.lang === "tr"
-  ? "Aksiyon gerektiren tüm sahaları sırayla düzelt" : "Fix every site that needs action, one by one");
+// The button names the sites, so the operator fixes exactly the ones the briefing lists.
+const fixUrgent = () => {
+  const ids = sites.filter((s) => ["critical", "high"].includes(s.a.level)).map((s) => s.entry.site_id).join(", ");
+  mapAgent.ask(document.documentElement.lang === "tr" ? `Acil sahaları sırayla düzelt: ${ids}` : `Fix the urgent sites one by one: ${ids}`);
+};
 
 // The operator's opening summary, written from the checks (no model call). Assistant messages are
 // not translated by the page, so it is put in the screen's language here. Home starts a fresh
@@ -454,17 +458,18 @@ async function add(entry) {
   if (existing >= 0) sites.splice(existing, 1, s); else sites.push(s);
   markers[entry.site_id]?.remove();
   // No browser tooltip (title): the screen names the site, and the tooltip landed on top of it.
-  const marker = L.marker([entry.lat, entry.lon], { icon: pinIcon(s.a.level, false, s.a.level === "critical" && attentionCount++ < 3), alt: `${entry.site_id}: ${LEVELS[s.a.level].label}` })
-    // The pin element exists only once the map shows it (after the first view is set).
-    .on("add", () => {
-      const pin = marker.getElement();
-      pin.setAttribute("aria-label", marker.options.alt);
-      pin.addEventListener("focus", () => showCallout(s));
-      pin.addEventListener("blur", () => hideCallout());
-    })
+  const marker = L.marker([entry.lat, entry.lon], { icon: pinIcon(s.a.level, false, s.a.level === "critical" && attentionCount++ < 3), alt: `${entry.site_id}: ${LEVELS[s.a.level].label}` });
+  // The pin element exists only once the map shows it (after the first view is set). A site loaded
+  // later is shown at once, so "add" fires inside addTo: the marker is declared before that.
+  marker.on("add", () => {
+    const pin = marker.getElement();
+    pin.setAttribute("aria-label", marker.options.alt);
+    pin.addEventListener("focus", () => showCallout(s));
+    pin.addEventListener("blur", () => hideCallout());
+  })
     .on("click", () => { hideCallout(true); select(s); })
-    .on("mouseover", () => showCallout(s)).on("mouseout", () => hideCallout())
-    .addTo(map);
+    .on("mouseover", () => showCallout(s)).on("mouseout", () => hideCallout());
+  marker.addTo(map);
   markers[entry.site_id] = marker;
   return s;
 }
@@ -546,7 +551,8 @@ Action needed = a zone reaches another building, or a cell is full (85% PRB or m
 Capacity issues marked "measured" come from the operator's network KPIs, "sample data" from the invented load of a demo site (never call it measured); "estimated" ones only from the people around the site.
 Call a cell full only at 85% PRB or more; 70-85% is busy. When the plan already adds capacity on a busy sector, say so.
 Call list_sites before talking about sites; never invent sites or numbers. Site names may be spoken loosely ("Ankara", "the Izmir one"):
-match them to site_id. To show a site, use focus_site. To fix several or all problem sites, use fix_sites (most urgent first; skip OK sites). To fix, simulate, change or inspect one in 3D, use open_site with an instruction
+match them to site_id. To show a site, use focus_site. To fix several or all problem sites, use fix_sites (most urgent first; skip OK sites).
+Sites that "need action" (urgent, problem sites) are the Critical and the Action needed ones together: fixing them all means both levels. To fix, simulate, change or inspect one in 3D, use open_site with an instruction
 that carries over exactly what the engineer asked; then say in one sentence what will happen there.`,
   ui: chat,
 });
@@ -581,7 +587,8 @@ $("upload").onchange = async (e) => {
   const file = e.target.files[0];
   if (!file) return;
   // Progress goes to the chat: the right panel only opens for the site once it is on the map.
-  chat.say("tool", "Importing and fetching surrounding buildings…");
+  // In a region seen for the first time the building data is downloaded once: that can take minutes.
+  chat.say("tool", "Importing and fetching surrounding buildings… In a new region the building data is downloaded once, which can take a few minutes.");
   try {
     // Checked here first, so a wrong file gets a plain answer instead of a parser message.
     let doc;

@@ -72,6 +72,15 @@ export function statusLines(site, checks, population, { coverageLoss = [], kpi =
   // A health facility beyond the checked radius could still be above 3 V/m: say where the check stops.
   const healthReach = Math.max(0, ...site.antennas.filter((a) => a.bands.length).map((a) => safetyZone(a, HEALTH).front_m));
   if (healthReach > CHECK_RADIUS_M) lines.push({ level: "warn", text: `Health facilities are checked within ${CHECK_RADIUS_M} m; the 3 V/m distance reaches ${Math.round(healthReach)} m` });
+  // No building around at all makes "no building in a zone" an empty all-clear: the coordinates may be
+  // wrong (or the site is rural).
+  if (!before && !site.neighbours.length) lines.push({ level: "warn", text: `No building found within ${CHECK_RADIUS_M} m: check the coordinates, unless the site is rural` });
+  // The site as filed (not the plan): an antenna without a band, or a band without power, radiates
+  // nothing here, most likely a gap in the file.
+  if (!before) for (const a of site.antennas) {
+    if (!a.bands.length) lines.push({ level: "warn", text: `${a.id} has no band in the site file: it radiates nothing here, check the file` });
+    for (const b of a.bands) if (!(b.tx_power_w > 0)) lines.push({ level: "warn", text: `${a.id} ${b.name} has no power in the site file (0 W): check the file` });
+  }
   return lines;
 }
 

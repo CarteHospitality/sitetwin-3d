@@ -248,6 +248,17 @@ html.page-hidden .typing-dot { animation-play-state: paused; }
   button, .btn, select { min-height: 44px; }
   .chip { min-height: 36px; }
   #legend { font-size: 12px; left: 8px; bottom: 8px; }
+  /* The site figures leave the top to the scene controls: bottom right, beside the legend. */
+  #sceneStats { top: auto; bottom: 8px; right: 8px; min-width: 0; max-width: calc(50% - 12px); padding: 8px 10px; }
+  #sceneStats .stat-row b { font-size: 16px; }
+  #scene #legend { max-width: calc(50% - 12px); }
+}
+@media (max-width: 480px) {
+  /* Phone width: the sources and the action plan keep their text for screen readers, shown as icons. */
+  #sourcesButton { font-size: 0; min-width: 44px; }
+  #sourcesButton::before { content: "ⓘ"; font-size: 22px; }
+  #export { font-size: 0; padding: 0 12px; }
+  #export::before { margin-right: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   @view-transition { navigation: none; }
@@ -314,6 +325,7 @@ html.page-hidden .typing-dot { animation-play-state: paused; }
 .card-summary { font-size: 13px; }
 .stat { background: var(--surface-2); border: 1px solid var(--border); }
 button.primary, .primary { box-shadow: none; }
+button.primary:focus-visible, .primary:focus-visible { box-shadow: var(--focus-ring); }
 #micButton::before { content: ""; display: inline-block; width: 14px; height: 14px; margin-right: 6px; vertical-align: -2px; background: currentColor;
   -webkit-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>') center / contain no-repeat;
           mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>') center / contain no-repeat; }

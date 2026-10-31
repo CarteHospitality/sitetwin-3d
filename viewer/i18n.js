@@ -16,7 +16,7 @@ try { stored = localStorage.getItem(KEY); } catch { /* storage may be disabled *
 export let lang = stored ?? ((navigator.language || "en").toLowerCase().startsWith("tr") ? "tr" : "en");
 
 const phrases = Object.entries(PHRASES).sort((a, b) => b[0].length - a[0].length);
-const patterns = PATTERNS.map(([source, flags, replacement]) => [new RegExp(source, flags), replacement]);
+const patterns = PATTERNS.map(([source, flags, replacement]) => [new RegExp(source, flags), replacement, source.startsWith("^") && source.endsWith("$")]);
 
 export function tr(text) {
   if (lang !== "tr" || !text) return text;
@@ -24,10 +24,13 @@ export function tr(text) {
   if (!core) return text;
   const lead = text.slice(0, text.indexOf(core)), trail = text.slice(text.indexOf(core) + core.length);
   if (Object.hasOwn(EXACT, core)) return lead + EXACT[core] + trail;
+  // A line a pattern knows as a whole stays whole, even when a name in it holds "; "
+  // (OpenStreetMap lists several values that way).
+  const whole = patterns.find(([re, , anchored]) => anchored && (re.lastIndex = 0, re.test(core)));
   // Lists of changes are joined with "; ": translate each item on its own.
-  if (core.includes("; ")) return lead + core.split("; ").map(tr).join("; ") + trail;
+  if (!whole && core.includes("; ")) return lead + core.split("; ").map(tr).join("; ") + trail;
   let out = core;
-  for (const [re, replacement] of patterns) {
+  for (const [re, replacement] of whole ? [whole] : patterns) {
     re.lastIndex = 0;
     if (re.test(out)) { re.lastIndex = 0; out = out.replace(re, replacement); break; }
   }

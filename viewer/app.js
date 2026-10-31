@@ -54,8 +54,10 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
 // ---------- state ----------
 const params = new URLSearchParams(location.search);
 const src = params.get("twin") || "data/site.twin.json";
-const portfolioUrl = params.get("portfolio") || "data/private/portfolio.json";
-const backTo = params.get("from") || `portfolio.html${params.get("portfolio") ? `?portfolio=${encodeURIComponent(portfolioUrl)}` : ""}`;
+// A sample twin opened on its own belongs to the sample portfolio, never to the operator's real one.
+const samplePortfolio = src.includes("/samples/") ? "data/samples/portfolio.json" : null;
+const portfolioUrl = params.get("portfolio") || samplePortfolio || "data/private/portfolio.json";
+const backTo = params.get("from") || `portfolio.html${params.get("portfolio") || samplePortfolio ? `?portfolio=${encodeURIComponent(portfolioUrl)}` : ""}`;
 const twin = await fetch(src).then((r) => {
   if (!r.ok) throw new Error(`Twin unavailable (${r.status})`);
   return r.json();
@@ -810,7 +812,7 @@ const planner = {
     if (progress(site.site_id)) return { error: "This site is one stop of a portfolio tour: fix this site only; the next site opens by itself." };
     const s = (await portfolioIndex()).sites.find((x) => x.site_id.toLowerCase().includes(String(site_id).toLowerCase()));
     if (!s) return { error: `no site ${site_id} in the portfolio` };
-    const p = new URLSearchParams({ twin: s.twin, ...(instruction ? { ask: instruction } : { fresh: "1" }), from: backTo, portfolio: portfolioUrl, handoff: handoffId() });
+    const p = new URLSearchParams({ twin: s.twin, fresh: "1", ...(instruction ? { ask: instruction } : {}), from: backTo, portfolio: portfolioUrl, handoff: handoffId() });
     if (agent.voice) p.set("voice", "1");
     pendingOpen = `index.html?${p}`;
     return { opening: s.site_id, instruction: instruction ?? "none: ready for questions" };
@@ -1514,7 +1516,9 @@ hasServer().then((ok) => {
 $("title").textContent = site.site_id;
 $("breadcrumbSite").textContent = site.site_id;
 $("subtitle").textContent = site.name ?? "";
-$("notes").textContent = (site.notes ?? []).join(" ");
+// One element per note, so each is translated on its own; a note without a full stop gets one.
+$("notes").replaceChildren(...(site.notes ?? []).flatMap((note, i, all) => [...(i ? [" "] : []),
+  el("span", { textContent: note }), ...(i < all.length - 1 && !/[.!?]$/.test(note) ? ["."] : [])]));
 // The frame-time profiler is a developer tool: only with ?debug=1 in the address.
 if (params.get("debug") === "1") {
   const profileButton = el("button", { textContent: "Measure 20-second orbit / edit" });

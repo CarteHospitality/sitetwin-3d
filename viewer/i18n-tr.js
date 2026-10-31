@@ -360,6 +360,7 @@ export const EXACT = {
   "done": "tamam",
   "failed": "başarısız",
   "Importing and fetching surrounding buildings…": "İçe aktarılıyor ve çevredeki binalar getiriliyor…",
+  "Importing and fetching surrounding buildings… In a new region the building data is downloaded once, which can take a few minutes.": "İçe aktarılıyor ve çevredeki binalar getiriliyor… Yeni bir bölgede bina verisi bir kez indirildiği için bu birkaç dakika sürebilir.",
 
   // ---- Sample portfolio reasons (data)
   "Greenfield tower serving a residential edge": "Konut bölgesi kenarına hizmet veren greenfield kule",
@@ -405,6 +406,8 @@ export const EXACT = {
   "Camera story": "Kamera hikâyesi",
   "Film a watched change: before, change, after": "İzlenen değişikliği filme alır: önce, değişiklik, sonra",
   "Data: synthetic sample site (antennas and load invented for the demo)": "Veri: sentetik örnek saha (antenler ve yük demo için uyduruldu)",
+  "synthetic sample site (antennas and load invented for the demo)": "sentetik örnek saha (antenler ve yük demo için uyduruldu)",
+  "The Expert Operator cannot be reached: the server does not answer. The 3D twin, the checks and manual changes still work.": "Uzman Operatöre ulaşılamıyor: sunucu yanıt vermiyor. 3B ikiz, kontroller ve elle değişiklikler çalışmaya devam ediyor.",
   "Synthetic sample": "Sentetik örnek",
   "Planning simulation · synthetic sample site": "Planlama simülasyonu · sentetik örnek saha",
   "Sources and assumptions": "Kaynaklar ve varsayımlar",
@@ -748,6 +751,10 @@ export const PATTERNS = [
   ["^Select (\\S+)$", "", "$1 antenini seç"],
   ["^Health facilities are checked within (\\d+) m; the 3 V/m distance reaches (\\d+) m$", "", "Sağlık tesisleri $1 m içinde kontrol ediliyor; 3 V/m mesafesi $2 m'ye uzanıyor"],
   ["^Neighbouring buildings: (\\d+) within (\\d+) m from Microsoft building footprints$", "", "Komşu binalar: Microsoft bina ayak izlerinden, $2 m içinde $1 bina"],
+  ["^Neighbouring buildings: (\\d+) within (\\d+) m from OpenStreetMap$", "", "Komşu binalar: OpenStreetMap'ten, $2 m içinde $1 bina"],
+  ["^(\\S+) has no band in the site file: it radiates nothing here, check the file$", "", "$1 için saha dosyasında bant yok: burada yayın yapmıyor, dosyayı kontrol edin"],
+  ["^No building found within (\\d+) m: check the coordinates, unless the site is rural$", "", "$1 m içinde hiç bina bulunamadı: saha kırsalda değilse koordinatları kontrol edin"],
+  ["^(\\S+) (\\S+) has no power in the site file \\(0 W\\): check the file$", "", "$1 $2 için saha dosyasında güç yok (0 W): dosyayı kontrol edin"],
   ["^uses from OpenStreetMap \\((\\d+) schools/health/childcare points\\)\\.$", "", "kullanımlar OpenStreetMap'ten ($1 okul/sağlık/kreş noktası)."],
   ["^(\\d+) buildings have no height in the data$", "", "$1 binanın yükseklik verisi yok"],
   ["^(\\d+) storeys \\((\\d+) m\\) assumed\\.$", "", "$1 kat ($2 m) varsayıldı."],
