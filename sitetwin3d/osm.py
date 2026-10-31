@@ -109,6 +109,35 @@ out tags center;"""
     return outlines, pois
 
 
+CONTEXT_M = 400
+
+
+def context_buildings(lat: float, lon: float, inner_m: int = 150, outer_m: int = CONTEXT_M) -> list[dict]:
+    """Buildings between the analysed neighbours and `outer_m`, for the 3D view only.
+
+    Footprints from the same Microsoft source, in the same local frame; each is
+    {"footprint": [[x, z], ...], "height_m": h}. The checks never use them, so a
+    site's EMF and occupancy results stay those of its `inner_m` neighbours.
+    """
+    frame = _Frame(lat, lon)
+    inner_lat, inner_lon = inner_m / 110_540, inner_m / (111_320 * math.cos(math.radians(lat)))
+    out = []
+    for f in footprints_around(lat, lon, outer_m):
+        lo, la = f["polygon"][0]
+        if abs(la - lat) <= inner_lat and abs(lo - lon) <= inner_lon:
+            continue  # an analysed neighbour (footprints_around keeps the same first-vertex box)
+        poly = []
+        for lo, la in f["polygon"]:
+            x, z = (round(v * 2) / 2 for v in frame.xz(lo, la))  # half a metre is plenty at this distance
+            if not poly or poly[-1] != [x, z]:
+                poly.append([x, z])
+        if len(poly) > 3 and poly[0] == poly[-1]:
+            poly = poly[:-1]
+        if len(poly) >= 3:
+            out.append({"footprint": poly, "height_m": f["height"] or ASSUMED_STOREYS * STOREY_M})
+    return out
+
+
 def surroundings(lat: float, lon: float, radius_m: int = 150) -> tuple[Neighbour | None, list[Neighbour], list[str]]:
     """Return (the building the site stands on, its neighbours, notes)."""
     frame = _Frame(lat, lon)

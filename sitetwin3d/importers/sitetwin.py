@@ -21,7 +21,7 @@ import math
 from pathlib import Path
 
 from ..export import REGIMES, build_twin
-from ..osm import dms_to_deg, surroundings
+from ..osm import context_buildings, dms_to_deg, surroundings
 from ..schema import Antenna, Band, Building, Neighbour, SiteModel
 
 SCHEMA = "jevbtk-digital-site@1"
@@ -196,6 +196,8 @@ def main() -> None:
     twin["baseline"] = existing.model_dump()
     if kpi := network_kpi(doc):
         twin["network_kpi"] = kpi
+    if args.osm:
+        twin["context"] = context_buildings(lat, lon)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(twin, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"{proposed.site_id}: {len(existing.antennas)} existing -> {len(proposed.antennas)} proposed antennas")

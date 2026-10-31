@@ -4,6 +4,7 @@
 import { tr } from "./i18n.js";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { REGIMES, siteZones } from "./emf.js";
 import { checkSite, headline, pointInPolygon, roofOf } from "./checks.js";
 import { coverageGrid, coverageGridAsync, paintCoverage, RSRP_BINS } from "./coverage.js";
@@ -18,8 +19,9 @@ import { createSceneMotion } from "./scene.js";
 import { restoreProposed, saveProposed, sourceFingerprint, consumeHandoff, handoffId, absoluteUrl, withUploads } from "./session.js";
 import { twinKpi } from "./kpi.js";
 import { groundMap } from "./groundmap.js";
+import { createIntro } from "./intro.js";
 import { fieldWorkOrder } from "./fieldwork.js";
-import { $, el, token, initShell, setText } from "./ui.js";
+import { $, el, token, initShell, setText, reducedMotion } from "./ui.js";
 import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
 import { crewPlan } from "./crew.js";
 import { openActionPlan, result, diffSites, sitePlan, FIELDS } from "./actionplan.js";
@@ -189,7 +191,8 @@ scene.add(siteBuilding);
 const roofEdge = new THREE.LineSegments(new THREE.EdgesGeometry(siteBuilding.geometry, 30), new THREE.LineBasicMaterial({ color: token("scene-edge"), toneMapped: false }));
 roofEdge.position.copy(siteBuilding.position); roofEdge.rotation.copy(siteBuilding.rotation);
 scene.add(roofEdge);
-scene.add(new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, b.height_m + 0.1, roofBounds.z0 - 1), 6, token("accent"), 1.5, 1));
+const northArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, b.height_m + 0.1, roofBounds.z0 - 1), 6, token("accent"), 1.5, 1);
+scene.add(northArrow);
 
 const neighbourMeshes = {};
 const shadowCasters = new Set([...(baseline.neighbours ?? [])].sort((a, b) => Math.hypot(a.x_m, a.z_m) - Math.hypot(b.x_m, b.z_m)).slice(0, 40).map((n) => n.id));
@@ -199,18 +202,50 @@ for (const n of baseline.neighbours ?? []) {
   scene.add(m);
   neighbourMeshes[n.id] = m;
 }
-for (const e of baseline.equipment) {
+const equipmentMeshes = baseline.equipment.map((e) => {
   const [w, h, d] = e.size_m;
   const box = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), softenShadow(new THREE.MeshStandardMaterial({ color: token("scene-pole"), roughness: 0.93 })));
   box.position.set(e.x_m, e.height_agl_m + h / 2, e.z_m);
   box.castShadow = box.receiveShadow = true;
   scene.add(box);
+  return box;
+});
+
+// Buildings beyond the analysed neighbours (to 400 m), for context only: one lighter
+// mesh, no checks, no shadows cast.
+function contextMesh(items) {
+  const parts = items.map((c) => new THREE.ExtrudeGeometry(new THREE.Shape(c.footprint.map(([x, z]) => new THREE.Vector2(x, -z))),
+    { depth: c.height_m, bevelEnabled: false }).rotateX(-Math.PI / 2));
+  const merged = mergeGeometries(parts);
+  for (const part of parts) part.dispose();
+  const color = new THREE.Color(token("scene-building")).lerp(new THREE.Color(token("scene-ground")), 0.45);
+  const mesh = new THREE.Mesh(merged, softenShadow(new THREE.MeshStandardMaterial({ color, roughness: 0.95 })));
+  mesh.receiveShadow = true;
+  return mesh;
 }
+const contextBuildings = Array.isArray(twin.context) && twin.context.length ? contextMesh(twin.context) : null;
+if (contextBuildings) scene.add(contextBuildings);
 
 const antennaGroup = new THREE.Group();
 const zoneGroup = new THREE.Group();
 const baselineGroup = new THREE.Group();
 scene.add(antennaGroup, zoneGroup, baselineGroup);
+
+// The site is built in front of the engineer on opening (see intro.js).
+const standing = (mesh) => (mesh.rotation.x ? "extrude" : "box");
+const farthest = Math.max(1, ...(baseline.neighbours ?? []).map((n) => Math.hypot(n.x_m, n.z_m)));
+const intro = createIntro([
+  { object: siteBuilding, kind: standing(siteBuilding), delay: 0, duration: 600 },
+  { object: roofEdge, kind: standing(siteBuilding), delay: 0, duration: 600 },
+  { object: northArrow, kind: "lift", delay: 0, duration: 600 },
+  ...equipmentMeshes.map((object) => ({ object, kind: "box", delay: 0, duration: 600 })),
+  ...(baseline.neighbours ?? []).map((n) => ({ object: neighbourMeshes[n.id], kind: standing(neighbourMeshes[n.id]),
+    delay: 150 + 550 * (Math.hypot(n.x_m, n.z_m) / farthest), duration: 450 })),
+  ...(contextBuildings ? [{ object: contextBuildings, kind: "up", delay: 450, duration: 800 }] : []),
+  { object: antennaGroup, kind: "up", delay: 900, duration: 550 },
+  { object: zoneGroup, kind: "grow", delay: 1300, duration: 500 },
+], { reducedMotion, onFrame: () => sceneMotion.changedGeometry() });
+intro.hide();
 
 // Size the canvas before the texture exists: three.js allocates GPU storage at
 // the first upload, and a later size change would only fill part of it.
@@ -916,6 +951,7 @@ portfolioIndex().then(async (index) => {
 refreshCoverageBands();
 update();
 $("loading").hidden = true;
+intro.play();
 
 // Opened from the portfolio map: the Expert Operator carries out what was asked
 // there, or reviews the site straight away and recommends a fix without applying it.
