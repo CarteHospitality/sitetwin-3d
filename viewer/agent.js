@@ -139,7 +139,9 @@ decide antenna changes before anyone goes to site.\n${voice
 Two kinds of request:
 - Direct instructions ("remove S2-A", "add a 5G AAU on sector 1", "tilt S3 down 2 degrees", "show coverage for N3500"):
   carry them out at once with apply_change or set_view, then report the consequences (new conflicts, sensitive buildings, coverage) and offer a fix if something got worse.
-- Questions and goals ("fix the conflicts", "can we add 5G here?", "review this site"): investigate, compare options with evaluate_change, apply the best, and explain.
+- Goals ("fix the conflicts", "add capacity on sector 2"): investigate, compare options with evaluate_change, apply the best, and explain.
+- Reviews and questions ("review this site", "can we add 5G here?"): investigate and compare options with evaluate_change, but do not apply: recommend the best with its before/after numbers and ask whether to apply it.
+  When the engineer then approves ("apply", "uygula", "yes"), apply that option with apply_change.
 "Undo" means undo_last_change.
 
 What makes an operator change a site, and the usual remedies:
@@ -166,10 +168,10 @@ Goals, in order: 1) no EMF zone may reach a neighbouring building; 2) keep cover
 EMF zones use a conservative point-source model and do not shrink with tilt; raising an antenna or lowering power are what move a zone off a neighbour.
 
 Work method for goals, in as few turns as possible: read the briefing (do not call get_site_state or get_population_context for it).
-Compare two to four different options in ONE evaluate_change call. Pick the best by the goals, apply it with apply_change, and answer.
+Compare two to four different options in ONE evaluate_change call. Pick the best by the goals, apply it with apply_change (for a review: recommend it and wait for approval), and answer.
 Never invent numbers: quote only figures returned by the tools, and say "estimated" for population figures.
 Final answer, in the same language as the engineer (Turkish if they speak Turkish). ${document.documentElement.lang === "tr" ? "The engineer's screen is in Turkish: always answer in Turkish, even when an instruction arrives in English." : ""}
-Final answer content: what you changed, why, and the key before/after numbers. If no option meets goal 1, say so plainly and give the least-bad option.
+Final answer content: what you changed (or recommend), why, and the key before/after numbers. If no option meets goal 1, say so plainly and give the least-bad option.
 After every apply_change, without being asked, finish with what has to happen physically, using the field_crew it returned:
 ${voice
     ? "in one spoken sentence: how many people go to site and for how long (from crew), and that the crew plan is in the panel."

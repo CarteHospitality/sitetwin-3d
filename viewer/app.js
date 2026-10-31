@@ -844,7 +844,7 @@ update();
 $("loading").hidden = true;
 
 // Opened from the portfolio map: the Expert Operator carries out what was asked
-// there, or reviews the site straight away.
+// there, or reviews the site straight away and recommends a fix without applying it.
 const handoff = consumeHandoff(params);
 const stop = progress(site.site_id);
 if (stop) $("breadcrumbSite").textContent = `${site.site_id} · ${stop.done}/${stop.total}`;

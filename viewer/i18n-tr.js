@@ -543,6 +543,8 @@ export const PATTERNS = [
   ["^A hospital is inside an EMF zone$", "", "Bir hastane EMF bölgesinde"],
   ["^EMF zone reaches (\\d+) other building\\(s\\)$", "", "EMF bölgesi $1 binaya daha ulaşıyor"],
   ["^Sector (\\S+) is busy: about (\\d+) people$", "", "$1 sektörü yoğun: yaklaşık $2 kişi"],
+  ["^Install (\\d+) new 5G antennas$", "", "$1 yeni 5G anten takılacak"],
+  ["^Install (\\d+) new antennas$", "", "$1 yeni anten takılacak"],
   ["^Add 5G on sector (\\S+)$", "", "$1 sektörüne 5G eklenecek"],
   ["^Add a new frequency on sector (\\S+)$", "", "$1 sektörüne yeni frekans eklenecek"],
   ["^Switch off a frequency on sector (\\S+)$", "", "$1 sektöründe bir frekans kapatılacak"],

@@ -67,8 +67,8 @@ export function consumeHandoff(params, url = location.href) {
   if (readSession(key)) return null;
   // Shown as the engineer's message, so it is in the screen's language.
   const instruction = params.get("ask") || (typeof document === "object" && document.documentElement.lang === "tr"
-    ? "Bu sahayı bir operatör gibi incele: en önemli sorun ne, neyi neden değiştirirsin? En iyi çözümü uygula ve önce/sonra rakamlarını ver."
-    : "Review this site like an operator: what is the most important problem, what would you change and why? Apply the best fix and give the before/after numbers.");
+    ? "Bu sahayı bir operatör gibi incele: en önemli sorun ne, neyi neden değiştirirsin? En iyi çözümü önce/sonra rakamlarıyla öner, ben onaylamadan uygulama."
+    : "Review this site like an operator: what is the most important problem, what would you change and why? Recommend the best fix with its before/after numbers, but do not apply it until I approve.");
   // Consume before the first network call. If storage is disabled, removing the
   // command from this history entry still prevents a refresh from replaying it.
   if (!writeSession(key, { consumed: new Date().toISOString() })) {

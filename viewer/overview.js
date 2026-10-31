@@ -32,10 +32,14 @@ export function planSteps(before, after) {
   const next = new Set(after.antennas.map((a) => a.id));
   const steps = [];
   const add = (text) => { if (!steps.includes(text)) steps.push(text); };
+  const fresh = after.antennas.filter((a) => !prev[a.id]);
+  const fiveG = fresh.filter((a) => a.bands.some((b) => b.name.startsWith("N"))).length;
+  if (fiveG) add(fiveG === 1 ? "Install a new 5G antenna" : `Install ${fiveG} new 5G antennas`);
+  if (fresh.length > fiveG) add(fresh.length - fiveG === 1 ? "Install a new antenna" : `Install ${fresh.length - fiveG} new antennas`);
   for (const a of after.antennas) {
     const p = prev[a.id];
     const s = sectorOf(a.id);
-    if (!p) { add(a.bands.some((b) => b.name.startsWith("N")) ? "Install a new 5G antenna" : "Install a new antenna"); continue; }
+    if (!p) continue;
     const pb = Object.fromEntries(p.bands.map((b) => [b.name, b]));
     const added = a.bands.filter((b) => !pb[b.name]);
     if (added.some((b) => b.name.startsWith("N"))) add(`Add 5G on sector ${s}`);
