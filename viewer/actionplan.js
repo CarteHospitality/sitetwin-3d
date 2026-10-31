@@ -8,8 +8,9 @@ import { REGIMES, siteZones } from "./emf.js";
 import { checkSite, headline } from "./checks.js";
 import { fieldWorkOrder } from "./fieldwork.js";
 import { crewPlan } from "./crew.js";
-import { planSteps } from "./overview.js";
-import { busyCells } from "./kpi.js";
+import { planSteps, capacityAdded, CAPACITY_PEOPLE_PER_ANTENNA } from "./overview.js";
+import { busyCells, monthsUntil, PRB_BALANCE } from "./kpi.js";
+import { populationContext } from "./population.js";
 
 const uniq = (items) => [...new Set(items.filter(Boolean))];
 const MAILTO_MAX = 1800;
@@ -62,16 +63,42 @@ export function sitePlan({ site, baseline, entry, regimeKey = "tr", reason = nul
   const checks = checkSite(site, zones);
   const order = fieldWorkOrder(baseline, site, checks);
   const changes = diffSites(baseline, site);
+  const before = headline(checkSite(baseline, siteZones(baseline, regime)));
+  const gained = [...capacityAdded(baseline, site)].sort();
   const plan = actionPlan({
-    site, entry, regime: regime.name, reason, order, crew: crewPlan(order, site), changes, steps: planSteps(baseline, site), measured: busyCells(kpi),
-    before: headline(checkSite(baseline, siteZones(baseline, regime))), after: headline(checks),
+    site, entry, regime: regime.name, reason, order, crew: crewPlan(order, site), changes, steps: planSteps(baseline, site),
+    findings: planFindings(baseline, before, gained, kpi), gained, measured: busyCells(kpi), before, after: headline(checks),
   });
   return { plan, zones, checks, order, changes };
 }
 
+// Why the plan is made, in its own terms: a safety problem first; then, for a sector the plan adds
+// capacity to, its load (measured, or estimated from the people it serves) and when it gets busy
+// at today's growth. A clean EMF headline is not a finding: it is said only when nothing else is.
+const inTime = (months) => (months <= 24 ? `in about ${months} months` : `in about ${Math.round(months / 12)} years`);
+function planFindings(baseline, before, gained, kpi) {
+  const findings = before.level !== "ok" ? [{ text: before.text }] : [];
+  for (const sector of gained) {
+    const cell = (kpi?.cells ?? []).filter((c) => c.sector === sector).sort((a, b) => b.prb_dl_pct - a.prb_dl_pct)[0];
+    if (cell) {
+      const months = monthsUntil(cell.prb_dl_pct, PRB_BALANCE);
+      findings.push({ cell, text: months ? `Cell ${cell.sector} ${cell.band} at ${cell.prb_dl_pct}% PRB in the busy hour (measured), and at today's growth it gets busy ${inTime(months)}`
+        : `Cell ${cell.sector} ${cell.band} is busy: ${cell.prb_dl_pct}% PRB in the busy hour (measured)` });
+      continue;
+    }
+    const people = Math.max(0, ...Object.entries(populationContext(baseline).people_per_antenna).filter(([id]) => id.split("-")[0] === sector).map(([, n]) => n));
+    if (!people) continue;
+    const months = monthsUntil(people, CAPACITY_PEOPLE_PER_ANTENNA), about = Math.round(people / 100) * 100;
+    findings.push({ text: months ? `Sector ${sector} serves about ${about} people (estimated), and at today's growth it gets busy ${inTime(months)}`
+      : `Sector ${sector} serves about ${about} people (estimated): it is busy already` });
+  }
+  return findings.length ? findings : [{ text: before.text }];
+}
+
 // What the change fixes first, then what is still open.
 export function result(before, after) {
-  if (after.text === before.text) return [after.text];
+  // A problem the plan leaves as it was is still open, not a result.
+  if (after.text === before.text) return [after.level === "ok" ? after.text : `Still open: ${after.text}`];
   const fixed = before.text.replace(" inside an EMF zone", " no longer inside an EMF zone");
   return after.level === "ok" ? [fixed !== before.text ? fixed : after.text, after.text].filter((v, i, a) => a.indexOf(v) === i)
     : [...(fixed !== before.text ? [fixed] : []), `Still open: ${after.text}`];
@@ -79,11 +106,14 @@ export function result(before, after) {
 
 // Sections of plain English lines; the page and the e-mail translate them.
 // `measured`: busy cells from the operator's KPI export, if one was loaded.
-export function actionPlan({ site, entry, before, after, changes, steps = [], reason, order, crew, regime, measured = [] }) {
+export function actionPlan({ site, entry, before, after, changes, steps = [], reason, order, crew, regime, measured = [], findings = [{ text: before.text }], gained = [] }) {
   const where = [`Structure: ${(site.structure ?? "rooftop").replaceAll("_", " ")}`];
   if (entry?.address) where.push(`Address: ${entry.address}`);
   if (entry?.lat != null) where.push(`Coordinates: ${entry.lat}, ${entry.lon}`, `Map: https://www.google.com/maps?q=${entry.lat},${entry.lon}`);
-  const why = [`Finding: ${before.text}`, ...measured.map((c) => `Measured load: ${c.sector} ${c.band} ${c.prb_dl_pct}% PRB (busy hour)`),
+  // A busy cell the finding already names is not listed again under measured load.
+  const named = new Set(findings.map((f) => f.cell).filter(Boolean));
+  const why = [...findings.map((f) => `Finding: ${f.text}`),
+    ...measured.filter((c) => ![...named].some((n) => n.sector === c.sector && n.band === c.band)).map((c) => `Measured load: ${c.sector} ${c.band} ${c.prb_dl_pct}% PRB (busy hour)`),
     ...(reason ? [`Reason for the change: ${reason}`] : []), `EMF limit: ${regime}`];
   const visits = crew.visits.map((v) => `${v.name}: ${v.remote ? `${v.people} engineer, ~${v.hours} h, remote` : `${v.people} people, ${v.days} day(s)`}`);
   return {
@@ -93,7 +123,8 @@ export function actionPlan({ site, entry, before, after, changes, steps = [], re
       { heading: "Site", lines: where },
       { heading: "Why", lines: why },
       { heading: "Work to do", lines: changes },
-      { heading: "Expected result", lines: result(before, after) },
+      // What the plan gains comes first: more capacity where it adds some, then the EMF state.
+      { heading: "Expected result", lines: [...gained.map((s) => `More capacity on sector ${s}`), ...result(before, after)] },
       { heading: "Crew and schedule", lines: [...visits, ...crew.crew.map((c) => `${c.role}: ${c.count}`)] },
       { heading: "Work steps", lines: order.items.flatMap((i) => i.steps) },
       { heading: "Tools and equipment", lines: crew.tools },

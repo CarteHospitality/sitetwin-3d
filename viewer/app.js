@@ -1330,7 +1330,7 @@ async function beforeAfter() {
   update();
   // Lead with what the change fixed ("School no longer inside an EMF zone"), as the action plan does.
   const fixed = result(before.headline, after.headline)[0];
-  if (fixed !== after.headline.text) after.headline = { level: "ok", text: fixed };
+  if (fixed !== after.headline.text && !fixed.startsWith("Still open: ")) after.headline = { level: "ok", text: fixed };
   openSnapshot(await composeBeforeAfter({ site: site.site_id, before, after }), site.site_id);
 }
 $("export").onclick = async () => {
