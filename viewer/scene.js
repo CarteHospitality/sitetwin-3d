@@ -159,7 +159,8 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
   }
   // `slow`: a change applied for the engineer to watch (from the agent or a choice): it moves at a
   // readable pace, and a new antenna comes down from above into its place.
-  function sync(site, results, checks, layers, baselineSite, baselineZones, selectedId, { animate = false, slow = false } = {}) {
+  // `instant`: buildings take their final colour at once (a picture of the state, not a transition).
+  function sync(site, results, checks, layers, baselineSite, baselineZones, selectedId, { animate = false, slow = false, instant = false } = {}) {
     selected = selectedId;
     if (!selectedId) located = null;
     selection.disabled = !selected;
@@ -226,6 +227,9 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
       if (checks.hit.has(id)) {
         clearings.get(id)?.label?.remove(); clearings.delete(id);
         mesh.material.color.set(token("building-hit"));
+      } else if (instant) {
+        clearings.get(id)?.label?.remove(); clearings.delete(id);
+        mesh.material.color.set(token("scene-building"));
       } else if (finalHit.has(id)) {
         const old = clearings.get(id); old?.label?.remove();
         clearings.set(id, { started: null, from: mesh.material.color.clone(), label: null });

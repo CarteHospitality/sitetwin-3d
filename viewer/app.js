@@ -63,7 +63,11 @@ const twin = await fetch(src).then((r) => {
 // The SiteTwin result is the site as it stands: the plan starts from it and every change is
 // measured against it. (twin.baseline, the site before that SiteTwin application, is history.)
 const baseline = twin.site;
-const restored = restoreProposed(src, twin);
+// `reset=1` starts from the source assessment, setting a stored plan aside: a clean start for a
+// recording or a measured run. (`fresh=1`, used by the map, keeps the plan and only starts the chat afresh.)
+const restored = params.get("reset") === "1"
+  ? { site: twin.site, regime: "tr", actions: [], view: {}, status: "none", message: "Source assessment" }
+  : restoreProposed(src, twin);
 const fingerprint = sourceFingerprint(twin);
 let site = clone(restored.site);
 // Schools and hospitals in a zone whose height was assumed: from how many storeys up the finding holds.
@@ -365,6 +369,8 @@ const sceneMotion = createSceneMotion({ THREE, scene, renderer, camera, controls
 
 // ---------- planner API used by the assistant ----------
 const EDITABLE = ["azimuth_deg", "mechanical_tilt_deg", "electrical_tilt_deg", "height_agl_m", "x_m", "z_m"];
+// The tilt range of the editor's sliders (index.html), the same for the operator's changes.
+const TILT_RANGE = { mechanical_tilt_deg: [-5, 15], electrical_tilt_deg: [0, 15] };
 function applyChanges(s, changes) {
   const out = clone(s);
   const errors = [];
@@ -382,6 +388,10 @@ function applyChanges(s, changes) {
     if (!a) { errors.push(`no antenna ${c.antenna_id}`); continue; }
     if (c.action === "remove_antenna") { out.antennas = out.antennas.filter((x) => x !== a); continue; }
     for (const k of EDITABLE) if (typeof c[k] === "number") a[k] = c[k];
+    if (typeof c.azimuth_deg === "number") a.azimuth_deg = ((c.azimuth_deg % 360) + 360) % 360;
+    for (const [k, [lo, hi]] of Object.entries(TILT_RANGE)) {
+      if (typeof c[k] === "number" && (c[k] < lo || c[k] > hi)) errors.push(`${a.id} ${k === "mechanical_tilt_deg" ? "mechanical" : "electrical"} tilt out of range (${lo} to ${hi}°)`);
+    }
     for (const name of c.add_bands ?? []) if (BAND_PRESETS[name] && !a.bands.some((x) => x.name === name)) a.bands.push(clone(BAND_PRESETS[name]));
     a.bands = a.bands.filter((x) => !(c.remove_bands ?? []).includes(x.name));
     for (const [name, w] of Object.entries(c.band_power_w ?? {})) {
@@ -767,7 +777,8 @@ const planner = {
     // What the option would take on site, so options can be weighed by their work too.
     const crew = crewPlan(fieldWorkOrder(baseline, candidate, checkSite(candidate, siteZones(candidate, REGIMES[regimeKey]))), candidate);
     const install = crew.visits.find((v) => v.name === "Installation visit");
-    return { ...summarize(candidate), field_work: install ? { people: crew.headcount, days: install.days } : { remote: crew.visits.some((v) => v.remote) } };
+    return { ...summarize(candidate), field_work: install ? { people: crew.headcount, days: install.days }
+      : { remote: crew.visits.some((v) => v.remote), measurement: crew.visits.some((v) => !v.remote) } };
   },
   apply(changes, reason) {
     const { site: candidate, errors } = applyChanges(site, changes);
@@ -1349,7 +1360,7 @@ function captureScene(s) {
   const coverageShown = coveragePlane.visible;
   coveragePlane.visible = false;
   renderTower(s);
-  sceneMotion.sync(s, zones, checkSite(s, zones), layers, baseline, siteZones(baseline, regime), null);
+  sceneMotion.sync(s, zones, checkSite(s, zones), layers, baseline, siteZones(baseline, regime), null, { instant: true });
   renderer.shadowMap.needsUpdate = true;
   renderer.render(scene, camera);
   coveragePlane.visible = coverageShown;
@@ -1448,7 +1459,7 @@ const chat = initConversation({
   // What an option changes, antenna by antenna, from today's values (the decision card lists it).
   describeOption: (changes) => { const { site: candidate, errors } = applyChanges(site, changes); return errors.length ? [] : diffSites(site, candidate); },
   // The plan as it stands, so an option drawn on an older plan is not applied to a newer one.
-  planSignature: () => JSON.stringify(site.antennas),
+  planSignature: () => JSON.stringify([regimeKey, site.antennas]),
   // Today's EMF conflicts, beside each option's in the decision card.
   stateNow: () => ({ conflicts: checkSite(site, siteZones(site, REGIMES[regimeKey])).findings.filter((f) => f.level === "bad").length }),
   onApplyOption: ({ label, changes }) => {
@@ -1551,10 +1562,12 @@ intro.play();
 // Opened from the portfolio map: the Expert Operator carries out what was asked there.
 // Without a task, the page starts quietly: a fresh chat, a short welcome and ready questions.
 const handoff = consumeHandoff(params);
-if (freshOpen) {
-  chat.clear();
+if (freshOpen) chat.clear();
+// Both act once: a reload keeps the chat and the plan the operator has since built.
+if (freshOpen || params.has("reset")) {
   const url = new URL(location.href);
   url.searchParams.delete("fresh");
+  url.searchParams.delete("reset");
   history.replaceState(history.state, "", url.href);
 }
 // Where every figure comes from, one click away: the site file, the load, the calculations, the map.

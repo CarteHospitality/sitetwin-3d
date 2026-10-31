@@ -14,21 +14,22 @@ const DECIDE_AT = 4;
 // Served as static files (the online demo), the page has no model server: what to say instead.
 export const STATIC_NOTE = "This online demo has no model server: the Expert Operator answers when SiteTwin 3D runs on your machine with a model key (see the README). The 3D twin, the checks, manual changes and the action plan work here.";
 
-// The online demo has no operator to ask: the chat keeps its welcome and the note, and drops the
-// input, the question chips, voice and photo, which could only fail there.
+// The online demo has no server: the chat keeps its welcome and the note, and drops the input, the
+// question chips, voice and photo, and the map's Load file, which could only fail there.
 export function staticChat() {
   const composer = document.querySelector(".composer");
   if (composer) composer.hidden = true;
+  // Loading a site file needs the server's importer (/api/import): not offered here either.
+  const load = document.getElementById("loadTwin");
+  if (load) load.hidden = true;
   const model = document.getElementById("chatModel");
   if (model) model.textContent = tr("none in the online demo");
 }
 
-// Whether the page has its own server: an empty request is refused by the server's validation
-// without calling a model; a static host does not know the address at all.
+// Whether the page has its own server: it answers api/health; a static host does not know the address.
 export async function hasServer() {
   try {
-    const res = await fetch("api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-    return ![404, 405, 501].includes(res.status);
+    return (await fetch("api/health")).ok;
   } catch { return false; }
 }
 
@@ -206,7 +207,7 @@ The plan is a simulation: the engineer's goal or instruction is enough to add a 
 
 Conventions: azimuth is degrees clockwise from North; x is East, z is South, metres from the roof centre.
 The roof spans x from ${r.x0.toFixed(1)} to ${r.x1.toFixed(1)} m and z from ${r.z0.toFixed(1)} to ${r.z1.toFixed(1)} m (antennas must stand on it), roof level ${b.height_m} m.
-This is a ${planner.site.structure ?? "rooftop"} site. Antenna heights must be between ${planner.heightRange[0]} and ${planner.heightRange[1]} m. Tilts between -5 and 15 degrees. Power per band 1-80 W below 3 GHz, up to 240 W above (5G mid-band).
+This is a ${planner.site.structure ?? "rooftop"} site. Antenna heights must be between ${planner.heightRange[0]} and ${planner.heightRange[1]} m. Mechanical tilt -5 to 15 degrees, electrical tilt 0 to 15 degrees. Power per band 1-80 W below 3 GHz, up to 240 W above (5G mid-band).
 
 Goals, in order: 1) no EMF zone may reach a neighbouring building; 2) keep coverage as close to the baseline as possible; 3) keep restricted roof area small; 4) prefer the fewest, cheapest changes (tilt and power before height, height before moving or re-pointing).
 EMF zones use a conservative point-source model and do not shrink with tilt; raising an antenna or lowering power are what move a zone off a neighbour.
@@ -325,8 +326,8 @@ export function createAgent({ definitions, handlers, systemPrompt, ui, limits = 
         const nudge = MAX_STEPS - step <= DECIDE_AT
           ? [{ role: "system", content: `Step budget nearly used. Stop testing: ${review ? "recommend" : "apply"} the best option you have evaluated (or say none is acceptable), then answer.` }]
           : [];
-        const { message, model } = await callModel([{ role: "system", content: systemPrompt(mode) }, ...history, ...nudge], !leaving);
-        ui.model(model);
+        const { message, model, fallback } = await callModel([{ role: "system", content: systemPrompt(mode) }, ...history, ...nudge], !leaving);
+        ui.model(model, fallback);
         history.push(message);
         if (!message.tool_calls?.length) {
           ui.assistant(message.content || "(no answer)");

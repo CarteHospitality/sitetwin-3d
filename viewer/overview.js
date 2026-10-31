@@ -78,11 +78,15 @@ export function statusLines(site, checks, population, { coverageLoss = [], kpi =
 // A school or hospital whose height was assumed (no height in the open data): whether the finding
 // hangs on that assumption, from the check's lowest storey count (viewer/checks.js), one line each.
 export function heightLines(findings) {
-  const seen = new Map();
-  for (const f of findings) if (f.height_assumed && f.holds_from_storeys && !seen.has(f.building)) seen.set(f.building, f);
-  return [...seen.values()].map((f) => (f.holds_from_storeys > 1
+  // Several antennas can reach the same building: it is in a zone from the lowest of their thresholds.
+  const lowest = new Map();
+  for (const f of findings) if (f.height_assumed && f.holds_from_storeys) {
+    const seen = lowest.get(f.building);
+    if (!seen || f.holds_from_storeys < seen.holds_from_storeys) lowest.set(f.building, f);
+  }
+  return [...lowest.values()].map((f) => (f.holds_from_storeys > 1
     ? `Height of ${f.building} assumed (${f.assumed_storeys} storeys): the zone reaches it only from ${f.holds_from_storeys} storeys up, so measure it`
-    : `Height of ${f.building} assumed (${f.assumed_storeys} storeys): the zone reaches it at any height`));
+    : `Height of ${f.building} assumed (${f.assumed_storeys} storeys): the zone reaches it even at one storey, the lowest height tried`));
 }
 
 // Sectors where the plan adds capacity: a new antenna or a new band (more spectrum). More power

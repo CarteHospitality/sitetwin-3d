@@ -1,7 +1,7 @@
 // Agent evaluation: one scenario per fresh twin page, run against the real model.
 //
-// Open a sample twin with a fresh session, e.g.
-//   http://localhost:8765/index.html?twin=data%2Fsamples%2Fsites%2Fsample-01_ankara.twin.json&fresh=1
+// Open a sample twin with a fresh chat and no stored plan, e.g.
+//   http://localhost:8765/index.html?twin=data%2Fsamples%2Fsites%2Fsample-01_ankara.twin.json&fresh=1&reset=1
 // with the interface in English (localStorage "sitetwin:lang" = "en"), paste this file into the
 // browser console and run, for example:
 //   await evaluate({ ask: "analyse" })                                   // the Analyse button: a review

@@ -16,6 +16,8 @@ import os
 import re
 import tempfile
 import time
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as Late
 from pathlib import Path
 from typing import Any
 
@@ -72,10 +74,21 @@ def _providers() -> list[str]:
 
 
 # Each provider's whole budget, its leak retries included: both together stay under the page's
-# 60 s limit for one model call (viewer/agent.js).
+# 60 s limit for one model call (viewer/agent.js). A call still running at its deadline is abandoned,
+# since the HTTP client's timeouts bound each read, not the whole answer.
 TIMEOUTS_S = (30, 25)
 # A leaked turn is asked again only while this much of the budget is left.
 RETRY_MIN_S = 5
+CALLS = ThreadPoolExecutor(max_workers=8, thread_name_prefix="model-call")
+
+
+def _create(client: OpenAI, cfg: dict, req: ChatRequest, left: float):
+    future = CALLS.submit(client.chat.completions.create, model=cfg["model"], messages=req.messages, temperature=0.2,
+                          timeout=left, **({"tools": req.tools} if req.tools else {}))
+    try:
+        return future.result(timeout=max(left, 0.0))
+    except Late:
+        raise OpenAIError(f"{cfg['model']} gave no answer before its deadline") from None
 
 
 def _ask(cfg: dict, req: ChatRequest, budget: float) -> dict:
@@ -85,10 +98,7 @@ def _ask(cfg: dict, req: ChatRequest, budget: float) -> dict:
         left = deadline - time.monotonic()
         if attempt and left < RETRY_MIN_S:
             break
-        response = client.chat.completions.create(
-            model=cfg["model"], messages=req.messages, temperature=0.2, timeout=left,
-            **({"tools": req.tools} if req.tools else {}),
-        )
+        response = _create(client, cfg, req, left)
         message = response.choices[0].message.model_dump(exclude_none=True)
         message.setdefault("content", "")
         if not LEAK.search(message["content"] or ""):
@@ -98,18 +108,24 @@ def _ask(cfg: dict, req: ChatRequest, budget: float) -> dict:
     return message
 
 
+@app.get("/api/health")
+def health() -> dict:
+    """The page asks this to tell its own server from a static host such as the online demo."""
+    return {"ok": True}
+
+
 @app.post("/api/chat")
 def chat(req: ChatRequest) -> dict:
     # If the configured provider fails (outage, quota, timeout), the other one answers this call;
-    # the page shows which model answered.
+    # the page shows which model answered, and whether it was the fallback.
     providers = _providers()
     if not providers:
         raise HTTPException(status_code=503, detail="no model API key configured (BASETEN_API_KEY or MODEL_API_KEY)")
     errors = []
-    for name, timeout in zip(providers, TIMEOUTS_S):
+    for i, (name, timeout) in enumerate(zip(providers, TIMEOUTS_S)):
         cfg = AGENT_MODELS[name]
         try:
-            return {"message": _ask(cfg, req, timeout), "model": cfg["model"]}
+            return {"message": _ask(cfg, req, timeout), "model": cfg["model"], "fallback": i > 0}
         except OpenAIError as e:
             errors.append(f"{name}: {e}")
     raise HTTPException(status_code=502, detail="; ".join(errors)[:1000])

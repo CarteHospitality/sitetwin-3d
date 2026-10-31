@@ -452,6 +452,7 @@ export const EXACT = {
   "Muse Spark 1.3 · Meta Model API (fallback)": "Muse Spark 1.3 · Meta Model API (yedek)",
   "Download the list (CSV)": "Listeyi indir (CSV)",
   "none in the online demo": "çevrimiçi demoda yok",
+  "remote · EMF measurement on site": "uzaktan · sahada EMF ölçümü",
   "Try a change by hand in the Manual adjustment card, then open the action plan.": "Manuel müdahale kartında elle bir değişiklik deneyin, sonra eylem planını açın.",
   "This online demo has no model server: the Expert Operator answers when SiteTwin 3D runs on your machine with a model key (see the README). The 3D twin, the checks, manual changes and the action plan work here.": "Bu çevrimiçi demoda model sunucusu yok: Uzman Operatör, SiteTwin 3D kendi bilgisayarınızda bir model anahtarıyla çalıştığında cevap verir (README'ye bakın). 3B ikiz, kontroller, elle değişiklikler ve eylem planı burada çalışır.",
   "Rank": "Sıra",
@@ -527,6 +528,7 @@ export const EXACT = {
 // (numbers and IDs stay). Longest phrases are applied first. Avoid very short or ambiguous phrases
 // (no single common words like "on", "to", "OK") unless they are distinctive.
 export const PHRASES = {
+  " (fallback)": " (yedek)",
   "(measured)": "(ölçülen)",
   "(sample data)": "(örnek veri)",
   // ---- Loading a site file
@@ -873,8 +875,10 @@ export const PATTERNS = [
   ["^(\\S+) is off the roof$", "", "$1 çatının dışında"],
   ["^(\\S+) height out of range \\((.+)\\)$", "", "$1 yüksekliği aralık dışında ($2)"],
   ["^(\\S+) power out of range \\(1-80 W below 3 GHz, up to 240 W above\\)$", "", "$1 gücü aralık dışında (3 GHz altında 1-80 W, üstünde en çok 240 W)"],
+  ["^(\\S+) mechanical tilt out of range \\((-?\\d+) to (\\d+)°\\)$", "", "$1 mekanik tilti aralık dışında ($2 ile $3° arası)"],
+  ["^(\\S+) electrical tilt out of range \\((-?\\d+) to (\\d+)°\\)$", "", "$1 elektriksel tilti aralık dışında ($2 ile $3° arası)"],
   ["^Height of (.+?) assumed \\((\\d+) storeys\\): the zone reaches it only from (\\d+) storeys up, so measure it$", "", "$1 yüksekliği varsayıldı ($2 kat): bölge ona ancak $3 kattan itibaren ulaşıyor, yüksekliğini ölçün"],
-  ["^Height of (.+?) assumed \\((\\d+) storeys\\): the zone reaches it at any height$", "", "$1 yüksekliği varsayıldı ($2 kat): bölge ona her yükseklikte ulaşıyor"],
+  ["^Height of (.+?) assumed \\((\\d+) storeys\\): the zone reaches it even at one storey, the lowest height tried$", "", "$1 yüksekliği varsayıldı ($2 kat): bölge ona denenen en düşük yükseklikte, tek katta bile ulaşıyor"],
   ["^(\\S+) has no band (\\S+)$", "", "$1 üzerinde $2 bandı yok"],
   ["^unknown tool (.+)$", "", "bilinmeyen araç: $1"],
   ["^no site (.+) in the portfolio$", "", "portföyde $1 sahası yok"],
