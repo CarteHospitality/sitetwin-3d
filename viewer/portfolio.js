@@ -13,10 +13,13 @@ import { $, el, token, initShell, reducedMotion } from "./ui.js";
 import { startTour, readTour, endTour } from "./tour.js";
 import { combinePlans, openActionPlan } from "./actionplan.js";
 import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
+import { parseKpi, PRB_BALANCE, PRB_EXPAND } from "./kpi.js";
+import { capacityAdded } from "./overview.js";
 
 initShell();
 initCards();
 $("loadTwin").onclick = () => $("upload").click();
+$("loadKpi").onclick = () => $("kpiUpload").click();
 
 const LEVELS = {
   critical: { label: "Critical", glyph: "!", rank: 4 },
@@ -44,8 +47,12 @@ L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>', maxZoom: 19,
 }).addTo(map);
 
-function assess(entry, twin, regime = "tr", proposed = false) {
-  const site = twin.site;
+// Measured load for a site, shared with its 3D page (same session key).
+const kpiKey = (entry) => `kpi:${absoluteUrl(entry.twin)}`;
+const readKpi = (entry) => { const k = readSession(kpiKey(entry)); return Array.isArray(k?.cells) && k.cells.length ? k : null; };
+
+// `source`: the twin as loaded; `site`: the plan as the engineer last left it.
+function assess(entry, source, site = source.site, regime = "tr", proposed = false) {
   const checks = checkSite(site, siteZones(site, REGIMES[regime]));
   const { findings, hit } = checks;
   const pop = populationContext(site);
@@ -55,17 +62,31 @@ function assess(entry, twin, regime = "tr", proposed = false) {
   for (const f of sensitive) issues.push(`Sensitive building inside an EMF zone: ${f.text}`);
   for (const f of bad.filter((f) => !f.sensitive)) issues.push(f.text);
   for (const f of findings.filter((f) => f.level === "warn")) issues.push(f.text);
-  const busiest = Object.entries(pop.people_per_antenna).sort((a, b) => b[1] - a[1])[0];
-  const capacity = busiest && busiest[1] > CAPACITY_PEOPLE_PER_ANTENNA;
-  if (capacity) issues.push(`Capacity: ${busiest[0]} serves ~${busiest[1]} people in its main lobe (estimated)`);
+  // Capacity: measured busy-hour PRB when a KPI export was loaded, otherwise estimated from people nearby.
+  const cell = readKpi(entry)?.cells[0];
+  let capacity = false, full = false, capacityText = "";
+  if (cell) {
+    const name = `${cell.sector} ${cell.band}`;
+    const relieved = capacityAdded(source.baseline ?? source.site, site).has(cell.sector);
+    if (cell.prb_dl_pct >= PRB_BALANCE && relieved) issues.push(`Capacity: ${name} at ${cell.prb_dl_pct}% PRB (measured), the plan adds capacity there`);
+    else if (cell.prb_dl_pct >= PRB_BALANCE) {
+      capacity = true; full = cell.prb_dl_pct >= PRB_EXPAND;
+      capacityText = `${full ? "Full" : "Busy"} cell: ${name} at ${cell.prb_dl_pct}% PRB (measured)`;
+      issues.push(`Capacity: ${name} at ${cell.prb_dl_pct}% PRB in the busy hour (measured)`);
+    }
+  } else {
+    const busiest = Object.entries(pop.people_per_antenna).sort((a, b) => b[1] - a[1])[0];
+    capacity = busiest && busiest[1] > CAPACITY_PEOPLE_PER_ANTENNA;
+    if (capacity) { capacityText = "Busy sector: capacity to review"; issues.push(`Capacity: ${busiest[0]} serves ~${busiest[1]} people in its main lobe (estimated)`); }
+  }
   const planned = Object.entries(entry.antenna_actions ?? {}).filter(([k]) => k !== "retain");
   if (planned.length) issues.push(`SiteTwin plan: ${planned.map(([k, v]) => `${v} ${k}`).join(", ")}${entry.reason ? ` (${entry.reason})` : ""}`);
   if (proposed) issues.push("Session proposal · applied to plan; source file unchanged");
-  const level = sensitive.length ? "critical" : bad.length ? "high" : findings.some((f) => f.level === "warn") || capacity ? "medium" : planned.length || proposed ? "planned" : "ok";
-  const score = 100 * sensitive.length + 30 * bad.length + 5 * findings.filter((f) => f.level === "warn").length + (capacity ? 10 : 0) + planned.length;
+  const level = sensitive.length ? "critical" : bad.length || full ? "high" : findings.some((f) => f.level === "warn") || capacity ? "medium" : planned.length || proposed ? "planned" : "ok";
+  const score = 100 * sensitive.length + 30 * bad.length + (full ? 25 : 0) + 5 * findings.filter((f) => f.level === "warn").length + (capacity ? 10 : 0) + planned.length;
   // One sentence for the list: the EMF state, or else the next most important thing.
   const head = headline(checks);
-  const summary = head.level !== "ok" ? head.text : capacity ? "Busy sector: capacity to review" : planned.length ? "SiteTwin changes planned" : "No issues found";
+  const summary = head.level !== "ok" ? head.text : capacity ? capacityText : planned.length ? "SiteTwin changes planned" : "No issues found";
   return { level, score, issues, summary, hitBuildings: hit.size, findingCount: bad.length, people: pop.total_people_nearby, buildings: site.neighbours.length };
 }
 
@@ -241,6 +262,7 @@ async function removeUpload(s) {
   const id = s.entry.site_id;
   forgetUpload(indexUrl, id);
   forgetPlan(s.entry.twin, id);
+  try { sessionStorage.removeItem(`sitetwin:${kpiKey(s.entry)}`); } catch { /* storage blocked */ }
   map.closePopup();
   markers[id]?.remove(); delete markers[id];
   siteRows.get(id)?.remove(); siteRows.delete(id);
@@ -286,13 +308,26 @@ function recordProposal(s, saved) {
   logAction(`${s.entry.site_id} · Applied to plan · ${latest.delta.join("; ")} · ${latest.result ?? "Reassessed"}`);
 }
 
+// Assesses a site as the engineer last left it: the session plan, its EMF regime and any measured load.
+function reassess(s) {
+  const saved = restoreProposed(s.entry.twin, s.source);
+  s.regime = saved.regime; s.planInfo = saved.message;
+  s.a = assess(s.entry, s.source, saved.site, saved.regime, saved.status === "restored" && canonical(saved.site) !== canonical(s.source.site));
+  return saved;
+}
+function updateMarker(s) {
+  const marker = markers[s.entry.site_id];
+  marker.options.title = marker.options.alt = `${s.entry.site_id}: ${LEVELS[s.a.level].label}`;
+  marker.setIcon(pinIcon(s.a.level, s === selectedSite));
+  marker.getElement()?.setAttribute("aria-label", marker.options.title);
+}
+
 async function add(entry) {
   const twin = await fetch(entry.twin).then((r) => r.json());
-  const saved = restoreProposed(entry.twin, twin);
-  const proposed = saved.status === "restored" && canonical(saved.site) !== canonical(twin.site);
-  const s = { entry, source: twin, regime: saved.regime, planInfo: saved.message, a: assess(entry, { ...twin, site: saved.site }, saved.regime, proposed) };
+  const s = { entry, source: twin };
+  const saved = reassess(s);
   if (saved.status === "stale") logAction(`${entry.site_id}: ${saved.message}`);
-  if (proposed) recordProposal(s, saved);
+  if (saved.status === "restored" && canonical(saved.site) !== canonical(twin.site)) recordProposal(s, saved);
 
   const existing = sites.findIndex((x) => x.entry.site_id === entry.site_id);
   if (existing >= 0) sites.splice(existing, 1, s); else sites.push(s);
@@ -382,7 +417,9 @@ ${voice ? "The engineer is speaking: answer in 1-3 short spoken sentences, no li
 Answer in the engineer's language (Turkish if they speak Turkish). When you open a site, pass the instruction in the engineer's own language.
 ${document.documentElement.lang === "tr" ? "The engineer's screen is in Turkish: say the urgency levels and structure types in Turkish too (Critical = Kritik, Action needed = Aksiyon gerekli, Review = İnceleme, Change planned = Değişiklik planlandı, OK = Uygun; rooftop = çatı, ground = zemin)." : ""}
 Sites are ranked by automatic checks: Critical = an EMF zone reaches a sensitive building (school, kindergarten, hospital);
-Action needed = a zone reaches another building; Review = roof safety or capacity; Change planned = SiteTwin has pending antenna changes.
+Action needed = a zone reaches another building, or a cell is full (85% PRB or more in the busy hour, measured); Review = roof safety or a busy sector; Change planned = SiteTwin has pending antenna changes.
+Capacity issues marked "measured" come from the operator's network KPIs; "estimated" ones only from the people around the site.
+Call a cell full only at 85% PRB or more; 70-85% is busy. When the plan already adds capacity on a busy sector, say so.
 Call list_sites before talking about sites; never invent sites or numbers. Site names may be spoken loosely ("Ankara", "the Izmir one"):
 match them to site_id. To show a site, use focus_site. To fix several or all problem sites, use fix_sites (most urgent first; skip OK sites). To fix, simulate, change or inspect one in 3D, use open_site with an instruction
 that carries over exactly what the engineer asked; then say in one sentence what will happen there.`,
@@ -446,20 +483,61 @@ $("upload").onchange = async (e) => {
   e.target.value = "";
 };
 
+// One KPI export for the whole map: each site takes the rows whose cell names (or
+// site column) name it. Read in the browser, never uploaded; each 3D page sees its share.
+function renderKpiCard(text, state) {
+  showCard("kpi", { reveal: true });
+  setCardSummary("kpi", state === "bad" ? "failed" : "done", state);
+  $("kpiStatus").textContent = text;
+  $("kpiClear").hidden = !sites.some((s) => readKpi(s.entry));
+}
+$("kpiUpload").onchange = async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const matched = [];
+    let firstError = null;
+    for (const s of sites) {
+      try {
+        const parsed = parseKpi(text, s.source.site);
+        // On the map a file must name the site: matching by sector alone would give every site the same rows.
+        if (!parsed.site_checked) continue;
+        writeSession(kpiKey(s.entry), { file: file.name, loaded: new Date().toISOString(), ...parsed });
+        matched.push(s);
+      } catch (err) { firstError ??= err; }
+    }
+    if (!matched.length) throw firstError && !/^No row/.test(firstError.message) ? firstError : new Error("No site on the map is named in this KPI file");
+    for (const s of matched) { reassess(s); updateMarker(s); }
+    render();
+    const full = matched.filter((s) => readKpi(s.entry).cells[0].prb_dl_pct >= PRB_EXPAND).map((s) => s.entry.site_id);
+    renderKpiCard(`Measured load for ${matched.length} of ${sites.length} sites${full.length ? ` · full cell: ${full.join(", ")}` : ""}`, "ok");
+    logAction(`Loaded network KPIs (${file.name}) for ${matched.length} sites`);
+  } catch (err) {
+    renderKpiCard(`⚠️ ${err.message ?? err}`, "bad");
+  }
+};
+$("kpiClear").onclick = () => {
+  for (const s of sites) {
+    try { sessionStorage.removeItem(`sitetwin:${kpiKey(s.entry)}`); } catch { /* storage blocked */ }
+    reassess(s); updateMarker(s);
+  }
+  render();
+  renderKpiCard("Measured load removed: capacity is estimated from people nearby again", "ok");
+  logAction("Removed network KPIs from all sites");
+};
+
 window.addEventListener("pageshow", async (event) => {
   if (!event.persisted) return;
   for (const s of sites) {
     try {
       const response = await fetch(s.entry.twin, { cache: "no-cache" });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const source = await response.json(), saved = restoreProposed(s.entry.twin, source);
-      s.source = source; s.regime = saved.regime; s.planInfo = saved.message;
-      s.a = assess(s.entry, { ...source, site: saved.site }, saved.regime, saved.status === "restored" && canonical(saved.site) !== canonical(source.site));
+      s.source = await response.json();
+      const saved = reassess(s);
       if (saved.status === "restored") recordProposal(s, saved);
-      const marker = markers[s.entry.site_id];
-      marker.options.title = marker.options.alt = `${s.entry.site_id}: ${LEVELS[s.a.level].label}`;
-      marker.setIcon(pinIcon(s.a.level, s === selectedSite));
-      marker.getElement()?.setAttribute("aria-label", marker.options.title);
+      updateMarker(s);
       if (saved.status === "stale") logAction(`${s.entry.site_id}: ${saved.message}`);
     } catch (error) { logAction(`${s.entry.site_id}: reassessment unavailable (${error.message}); previous displayed assessment retained`); }
   }

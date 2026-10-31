@@ -30,6 +30,12 @@ export const EXACT = {
   "Not possible": "Uygulanamaz",
   "No heavy loss": "Ciddi kayıp yok",
   "Load network KPIs (CSV)": "Şebeke KPI'larını yükle (CSV)",
+  "Load KPIs": "KPI yükle",
+  "Load a network KPI export (CSV) for the sites on the map": "Haritadaki sahalar için şebeke KPI çıktısı (CSV) yükle",
+  "Network KPIs": "Şebeke KPI'ları",
+  "Remove measured load from all sites": "Ölçülen yükü tüm sahalardan kaldır",
+  "Measured load removed: capacity is estimated from people nearby again": "Ölçülen yük kaldırıldı: kapasite yine çevredeki nüfustan tahmin ediliyor",
+  "Removed network KPIs from all sites": "Şebeke KPI'ları tüm sahalardan kaldırıldı",
   "Load another KPI file": "Başka bir KPI dosyası yükle",
   "Remove": "Kaldır",
   "Busy-hour PRB per cell from the OSS export · stays in this browser": "OSS çıktısından hücre başına yoğun saat PRB · bu tarayıcıda kalır",
@@ -400,6 +406,11 @@ export const EXACT = {
 // (numbers and IDs stay). Longest phrases are applied first. Avoid very short or ambiguous phrases
 // (no single common words like "on", "to", "OK") unless they are distinctive.
 export const PHRASES = {
+  // ---- Loading a KPI file on the map (shown after a warning sign)
+  "No site on the map is named in this KPI file": "Bu KPI dosyasında haritadaki hiçbir sahanın adı geçmiyor",
+  "No PRB column in the KPI file: it needs PRB utilisation (%) per cell": "KPI dosyasında PRB sütunu yok: hücre başına PRB kullanımı (%) gerekli",
+  "No cell column in the KPI file: it needs a cell name, or sector and band columns": "KPI dosyasında hücre sütunu yok: hücre adı ya da sektör ve bant sütunları gerekli",
+  "The KPI file is empty": "KPI dosyası boş",
   // ---- Loading a site file
   "This file is not JSON. Choose a SiteTwin site file (.json).": "Bu dosya JSON değil. Bir SiteTwin saha dosyası (.json) seçin.",
   "This is not a SiteTwin site file: it has no site_id.": "Bu bir SiteTwin saha dosyası değil: site_id alanı yok.",
@@ -569,6 +580,13 @@ export const PATTERNS = [
   ["^✓ Network KPIs loaded: (\\d+) cell\\(s\\), busiest (\\S+ \\S+) at (\\d+)% PRB$", "", "✓ Şebeke KPI'ları yüklendi: $1 hücre, en yoğun $2: %$3 PRB"],
   ["^No row in the KPI file matches this site's sectors \\((.+)\\)$", "", "KPI dosyasında bu sahanın sektörleriyle ($1) eşleşen satır yok"],
   ["^The file does not name (\\S+): check it belongs to this site$", "", "Dosyada $1 adı geçmiyor: bu sahaya ait olduğunu kontrol edin"],
+  ["^Measured load for (\\d+) of (\\d+) sites · full cell: (.+)$", "", "$2 sahanın $1 tanesi için ölçülen yük · dolu hücre: $3"],
+  ["^Measured load for (\\d+) of (\\d+) sites$", "", "$2 sahanın $1 tanesi için ölçülen yük"],
+  ["^Loaded network KPIs \\((.+)\\) for (\\d+) sites$", "", "Şebeke KPI'ları yüklendi ($1): $2 saha"],
+  ["^Full cell: (\\S+ \\S+) at (\\d+)% PRB \\(measured\\)$", "", "Dolu hücre: $1, %$2 PRB (ölçülen)"],
+  ["^Busy cell: (\\S+ \\S+) at (\\d+)% PRB \\(measured\\)$", "", "Yoğun hücre: $1, %$2 PRB (ölçülen)"],
+  ["^Capacity: (\\S+ \\S+) at (\\d+)% PRB in the busy hour \\(measured\\)$", "", "Kapasite: $1 yoğun saatte %$2 PRB (ölçülen)"],
+  ["^Capacity: (\\S+ \\S+) at (\\d+)% PRB \\(measured\\), the plan adds capacity there$", "", "Kapasite: $1 %$2 PRB (ölçülen), plan orada kapasite ekliyor"],
   ["^✓ Applied to plan: (.+)$", "", "✓ Plana uygulandı: $1"],
   ["^Install (\\d+) new 5G antennas$", "", "$1 yeni 5G anten takılacak"],
   ["^Install (\\d+) new antennas$", "", "$1 yeni anten takılacak"],
