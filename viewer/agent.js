@@ -283,7 +283,9 @@ export function createAgent({ definitions, handlers, systemPrompt, ui, limits = 
 
   // `voice`: the request was spoken, so the answer is spoken back; typed requests get text only.
   // `silent`: the page already showed the request its own way (e.g. a photo).
-  async function runAsk(text, { voice = false, silent = false } = {}, requestId) {
+  // `review`: the request asks for an analysis, so nothing is applied: the engineer adds an option
+  // to the plan from the decision card or says so in a later request.
+  async function runAsk(text, { voice = false, silent = false, review = false } = {}, requestId) {
     mode = { voice };
     const used = {};
     ui.requestStart?.(requestId);
@@ -295,7 +297,7 @@ export function createAgent({ definitions, handlers, systemPrompt, ui, limits = 
       for (let step = 0; step < MAX_STEPS; step++) {
         // After a navigation tool (e.g. open_site) the page is about to change: one last answer, no more tools.
         const nudge = MAX_STEPS - step <= DECIDE_AT
-          ? [{ role: "system", content: "Step budget nearly used. Stop testing: apply the best option you have evaluated (or say none is acceptable), then answer." }]
+          ? [{ role: "system", content: `Step budget nearly used. Stop testing: ${review ? "recommend" : "apply"} the best option you have evaluated (or say none is acceptable), then answer.` }]
           : [];
         const { message, model } = await callModel([{ role: "system", content: systemPrompt(mode) }, ...history, ...nudge], !leaving);
         ui.model(model);
@@ -315,8 +317,10 @@ export function createAgent({ definitions, handlers, systemPrompt, ui, limits = 
             started = true;
             // A tool with a budget (e.g. comparing options) answers with a nudge once it is used up.
             used[call.function.name] = (used[call.function.name] ?? 0) + 1;
-            result = used[call.function.name] > (limits[call.function.name] ?? Infinity)
-              ? { error: "Comparison budget used. Apply the best option you have already evaluated, or say none is acceptable." }
+            result = review && call.function.name === "apply_change"
+              ? { error: "This request is a review: nothing is applied. Recommend the best option you compared; the engineer adds it to the plan from the decision card." }
+              : used[call.function.name] > (limits[call.function.name] ?? Infinity)
+              ? { error: `Comparison budget used. ${review ? "Recommend" : "Apply"} the best option you have already evaluated, or say none is acceptable.` }
               : (await tools[call.function.name]?.(args)) ?? { error: `unknown tool ${call.function.name}` };
           } catch (e) {
             if (!started) ui.toolStart?.(call.id, call.function.name, args);

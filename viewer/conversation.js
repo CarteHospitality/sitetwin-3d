@@ -246,7 +246,7 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
       entry.heading.textContent = `${failed ? "✕" : "✓"} ${LABELS[name] ?? name} · ${failed ? "Failed" : "Completed"} · ${((performance.now() - entry.started) / 1000).toFixed(1)}s`;
       const report = result?.result ?? result;
       let text = failed ? result.error ?? result.errors.join(", ")
-        : name === "apply_change" ? "Applied to plan"
+        : name === "apply_change" ? "Added to plan"
         : report?.summary ?? result?.opening ?? result?.focused ?? "Completed";
       if (result?.options) text = result.options.map((o) => `${o.label}: ${o.errors?.length ? "✕" : `${o.neighbour_conflicts.length} conflict findings`}`).join(" · ");
       if (report?.neighbour_conflicts) text += ` · ${report.neighbour_conflicts.length} conflict findings · ${report.roof_restrictions.length} roof restrictions`;

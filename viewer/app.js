@@ -775,7 +775,7 @@ const planner = {
     if (!undoStack.length) return { error: "nothing to undo" };
     site = undoStack.pop();
     refreshCoverageBands();
-    update({ animate: true, action: "Undo · Applied to plan" });
+    update({ animate: true, action: "Undone in the plan" });
     renderEditor();
     return { undone: true, result: summarize(site) };
   },
@@ -910,7 +910,7 @@ function renderPanels(zones, checks, changes) {
     ...(rest.length ? [el("li", {}, el("details", { className: "more" }, el("summary", { textContent: `All findings (${rest.length})` }), el("ul", {}, ...rest.map(row))))] : []));
   }
   $("activeRegime").textContent = REGIMES[regimeKey].name;
-  $("planDelta").textContent = changes.length ? `${changes.length} delta(s) · Applied to plan` : "Plan equals baseline";
+  $("planDelta").textContent = changes.length ? `${changes.length} delta(s) · Added to plan` : "Plan equals baseline";
   const nextDeltaSignature = JSON.stringify(changes);
   if (deltaSignature !== nextDeltaSignature) {
     deltaSignature = nextDeltaSignature;
@@ -920,7 +920,7 @@ function renderPanels(zones, checks, changes) {
     actionSignature = JSON.stringify(planActions);
     $("planActions").replaceChildren(...planActions.map((action) => el("li", {},
       el("time", { textContent: new Date(action.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) }),
-      el("strong", { textContent: action.label ?? "Applied to plan" }),
+      el("strong", { textContent: action.label ?? "Added to plan" }),
       el("div", { textContent: action.delta.join("; ") }), el("div", { className: "muted", textContent: action.result ?? "" }))));
   }
   $("undo").disabled = !undoStack.length;
@@ -1214,7 +1214,7 @@ function update(options = {}) {
   const delta = diffSites(lastModelState, site);
   const nextAssessment = { hit: checks.hit.size, roof: checks.findings.filter((f) => f.level === "warn").length };
   if (delta.length) {
-    planActions.push({ time: new Date().toISOString(), label: options.action ?? "Applied to plan", site: site.site_id, delta,
+    planActions.push({ time: new Date().toISOString(), label: options.action ?? "Added to plan", site: site.site_id, delta,
       result: `Unique hit buildings: ${previousAssessment?.hit ?? nextAssessment.hit} → ${nextAssessment.hit} · roof restrictions: ${previousAssessment?.roof ?? nextAssessment.roof} → ${nextAssessment.roof}` });
     if (planActions.length > 30) planActions.shift();
     lastModelState = clone(site);
@@ -1433,7 +1433,7 @@ const chat = initConversation({
   onApplyOption: ({ label, changes }) => {
     const r = planner.apply(changes, label);
     if (r.errors) return chat.say("tool", `✕ ${r.errors.join(", ")}`);
-    chat.say("tool", `✓ Applied to plan: ${label}`);
+    chat.say("tool", `✓ Added to plan (simulation): ${label}`);
     agent.note(`I applied option "${label}" from your choices myself (apply_change done). Do not apply it again.`);
     lastShowcase.then(() => chat.say("assistant", watchedSummary() ?? tr("The plan is ready: the field work is on the right, and you can send the action plan to the team from there.")));
   },
@@ -1558,7 +1558,7 @@ if (!handoff && !$("chatLog").children.length) {
   // One first step: the general "Analyse this site" question waits until this one is used.
   const general = document.querySelector(".composer .chips .suggest");
   general.hidden = true;
-  ask.onclick = () => { ask.remove(); general.hidden = false; agent.ask(clean ? tr("Analyse this site") : `${tr("Analyse this problem")}: ${tr(problem)}`); };
+  ask.onclick = () => { ask.remove(); general.hidden = false; agent.ask(clean ? tr("Analyse this site") : `${tr("Analyse this problem")}: ${tr(problem)}`, { review: true }); };
   document.querySelector(".composer .chips").prepend(ask);
 }
 const stop = progress(site.site_id);

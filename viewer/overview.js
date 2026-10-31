@@ -29,7 +29,7 @@ export function siteProblem({ findings, hit }, population, { cell = null, reliev
   if (busySector) return `About ${Math.round(busiest[1] / 100) * 100} people rely on sector ${sectorOf(busiest[0])} alone: its capacity may soon not be enough.`;
   if (findings.some((f) => f.level === "warn")) return "Part of the roof is inside an EMF zone: access must be restricted before anyone works there.";
   if (proposed) return "A change is planned in SiteTwin 3D; the site itself is unchanged.";
-  return "No problem found in the model: no building in an EMF zone, no busy sector.";
+  return "No problem found in the model: no building in an EMF zone (school gardens not checked), no busy sector.";
 }
 
 // One line per topic, good or bad: [{ level: "ok" | "warn" | "bad", text }].
@@ -43,9 +43,12 @@ export function statusLines(site, checks, population, { coverageLoss = [], kpi =
   const others = new Set(bad.filter((f) => !f.sensitive).map((f) => f.building));
   if (bad.some((f) => f.health)) lines.push({ level: "bad", text: "A hospital is above the 3 V/m health-facility level (screening, not a measurement)" });
   for (const use of sensitiveUses) lines.push({ level: "bad", text: `A ${use} is inside an EMF zone` });
-  if (!sensitiveUses.length && !bad.some((f) => f.health)) lines.push({ level: "ok", text: "No school or hospital building found in an EMF zone (school gardens not checked)" });
-  if (others.size) lines.push({ level: "bad", text: `EMF zone reaches ${others.size} other building(s)` });
-  else if (!sensitiveUses.length && !bad.some((f) => f.health)) lines.push({ level: "ok", text: "No building found in an EMF zone" });
+  // One all-clear line: about schools and hospitals when other buildings are hit, else about all.
+  const sensitiveHit = sensitiveUses.length || bad.some((f) => f.health);
+  if (others.size) {
+    if (!sensitiveHit) lines.push({ level: "ok", text: "No school or hospital building found in an EMF zone (school gardens not checked)" });
+    lines.push({ level: "bad", text: `EMF zone reaches ${others.size} other building(s)` });
+  } else if (!sensitiveHit) lines.push({ level: "ok", text: "No building found in an EMF zone (school gardens not checked)" });
   if (site.structure === "rooftop") {
     const roof = checks.findings.filter((f) => f.level === "warn").length;
     lines.push(roof ? { level: "warn", text: "Part of the roof must be closed off" } : { level: "ok", text: "No roof area inside a zone at head height" });

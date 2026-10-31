@@ -197,7 +197,11 @@ export function openActionPlan(plan, { data, extra = [] } = {}) {
   const status = el("span", { className: "muted", role: "status" });
   const action = (label, onclick, primary = false) => Object.assign(el("button", { className: primary ? "primary" : "", textContent: tr(label) }), { onclick });
   const actions = [
-    action("Print / PDF", () => { const w = open("", "_blank"); if (!w) return; w.document.write(printable(plan)); w.document.close(); w.focus(); w.print(); }, true),
+    action("Print / PDF", () => {
+      const w = open("", "_blank");
+      if (!w) { status.textContent = tr("The print window was blocked: allow pop-ups for this page, or use Copy"); return; }
+      w.document.write(printable(plan)); w.document.close(); w.focus(); w.print();
+    }, true),
     action("Copy", async () => { await navigator.clipboard.writeText(text); status.textContent = tr("Copied"); }),
     action("E-mail draft", async () => { status.textContent = await sendByEmail(plan); }),
   ];

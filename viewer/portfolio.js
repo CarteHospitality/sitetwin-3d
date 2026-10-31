@@ -304,7 +304,7 @@ function recordProposal(s, saved) {
   const latest = saved.actions.at(-1);
   if (!latest || seenProposals[s.entry.site_id] === latest.time) return;
   seenProposals[s.entry.site_id] = latest.time;
-  logAction(`${s.entry.site_id} · Applied to plan · ${latest.delta.join("; ")} · ${latest.result ?? "Reassessed"}`);
+  logAction(`${s.entry.site_id} · Added to plan · ${latest.delta.join("; ")} · ${latest.result ?? "Reassessed"}`);
 }
 
 // Assesses a site as the engineer last left it: the session plan, its EMF regime and any measured load.
