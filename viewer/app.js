@@ -17,6 +17,7 @@ import { initConversation } from "./conversation.js";
 import { createSceneMotion } from "./scene.js";
 import { restoreProposed, saveProposed, sourceFingerprint, consumeHandoff, handoffId, absoluteUrl, withUploads } from "./session.js";
 import { twinKpi } from "./kpi.js";
+import { groundMap } from "./groundmap.js";
 import { fieldWorkOrder } from "./fieldwork.js";
 import { $, el, token, initShell, setText } from "./ui.js";
 import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
@@ -112,7 +113,8 @@ renderer.shadowMap.autoUpdate = false;
 host.prepend(renderer.domElement);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(token("stage"));
-scene.fog = new THREE.Fog(token("stage"), 160, 420);
+// Far enough to keep the neighbourhood sharp; only the horizon fades.
+scene.fog = new THREE.Fog(token("stage"), 450, 1400);
 const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 3000);
 camera.position.set(55, 70, 75);
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -144,8 +146,10 @@ const ground = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), softenShadow(ne
 ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
+const grids = [];
 for (const [divisions, opacity] of [[60, 0.06], [12, 0.12]]) {
   const grid = new THREE.GridHelper(300, divisions / 2, token("scene-edge"), token("scene-edge"));
+  grids.push(grid);
   grid.position.y = 0.02;
   grid.material.transparent = true;
   grid.material.opacity = opacity;
@@ -889,6 +893,26 @@ syncLayerChips();
 $("backToMap").href = backTo;
 // The logo opens the map's home view (all sites, nothing selected); "Portfolio" goes back to where the map was.
 document.querySelector(".app-brand").href = `portfolio.html?${new URLSearchParams({ portfolio: portfolioUrl, home: "1" })}`;
+
+// Streets under the twin. The position comes from the portfolio (the twin carries none);
+// without it, or offline, the plain ground and its grid stay.
+portfolioIndex().then(async (index) => {
+  const entry = index.sites.find((s) => s.site_id === site.site_id);
+  if (!Number.isFinite(entry?.lat) || !Number.isFinite(entry?.lon)) return;
+  const streets = await groundMap({ lat: entry.lat, lon: entry.lon, wash: token("scene-ground") });
+  if (!streets) return;
+  const texture = new THREE.CanvasTexture(streets.canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  ground.geometry.dispose();
+  ground.geometry = new THREE.PlaneGeometry(streets.width, streets.depth);
+  ground.position.set(streets.x, 0, streets.z);
+  Object.assign(ground.material, { map: texture, needsUpdate: true });
+  ground.material.color.set(0xffffff);
+  for (const grid of grids) grid.visible = false;
+  $("mapAttribution").hidden = false;
+  sceneMotion.changedGeometry();
+}).catch(() => {});
 refreshCoverageBands();
 update();
 $("loading").hidden = true;
