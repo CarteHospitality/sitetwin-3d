@@ -5,6 +5,8 @@ import { standardEase, travelEase, shortestAngle } from "./motion.js";
 
 // A change applied for the engineer to watch takes this long to move into place.
 const SLOW_MS = 2800;
+// The scan while the operator works: how far either side it sweeps, its size, one round trip.
+const SCAN_REACH_M = 140, SCAN_SPAN_M = 320, SCAN_HEIGHT_M = 45, SCAN_PERIOD_MS = 4200;
 
 export function createSceneMotion({ THREE: T, scene, renderer, camera, controls, host, building, antennaGroup, zoneGroup, baselineGroup, neighbourMeshes, onEditFrame = () => {} }) {
   const antennas = new Map(), zones = new Map(), baseline = new Map(), tweens = new Map();
@@ -13,6 +15,8 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
   let looping = false, editPending = false, disposed = false, dirtyShadow = true;
   // Halos around antennas that just changed: { mesh, started, ms }.
   const halos = new Set();
+  // The scan sweeping over the site while the operator examines it: { group, started, stopping }.
+  let scanner = null;
   let framing = false, profile = null, refreshAfterProfile = false, reducedEffects = false;
   const neighbourOutlines = new Map();
   const panelMaterial = new T.MeshStandardMaterial({ color: token("scene-antenna"), roughness: .8 });
@@ -316,6 +320,14 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
       halo.mesh.scale.setScalar(1 + pulse * 0.5);
       halo.mesh.material.opacity = 0.55 * (1 - t) * (0.5 + pulse / 2);
     }
+    if (scanner) {
+      // Back and forth across the site; fades in, and out once stopped.
+      const phase = (now - scanner.started) / SCAN_PERIOD_MS;
+      scanner.group.position.x = SCAN_REACH_M * Math.sin(phase * Math.PI * 2);
+      const fade = scanner.stopping ? 1 - (now - scanner.stopping) / 500 : Math.min(1, (now - scanner.started) / 400);
+      if (fade <= 0) { scanner.texture.dispose(); dispose(scanner.group); scanner = null; }
+      else { scanner.wall.material.opacity = 0.32 * fade; scanner.line.material.opacity = 0.85 * fade; }
+    }
     framing = true; controls.update(); framing = false;
     // Opaque depth testing remains authoritative. Transparent ordering is approximate.
     const ordered = [...zones.values()].flatMap((zone) => [zone.group.userData.front, zone.group.userData.back])
@@ -330,7 +342,7 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
       profile.triangles = Math.max(profile.triangles, renderer.info.render.triangles);
       if (now - profile.started >= 20000) finishProfile();
     }
-    if (!tweens.size && !halos.size && !cameraTween && !clearing && !editPending && !profile && !refreshAfterProfile) { renderer.setAnimationLoop(null); looping = false; }
+    if (!tweens.size && !halos.size && !scanner && !cameraTween && !clearing && !editPending && !profile && !refreshAfterProfile) { renderer.setAnimationLoop(null); looping = false; }
   }
   function invalidate() { if (!looping && !document.hidden && !disposed) { looping = true; renderer.setAnimationLoop(frame); } }
   function focus(id = null, buildingId = null, snap = false) {
@@ -420,7 +432,31 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
     }
     invalidate();
   }
-  return { sync, focus, invalidate, startProfile, highlight, queueEdit: () => { editPending = true; invalidate(); },
+  // A wall of light, brightest at the ground, sweeping over the site: "the site is being examined".
+  function scan(on) {
+    if (!on || reducedMotion.matches) { if (scanner && !scanner.stopping) scanner.stopping = performance.now(); return; }
+    if (scanner) { scanner.stopping = null; return; }
+    const color = new T.Color(token("accent"));
+    const canvas = document.createElement("canvas");
+    canvas.width = 2; canvas.height = 64;
+    const paint = canvas.getContext("2d"), gradient = paint.createLinearGradient(0, 64, 0, 0);
+    gradient.addColorStop(0, "rgba(255,255,255,1)"); gradient.addColorStop(1, "rgba(255,255,255,0)");
+    paint.fillStyle = gradient; paint.fillRect(0, 0, 2, 64);
+    const texture = new T.CanvasTexture(canvas);
+    const glow = { color, transparent: true, opacity: 0, depthWrite: false, toneMapped: false, blending: T.AdditiveBlending };
+    const wall = new T.Mesh(new T.PlaneGeometry(SCAN_SPAN_M, SCAN_HEIGHT_M), new T.MeshBasicMaterial({ ...glow, map: texture, side: T.DoubleSide }));
+    wall.rotation.y = Math.PI / 2;
+    wall.position.y = SCAN_HEIGHT_M / 2;
+    const line = new T.Mesh(new T.PlaneGeometry(1.2, SCAN_SPAN_M), new T.MeshBasicMaterial(glow));
+    line.rotation.x = -Math.PI / 2;
+    line.position.y = 0.4;
+    const group = new T.Group();
+    group.add(wall, line);
+    scene.add(group);
+    scanner = { group, wall, line, texture, started: performance.now(), stopping: null };
+    invalidate();
+  }
+  return { sync, focus, invalidate, startProfile, highlight, scan, queueEdit: () => { editPending = true; invalidate(); },
     changedGeometry: () => { dirtyShadow = true; invalidate(); },
     get selectedBuilding() { return located; },
     get animating() { return Boolean(tweens.size || cameraTween); },

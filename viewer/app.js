@@ -381,6 +381,41 @@ function summarize(s) {
 // panel's sliders follow, the ground it newly covers flashes, and the numbers count to their new
 // values. A band the change adds becomes the band shown: that is where the difference is.
 const FLASH_MS = 2600;
+// What the page itself can tell at once while the operator thinks about a question on the site: one
+// plain line per fact, from the site as it stands. Instructions ("turn S2 to 150°") get none.
+const ANALYSIS = /analy|analiz|incele|durum|state|capacity|kapasite|risk|okul|school|hastane|hospital/i;
+function scanLines(asked) {
+  if (!ANALYSIS.test(asked ?? "")) return [];
+  const locale = document.documentElement.lang === "tr" ? "tr" : "en";
+  const round = (n) => (Math.round(n / 100) * 100).toLocaleString(locale);
+  const sectors = new Map();
+  for (const a of baseline.antennas) if (!sectors.has(a.id.split("-")[0])) sectors.set(a.id.split("-")[0], Math.round(a.azimuth_deg));
+  const bands = [...baseline.antennas.flatMap((a) => a.bands)].sort((x, y) => x.frequency_mhz - y.frequency_mhz);
+  const population = populationContext(baseline);
+  const zones = siteZones(baseline, REGIMES[regimeKey]);
+  const lines = [
+    { step: tr("Scanning the site data") },
+    { text: `${tr("Structure")}: ${tr((baseline.structure ?? "rooftop").replaceAll("_", " "))}, ${tr(`${sectors.size} sectors`)}` },
+    { text: `${tr("Antennas")}: ${[...sectors].map(([s, az]) => `${s} ${az}°`).join(", ")} · ${[...new Set(bands.map((b) => b.name))].join(", ")}` },
+    { text: tr(`About ${round(population.total_people_nearby)} people live and work nearby (estimated)`) },
+    { step: tr("Reviewing the technical data") },
+    ...statusLines(baseline, checkSite(baseline, zones), population, { kpi }).map((l) => ({ text: tr(l.text), level: l.level })),
+  ];
+  if (bands.length) {
+    const served = statsFor(coverageGrid(baseline, bands[0].name, COVERAGE_SIZE_M, COVERAGE_CELLS), baseline.antennas.map((a) => a.id), null);
+    lines.push({ text: tr(`Coverage (${bands[0].name}): about ${round(served.people)} people in the covered area`) });
+  }
+  const outlook = capacityOutlook();
+  if (outlook?.load_pct_in_one_year) {
+    const load = outlook.load_pct_in_one_year;
+    lines.push({ text: tr(`Next year: ${outlook.busiest_cell} at about ${load}% PRB`), level: load >= 85 ? "bad" : load >= 70 ? "warn" : "ok" });
+  } else if (outlook) {
+    lines.push({ text: tr(outlook.months_until_busy ? `The busiest sector gets crowded in about ${outlook.months_until_busy} months` : "The busiest sector is already crowded"), level: "warn" });
+  }
+  lines.push({ step: tr("Weighing what to do") });
+  return lines;
+}
+
 // "New" on the 3D view: the halo around a changed antenna and the ground it newly covers.
 const NEW_COLOR = "#12B76A";
 let showcaseFrom = null;
@@ -481,6 +516,7 @@ function editorAt(state) {
 const STEP_MS = 2600, PAUSE_MS = 1400;
 async function playPlan(before, focus, ids) {
   const target = site;
+  sceneMotion.scan(false); // the examining is over: now the change itself is watched
   const finish = () => { selectedId = focus ?? selectedId; update({ animate: true, slow: true }); sceneMotion.highlight(ids, NEW_COLOR); renderEditor(); };
   const steps = [];
   for (const step of diffSteps(before, target)) {
@@ -1260,7 +1296,8 @@ function renderAntennaPicker() {
 
 // ---------- assistant chat ----------
 const chat = initConversation({
-  onBusy: (on) => voice.setRunning(on),
+  onBusy: (on) => { voice.setRunning(on); sceneMotion.scan(on); },
+  scanLines,
   onComplete: () => { if (pendingOpen && pageActive) location.href = pendingOpen; },
   speak: (text) => voice.speak(text),
   // One conversation per site: switching sites must not show another site's chat.

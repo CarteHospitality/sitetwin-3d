@@ -13,7 +13,16 @@ const LABELS = {
 // `onApplyOption`: when given, options the agent compared but did not apply can be applied
 // from the chat: its choices ("▸ " lines) become buttons, and a folded technical table lists them.
 // `onChoice`: a choice that matches no compared option is sent back to the agent as a request.
-export function initConversation({ onBusy = () => {}, onComplete = () => {}, speak = () => {}, transcriptKey = "default", onApplyOption = null, onChoice = null } = {}) {
+// `scanLines(asked)`: facts the page knows at once about the site, shown one per line while the
+// operator works on a question about it ([{ step } | { text, level }]); none for instructions.
+// What each tool is doing, in the live account.
+const STEP_TEXT = {
+  get_site_state: "Reading the site state", get_population_context: "Counting the people nearby",
+  evaluate_change: "Comparing options", apply_change: "Applying the change to the plan",
+  get_field_work_order: "Preparing the field work", set_view: "Adjusting the view",
+};
+const SCAN_MS = 650, REVEAL_MS = 380;
+export function initConversation({ onBusy = () => {}, onComplete = () => {}, speak = () => {}, transcriptKey = "default", onApplyOption = null, onChoice = null, scanLines = null } = {}) {
   const log = $("chatLog");
   const stored = readSession(`transcript:${transcriptKey}`, []);
   const transcript = Array.isArray(stored) ? stored.filter((item) => item && ["user", "assistant"].includes(item.role) && typeof item.text === "string").slice(-12) : [];
@@ -35,7 +44,46 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
     if (follow) log.scrollTop = log.scrollHeight; else notice.hidden = false;
   }
   function announce(text) { $("liveStatus").textContent = text; }
+  // The live account: lines come out one at a time; a step shows ◌ while it runs and ✓ when the next
+  // line arrives. The answer and the choices wait until every queued line is out.
+  let scanList = null, scanQueue = [], scanTimer = null, scanWaiting = [], scanSteps = new Set(), lastAsked = "", revealEnd = 0;
+  function finishStep(li) {
+    li.className = "done";
+    li.textContent = li.doneText?.() ?? li.dataset.step;
+  }
+  function scanPush(line) {
+    if (!scanList) return;
+    scanQueue.push(line);
+    if (!scanTimer) scanNext();
+  }
+  function scanNext() {
+    const line = scanQueue.shift();
+    if (!line) {
+      scanTimer = null;
+      const waiting = scanWaiting;
+      scanWaiting = [];
+      for (const fn of waiting) fn();
+      return;
+    }
+    change(() => {
+      const running = scanList.querySelector("li.running");
+      if (running) finishStep(running);
+      const li = el("li", { className: line.step ? "running" : line.level ?? "ok", textContent: line.step ? `${line.step}…` : line.text });
+      li.dataset.noI18n = "";
+      if (line.step) { li.dataset.step = line.step; li.doneText = line.done; }
+      scanList.append(li);
+    });
+    scanTimer = setTimeout(scanNext, SCAN_MS);
+  }
+  function afterScan(fn) {
+    if (scanTimer || scanQueue.length) scanWaiting.push(fn); else fn();
+  }
   function say(role, text) {
+    if (role === "user") lastAsked = text;
+    if (role === "assistant" && !restoring) return afterScan(() => show(role, text));
+    show(role, text);
+  }
+  function show(role, text) {
     change(() => {
       if (role !== "assistant") return log.append(el("div", { className: `msg ${role}`, textContent: text }));
       // The agent's choices ("▸ " lines) are shown as buttons after the run, not as text.
@@ -47,7 +95,17 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
       if (lines.filter((line) => line.trim()).length > 10) {
         message.append(el("div", { innerHTML: replyHtml(lines.slice(0, 3).join("\n")) }),
           el("details", {}, el("summary", { textContent: "Answer details" }), el("div", { innerHTML: replyHtml(lines.slice(3).join("\n")) })));
-      } else message.innerHTML = replyHtml(lines.join("\n"));
+      } else if (restoring) message.innerHTML = replyHtml(lines.join("\n"));
+      else {
+        // A fresh answer arrives paragraph by paragraph, softly.
+        const paragraphs = lines.join("\n").split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+        paragraphs.forEach((p, i) => {
+          const para = el("div", { className: "para reveal", innerHTML: replyHtml(p) });
+          para.style.animationDelay = `${i * REVEAL_MS}ms`;
+          message.append(para);
+        });
+        revealEnd = paragraphs.length * REVEAL_MS;
+      }
       log.append(message);
     });
     if (role === "assistant") announce(text.split("\n")[0]);
@@ -82,20 +140,44 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
       compared = []; appliedInRun = false; choices = [];
       for (const b of liveButtons) b.disabled = true;
       liveButtons = [];
-      runStart = performance.now(); trials = null;
-      groupTitle = el("summary", { textContent: "Working…" });
+      runStart = performance.now(); trials = null; revealEnd = 0;
       rail = el("div", { className: "activity-rail" });
-      group = el("details", { className: "run-activity" }, groupTitle, rail);
+      const lines = scanLines?.(lastAsked) ?? [];
+      scanQueue = []; scanSteps = new Set();
+      if (lines.length) {
+        // A question about the site: the clean account on top, the technical steps folded under it.
+        scanList = el("ol", { className: "scan-lines" });
+        groupTitle = el("summary", { textContent: "Analysing the site…" });
+        group = el("details", { className: "run-activity scanning", open: true }, groupTitle, scanList,
+          el("details", { className: "tech-steps" }, el("summary", { textContent: "Technical steps" }), rail));
+      } else {
+        scanList = null;
+        groupTitle = el("summary", { textContent: "Working…" });
+        group = el("details", { className: "run-activity" }, groupTitle, rail);
+      }
       change(() => log.append(group));
+      for (const line of lines) scanPush(line);
       announce("Operator running");
     } else {
       waiting(false);
       const failed = [...rows.values()].some((r) => r.failed);
-      // A plain answer with no tool steps needs no activity row.
-      if (!rows.size && !runFailed) group?.remove();
-      else if (groupTitle) groupTitle.textContent =`${runFailed ? "✕ Failed" : failed ? "✓ Done, some steps failed" : "✓ Done"} · ${rows.size} steps · ${Math.round((performance.now() - runStart) / 1000)}s`;
-      if (!runFailed && choices.length && (onApplyOption || onChoice)) change(() => log.append(choiceButtons(choices, compared)));
-      if (onApplyOption && !runFailed && !appliedInRun && compared.length) change(() => log.append(optionsTable(compared)));
+      const seconds = Math.round((performance.now() - runStart) / 1000);
+      const scanned = scanList, run = group, title = groupTitle;
+      afterScan(() => {
+        // A plain answer with no tool steps and no account needs no activity row.
+        if (scanned) {
+          const running = scanned.querySelector("li.running");
+          if (running) finishStep(running);
+          title.textContent = runFailed ? "✕ Failed" : `✓ Analysis done · ${seconds}s`;
+          run.open = false;
+        } else if (!rows.size && !runFailed) run?.remove();
+        else if (title) title.textContent = `${runFailed ? "✕ Failed" : failed ? "✓ Done, some steps failed" : "✓ Done"} · ${rows.size} steps · ${seconds}s`;
+        // The choices come after the answer's last paragraph.
+        const later = (node) => { node.classList.add("reveal"); node.style.animationDelay = `${revealEnd}ms`; return node; };
+        if (!runFailed && choices.length && (onApplyOption || onChoice)) change(() => log.append(later(choiceButtons(choices, compared))));
+        if (onApplyOption && !runFailed && !appliedInRun && compared.length) change(() => log.append(later(optionsTable(compared))));
+      });
+      scanList = null;
     }
     onBusy(on, mode);
     if (!on) onComplete(mode);
@@ -107,6 +189,11 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
     const row = el("details", { className: "activity-step running" }, heading,
       el("pre", { textContent: JSON.stringify(args, null, 2) }));
     rows.set(id, { row, heading, name, started: performance.now() });
+    if (scanList && STEP_TEXT[name] && !scanSteps.has(name)) {
+      scanSteps.add(name);
+      // Comparing options ends as how many were compared.
+      scanPush({ step: tr(STEP_TEXT[name]), done: name === "evaluate_change" ? () => tr(`${completedTrials} options compared`) : null });
+    }
     if (groupTitle) groupTitle.textContent = `${LABELS[name] ?? name}${name === "evaluate_change" ? ` ${trialCount}` : ""}…`;
     change(() => {
       if (name === "evaluate_change") {
