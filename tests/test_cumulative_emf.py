@@ -29,20 +29,26 @@ const site = (antennas, x) => ({ building: { width_m: 20, depth_m: 16, height_m:
 
 
 def test_two_antennas_below_the_limit_alone_exceed_it_together():
+    # Under ICNIRP one limit holds for the total: two antennas at 0.64 each are over it together.
+    # Under the Turkish rule each device has 20% of the ICNIRP field but all together 70%
+    # (BTK Güvenlik Sertifikası Yönetmeliği, Madde 16(2)): the same pair stays well inside it.
     result = run(HEAD + """
-const front = emf.safetyZone(antenna("S1-1", 0)).front_m;
-// The building's near face at 1.25 x the single zone: each antenna gives (1/1.25)^2 = 0.64 there.
-const x = 1.25 * front + 2;
 const out = {};
-for (const [name, antennas] of [["one", [antenna("S1-1", 0)]], ["two", [antenna("S1-1", 0), antenna("S1-2", 0.4)]]]) {
-  const s = site(antennas, x);
-  out[name] = checkSite(s, emf.siteZones(s)).findings.filter((f) => f.level === "bad").map((f) => ({ combined: Boolean(f.combined), text: f.text }));
+for (const key of ["icnirp", "tr"]) {
+  const regime = emf.REGIMES[key];
+  const front = emf.safetyZone(antenna("S1-1", 0), regime).front_m;
+  // The building's near face at 1.25 x the single zone: each antenna gives (1/1.25)^2 = 0.64 there.
+  const x = 1.25 * front + 2;
+  for (const [name, antennas] of [["one", [antenna("S1-1", 0)]], ["two", [antenna("S1-1", 0), antenna("S1-2", 0.4)]]]) {
+    const s = site(antennas, x);
+    out[`${key}-${name}`] = checkSite(s, emf.siteZones(s, regime)).findings.filter((f) => f.level === "bad").map((f) => ({ combined: Boolean(f.combined), text: f.text }));
+  }
 }
 console.log(JSON.stringify(out));
 """)
-    assert result["one"] == []
-    assert len(result["two"]) == 1 and result["two"][0]["combined"]
-    assert result["two"][0]["text"].startswith("S1-1 + S1-2 together reach B1") or result["two"][0]["text"].startswith("S1-2 + S1-1 together reach B1")
+    assert result["icnirp-one"] == [] and result["tr-one"] == [] and result["tr-two"] == []
+    assert len(result["icnirp-two"]) == 1 and result["icnirp-two"][0]["combined"]
+    assert " together reach B1 " in result["icnirp-two"][0]["text"]
 
 
 def test_exposure_ratio_agrees_with_the_drawn_zone():

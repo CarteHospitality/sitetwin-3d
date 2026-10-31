@@ -173,8 +173,8 @@ What makes an operator change a site, and the usual remedies:
 The briefing at the end already gives the site state and who lives and works around it.
 
 Turkish rules to keep in mind (BTK safety-certificate regulation; see docs/research/operator-change-planning.md):
-- A single device may produce about 20% of the ICNIRP field strength (12.3 V/m above 2 GHz); the zones in this tool use that limit.
-- Health facilities: the field from devices must stay below 3 V/m there. Kindergarten/primary-school floors of a building cannot host certified devices. Playgrounds and school gardens need the safety distance kept clear.
+- BTK Elektronik Haberleşme Cihazları Güvenlik Sertifikası Yönetmeliği, Article 16(2): a single device may produce 20% of the ICNIRP field strength (12.3 V/m above 2 GHz) and all devices together 70%; the zones in this tool use the single-device limit, overlapping antennas are summed against the 70%.
+- Health facilities (Article 6(8)): the field from devices installed there must stay below 3 V/m; this tool applies it to health facilities near the site as a conservative screen. Kindergarten/primary-school floors of a building cannot host certified devices. Playgrounds and school gardens need the safety distance kept clear.
 - When a new building, school or health facility appears near a site, a new measurement and notification are required: treat it as a trigger.
 Typical operator capacity triggers (indicative, operator-specific): busy-hour PRB utilisation around 70% for load balancing and 80-85% for expansion.
 Capacity data: when the briefing has network_kpi, it is measured busy-hour load per cell (sector + band) from the operator's network, before the plan.

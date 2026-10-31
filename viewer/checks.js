@@ -42,13 +42,14 @@ function closestInside(a, z, n) {
 // Health facilities have their own, stricter limit (3 V/m, see emf.js).
 const HEALTH_USES = new Set(["hospital"]);
 
-// Several antennas can each stay below the limit at a building and still exceed it together: the
-// exposure ratios add up. The worst point of the building where their sum reaches 1, or null.
-// Only antennas that could matter are summed: within reach x sqrt(N) and at the building's height.
+// Several antennas can each stay below their own limit at a building and still exceed the limit for
+// all of them together: their exposure ratios add up, each scaled to that combined limit (in Turkey 70%
+// of the ICNIRP field for the total against 20% for one device; one limit under ICNIRP and at 3 V/m).
+// The worst point of the building where the sum reaches 1, or null. Only antennas that could matter
+// are summed: within reach x sqrt(N x scale) and at the building's height.
 function combinedAt(pairs, n) {
-  const reachFactor = Math.sqrt(pairs.length);
   const near = pairs.filter(({ a, z }) => n.height_m >= a.height_agl_m - z.half_height_m
-    && Math.hypot(n.x_m - a.x_m, n.z_m - a.z_m) - Math.hypot(n.width_m, n.depth_m) / 2 <= z.front_m * reachFactor);
+    && Math.hypot(n.x_m - a.x_m, n.z_m - a.z_m) - Math.hypot(n.width_m, n.depth_m) / 2 <= z.front_m * Math.sqrt(pairs.length * (z.combined_scale ?? 1)));
   if (near.length < 2) return null;
   const yLow = Math.max(0, Math.floor(Math.min(...near.map(({ a, z }) => a.height_agl_m - z.half_height_m))));
   let worst = 0, at = null;
@@ -57,12 +58,12 @@ function combinedAt(pairs, n) {
       if (n.footprint && !pointInPolygon(x, zz, n.footprint)) continue;
       for (let y = yLow; y <= n.height_m; y += 1) {
         let sum = 0;
-        for (const { a, z } of near) sum += exposureRatio(a, z, x, y, zz);
+        for (const { a, z } of near) sum += exposureRatio(a, z, x, y, zz) * (z.combined_scale ?? 1);
         if (sum > worst) { worst = sum; at = { x, y, z: zz }; }
       }
     }
   if (worst < 1) return null;
-  const shares = near.map(({ a, z }) => ({ id: a.id, share: exposureRatio(a, z, at.x, at.y, at.z) })).filter((s) => s.share > 0.02).sort((p, q) => q.share - p.share);
+  const shares = near.map(({ a, z }) => ({ id: a.id, share: exposureRatio(a, z, at.x, at.y, at.z) * (z.combined_scale ?? 1) })).filter((s) => s.share > 0.02).sort((p, q) => q.share - p.share);
   return { worst, ids: shares.map((s) => s.id) };
 }
 

@@ -1527,10 +1527,11 @@ $("sourcesButton").onclick = () => {
         : "SiteTwin site file (jevbtk-digital-site@1), produced from the site's BTK reports.", ...(baseline.notes ?? [])]),
       section("Load", kpi ? [loadTag(kpi) === "measured" ? "Busy hour per cell, measured by the operator." : "Busy hour per cell, sample data invented for the demo: not a measurement.",
         `${tr("Source")}: ${kpi.source ?? "–"}${kpi.period ? `, ${kpi.period}` : ""}`] : ["No load data in the site file: capacity is estimated from the people around the site."]),
-      section("Calculations", ["EMF: far-field screening with the Turkish single-device limit (20% of the ICNIRP field strength); health facilities against 3 V/m; overlapping antennas summed. Not a measurement.",
+      section("Calculations", ["EMF: far-field screening with the Turkish single-device limit (20% of the ICNIRP field strength); health facilities against 3 V/m; overlapping antennas summed against the 70% limit for all devices together. Not a measurement.",
         "Coverage: Hata model over 1.2 km, indicative: no terrain, clutter or building shadow; extrapolated above 2 GHz.",
         "People: estimated from building footprints and heights, floor area per person by use.",
         "Next year: about 20% traffic growth a year, an indicative figure."]),
+      section("Regulation", ["BTK, Elektronik Haberleşme Cihazları Güvenlik Sertifikası Yönetmeliği (RG 21.04.2011/27912; renamed and Article 6 extended by RG 17.04.2018/30394).", "Article 16(2): each device at most 20% of the ICNIRP field strength (b); all devices together at most 70% (a).", "Article 6(8): devices installed at health facilities must keep the field there below 3 V/m; applied here to health facilities near the site as a conservative screen.", "Article 6(2), (4), (5): for pre-school and primary schools the safety distance counts from the garden boundary and from children's playgrounds, and no device may stand on the floors such a school occupies. This tool checks school buildings only: garden and playground boundaries are not in its data.", "Only buildings within 150 m are checked; the 3 V/m distance of a powerful site can reach further."]),
       section("Map and imagery", ["Buildings: Microsoft Global ML Building Footprints; uses: OpenStreetMap.",
         "Ground imagery: Esri, Maxar, Earthstar Geographics; streets: OpenStreetMap contributors."])));
   dialog.setAttribute("data-no-i18n", "");

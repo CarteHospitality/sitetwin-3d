@@ -2,11 +2,16 @@
 // Same model: far-field point source, exposure ratios summed over bands.
 // tests/test_emf_parity.py checks both give the same numbers.
 
+// BTK, Elektronik Haberleşme Cihazları Güvenlik Sertifikası Yönetmeliği, Madde 16(2): each device
+// may reach 20% of the ICNIRP field strength (b), all of them together 70% (a, the environment limit).
+// ICNIRP itself is one limit for the total.
 export const REGIMES = {
-  tr: { name: "TR single device (20% field)", fieldFraction: 0.2 },
+  tr: { name: "TR single device (20% field)", fieldFraction: 0.2, environmentFraction: 0.7 },
   icnirp: { name: "ICNIRP general public", fieldFraction: 1.0 },
 };
-// At health facilities the field from devices must stay below 3 V/m, whatever the band (plane
+// Same regulation, Madde 6(8): devices installed at health facilities must keep the field there below
+// 3 V/m so medical devices are not affected. Applied here to health facilities near the site too, as
+// a conservative screen. Whatever the band (plane
 // wave: S = E² / 377 Ω). The field falls with distance, so this reaches two to four times as far
 // as the single-device zone, depending on the band: a hospital outside the drawn zone can still be above it.
 export const HEALTH = { name: "Health facility (3 V/m)", fieldVm: 3 };
@@ -38,6 +43,8 @@ export function safetyZone(antenna, regime = REGIMES.tr) {
   return {
     antenna_id: antenna.id,
     regime: regime.name,
+    // What one unit of this zone's exposure ratio is worth against the limit for all antennas together.
+    combined_scale: regime.environmentFraction ? (regime.fieldFraction / regime.environmentFraction) ** 2 : 1,
     front_m: round2(frontM),
     back_m: round2(distance(back)),
     horizontal_beamwidth_deg: hbw,
