@@ -69,7 +69,7 @@ console.log(JSON.stringify({ zone: zone.front_m, health: health.front_m, x, ...o
     assert result["zone"] < result["x"] - 5 < result["health"]
     hospital = result["hospital"]
     assert [f["health"] for f in hospital["bad"]] == [True]
-    assert hospital["headline"] == "Hospital above the 3 V/m health limit"
+    assert hospital["headline"] == "Hospital above the 3 V/m health-facility level (screening)"
     assert "field above 3 V/m at H1" in hospital["bad"][0]["text"]
     # The same building used as housing is outside the device zone: nothing to flag.
     assert result["residential"]["bad"] == []

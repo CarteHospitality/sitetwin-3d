@@ -6,8 +6,9 @@
 import { azimuthTo } from "./emf.js";
 
 const MOBILE_HEIGHT_M = 1.5;
-// Total power -> per-resource-element power for a 20 MHz LTE carrier (1200 subcarriers).
-const RE_SHARE_DB = 10 * Math.log10(1200);
+// Total power -> per-resource-element power: a 20 MHz LTE carrier has 1200 subcarriers, a 100 MHz
+// 5G mid-band carrier (3.3-3.8 GHz, 30 kHz spacing) 3276.
+const reShareDb = (band) => 10 * Math.log10(band.frequency_mhz >= 3000 ? 3276 : 1200);
 
 function pathLossDb(fMhz, hb, dKm) {
   const lf = Math.log10(fMhz);
@@ -30,7 +31,7 @@ export function rsrpAt(antenna, band, x, z) {
   const dM = Math.max(Math.hypot(x - antenna.x_m, z - antenna.z_m), 20);
   const txDbm = 10 * Math.log10(band.tx_power_w * 1000);
   return (
-    txDbm - RE_SHARE_DB + band.gain_dbi - (band.feeder_loss_db ?? 0) -
+    txDbm - reShareDb(band) + band.gain_dbi - (band.feeder_loss_db ?? 0) -
     patternLossDb(antenna, band, x, z, dM) -
     pathLossDb(band.frequency_mhz, antenna.height_agl_m, dM / 1000)
   );

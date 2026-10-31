@@ -102,7 +102,7 @@ function planFindings(baseline, before, gained, kpi) {
 export function result(before, after) {
   // A problem the plan leaves as it was is still open, not a result.
   if (after.text === before.text) return [after.level === "ok" ? after.text : `Still open: ${after.text}`];
-  const fixed = before.text.replace(" inside an EMF zone", " no longer inside an EMF zone").replace(" above the 3 V/m health limit", " below the 3 V/m health limit");
+  const fixed = before.text.replace(" inside an EMF zone", " no longer inside an EMF zone").replace(" above the 3 V/m health-facility level", " below the 3 V/m health-facility level");
   return after.level === "ok" ? [fixed !== before.text ? fixed : after.text, after.text].filter((v, i, a) => a.indexOf(v) === i)
     : [...(fixed !== before.text ? [fixed] : []), `Still open: ${after.text}`];
 }

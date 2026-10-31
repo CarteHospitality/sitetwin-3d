@@ -645,7 +645,7 @@ async function playPlan(before, focus, ids) {
   skip.hidden = false;
   skip.onclick = () => { skipping = true; skip.hidden = true; };
   title.className = "operator-title";
-  title.textContent = `The plan: ${steps.length} steps`;
+  title.textContent = `Simulation · the plan: ${steps.length} steps`;
   const items = steps.map((step) => el("li", { className: "pending", textContent: step.line }));
   items.forEach((item, i) => { item.style.animationDelay = `${i * 140}ms`; });
   list.replaceChildren(...items);
@@ -674,7 +674,7 @@ async function playPlan(before, focus, ids) {
   for (const [i, step] of steps.entries()) {
     if (site !== target) break; // undone, reset or replaced meanwhile: stop and show what is there now
     items[i].className = "active";
-    title.textContent = `Step ${i + 1} of ${steps.length}`;
+    title.textContent = `Simulation · step ${i + 1} of ${steps.length}`;
     const started = performance.now();
     if (step.kind === "select") {
       pick(step.id);
@@ -727,7 +727,7 @@ async function playPlan(before, focus, ids) {
   }
   finish();
   title.className = "operator-title done";
-  title.textContent = `Done: all ${steps.length} steps applied`;
+  title.textContent = `Simulated: all ${steps.length} steps, nothing changed on site`;
   await wait(FLASH_MS + (story ? 1600 : 400));
   storyCaption(null);
   skip.hidden = true;
@@ -1533,6 +1533,7 @@ $("sourcesButton").onclick = () => {
       section("Load", kpi ? [loadTag(kpi) === "measured" ? "Busy hour per cell, measured by the operator." : "Busy hour per cell, sample data invented for the demo: not a measurement.",
         `${tr("Source")}: ${kpi.source ?? "–"}${kpi.period ? `, ${kpi.period}` : ""}`] : ["No load data in the site file: capacity is estimated from the people around the site."]),
       section("Calculations", ["EMF: far-field screening with the Turkish single-device limit (20% of the ICNIRP field strength); health facilities against 3 V/m; overlapping antennas summed against the 70% limit for all devices together. Not a measurement.",
+        "EMF device: each antenna with all its bands counts as one device. Heights are the antenna centre above ground.",
         "Coverage: Hata model over 1.2 km, indicative: no terrain, clutter or building shadow; extrapolated above 2 GHz.",
         "People: estimated from building footprints and heights, floor area per person by use.",
         "Next year: about 20% traffic growth a year, an indicative figure."]),

@@ -21,7 +21,7 @@ export function siteProblem({ findings, hit }, population, { cell = null, reliev
   const busiest = Object.entries(population.people_per_antenna).sort((a, b) => b[1] - a[1])[0];
   const busyCell = cell && !relieved && cell.prb_dl_pct >= PRB_BALANCE;
   const busySector = !cell && busiest && busiest[1] > CAPACITY_PEOPLE_PER_ANTENNA;
-  if (sensitive[0]?.health) return `The field from ${sensitive[0].antenna} at a hospital is above the 3 V/m health limit in the planning model: it needs a fix or a measurement.`;
+  if (sensitive[0]?.health) return `The field from ${sensitive[0].antenna} at a hospital is above 3 V/m in the planning model, the level set for health facilities and used here as a screen: it needs a fix or a measurement.`;
   if (sensitive.length) return `A ${sensitive[0].use} is inside the EMF safety zone of ${sensitive[0].antenna} in the planning model: it needs a fix or a measurement.`;
   if (bad.length) return `The EMF safety zone reaches ${hit.size} neighbouring ${hit.size === 1 ? "building" : "buildings"} in the planning model: it needs a fix or a measurement.`;
   if (busyCell && cell.prb_dl_pct >= PRB_EXPAND) return `Cell ${cell.sector} ${cell.band} is ${cell.prb_dl_pct}% full in the busy hour: users there are likely slowed down.`;
@@ -41,9 +41,9 @@ export function statusLines(site, checks, population, { coverageLoss = [], kpi =
   const bad = checks.findings.filter((f) => f.level === "bad");
   const sensitiveUses = [...new Set(bad.filter((f) => f.sensitive && !f.health).map((f) => f.use))];
   const others = new Set(bad.filter((f) => !f.sensitive).map((f) => f.building));
-  if (bad.some((f) => f.health)) lines.push({ level: "bad", text: "A hospital is above the 3 V/m health limit" });
+  if (bad.some((f) => f.health)) lines.push({ level: "bad", text: "A hospital is above the 3 V/m health-facility level (screening, not a measurement)" });
   for (const use of sensitiveUses) lines.push({ level: "bad", text: `A ${use} is inside an EMF zone` });
-  if (!sensitiveUses.length && !bad.some((f) => f.health)) lines.push({ level: "ok", text: "No school or hospital found in an EMF zone" });
+  if (!sensitiveUses.length && !bad.some((f) => f.health)) lines.push({ level: "ok", text: "No school or hospital building found in an EMF zone (school gardens not checked)" });
   if (others.size) lines.push({ level: "bad", text: `EMF zone reaches ${others.size} other building(s)` });
   else if (!sensitiveUses.length && !bad.some((f) => f.health)) lines.push({ level: "ok", text: "No building found in an EMF zone" });
   if (site.structure === "rooftop") {
@@ -54,7 +54,7 @@ export function statusLines(site, checks, population, { coverageLoss = [], kpi =
   if (cell) {
     const name = `${cell.sector} ${cell.band}`, prb = cell.prb_dl_pct;
     if (prb < PRB_BALANCE) lines.push({ level: "ok", text: `No busy cell: busiest ${name} at ${prb}% PRB (${cell.tag})` });
-    else if (before && capacityAdded(before, site).has(cell.sector)) lines.push({ level: "ok", text: `Cell ${name} at ${prb}% PRB (${cell.tag}): the plan adds capacity there` });
+    else if (before && capacityAdded(before, site).has(cell.sector)) lines.push({ level: "ok", text: `Cell ${name} at ${prb}% PRB (${cell.tag}): the plan adds capacity there, the load after it is not modelled` });
     else lines.push({ level: prb >= PRB_EXPAND ? "bad" : "warn", text: `Cell ${name} is ${prb >= PRB_EXPAND ? "full" : "busy"}: ${prb}% PRB in the busy hour (${cell.tag})` });
   } else {
     // The busy sector stays busy in people, but a plan that adds capacity there answers it.

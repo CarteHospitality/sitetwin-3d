@@ -127,7 +127,7 @@ export function checkSite(s, zones) {
 // The site's state in one sentence, for card headers and the portfolio list.
 export function headline({ findings, hit }) {
   const sensitive = findings.find((f) => f.sensitive);
-  if (sensitive?.health) return { level: "bad", text: "Hospital above the 3 V/m health limit" };
+  if (sensitive?.health) return { level: "bad", text: "Hospital above the 3 V/m health-facility level (screening)" };
   if (sensitive) return { level: "bad", text: `${sensitive.use[0].toUpperCase()}${sensitive.use.slice(1)} inside an EMF zone` };
   if (hit.size) return { level: "bad", text: `EMF zone reaches ${hit.size} building(s)` };
   if (findings.some((f) => f.level === "warn")) return { level: "warn", text: "Roof access must be restricted" };

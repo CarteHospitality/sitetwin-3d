@@ -171,9 +171,9 @@ li { margin: 6px 0; }
 .pin.selected { outline: 2px solid var(--accent); outline-offset: 3px; }
 .pin.attention::after { content: ""; position: absolute; inset: -5px; border: 1px solid currentColor; border-radius: 50%; pointer-events: none; animation: attention-ring 2400ms var(--ease-pulse) 2 both; }
 @keyframes attention-ring { from { transform: scale(1); opacity: .5; } to { transform: scale(1.8); opacity: 0; } }
-/* Sites that need action send out a small ring in their colour, out of step with each other:
-   the motion says "look here", so calm sites stay still. */
-.pin:is(.critical, .high)::before { content: ""; position: absolute; inset: -4px; border: 2px solid currentColor; border-radius: 50%; opacity: 0; pointer-events: none;
+/* Critical sites send out a small ring in their colour, out of step with each other: the motion
+   says "look here", so every other site stays still. */
+.pin.critical::before { content: ""; position: absolute; inset: -4px; border: 2px solid currentColor; border-radius: 50%; opacity: 0; pointer-events: none;
   animation: live-ring 2600ms var(--ease-out) var(--pulse-delay, 0ms) infinite; }
 @keyframes live-ring { 0% { transform: scale(.8); opacity: .6; } 70%, 100% { transform: scale(1.9); opacity: 0; } }
 #map .leaflet-tile-pane { filter: grayscale(.9) brightness(1.04) contrast(.9); }

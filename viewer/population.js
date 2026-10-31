@@ -10,23 +10,30 @@ const AREA_PER_PERSON = { residential: 100 / 3.1, office: 12, commercial: 10, sc
 const USABLE_SHARE = 0.8;
 export const SENSITIVE_USES = new Set(["school", "kindergarten", "hospital"]);
 
+function polygonArea(footprint) {
+  let area = 0;
+  for (let i = 0; i < footprint.length; i++) {
+    const [x1, z1] = footprint[i], [x2, z2] = footprint[(i + 1) % footprint.length];
+    area += x1 * z2 - x2 * z1;
+  }
+  return Math.abs(area) / 2;
+}
+
+// Floor area from the footprint polygon when the building has one: its bounding rectangle
+// (width x depth) is about a third larger for a typical L- or U-shaped block.
 export function occupancy(n) {
   if (n.population != null) return { people: n.population, estimated: false };
   const storeys = n.storeys ?? Math.max(1, Math.round(n.height_m / 3));
-  const area = n.width_m * n.depth_m * USABLE_SHARE * storeys;
+  const footprint = n.footprint?.length >= 3 ? polygonArea(n.footprint) : n.width_m * n.depth_m;
+  const area = footprint * USABLE_SHARE * storeys;
   return { people: Math.round(area / AREA_PER_PERSON[n.use ?? "residential"]), estimated: true };
 }
 
 // People in a context building (beyond the analysed neighbours): only its footprint and height
 // are known, so it is counted as residential.
 export function footprintPeople(footprint, height_m) {
-  let area = 0;
-  for (let i = 0; i < footprint.length; i++) {
-    const [x1, z1] = footprint[i], [x2, z2] = footprint[(i + 1) % footprint.length];
-    area += x1 * z2 - x2 * z1;
-  }
   const storeys = Math.max(1, Math.round(height_m / 3));
-  return Math.round((Math.abs(area) / 2) * USABLE_SHARE * storeys / AREA_PER_PERSON.residential);
+  return Math.round(polygonArea(footprint) * USABLE_SHARE * storeys / AREA_PER_PERSON.residential);
 }
 
 // Serving antenna per building: the one whose main lobe points closest at it.
