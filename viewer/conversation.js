@@ -181,7 +181,14 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
   function photo(src, caption) {
     change(() => log.append(el("div", { className: "msg user photo" }, el("img", { src, alt: "" }), el("div", { textContent: caption }))));
   }
-  return { user: (text) => say("user", text), assistant: (text) => say("assistant", text), photo,
+  // A fresh start: empties the log and forgets the stored transcript.
+  function clear() {
+    transcript.length = 0;
+    writeSession(`transcript:${transcriptKey}`, transcript);
+    log.replaceChildren();
+    notice.hidden = true;
+  }
+  return { user: (text) => say("user", text), assistant: (text) => say("assistant", text), photo, clear,
     queued: (id, text) => { const row = el("div", { className: "msg tool", textContent: `◷ Queued · ${text}` }); queuedRequests.set(id, row); change(() => log.append(row)); },
     requestStart: (id) => { queuedRequests.get(id)?.remove(); queuedRequests.delete(id); },
     failed: () => { runFailed = true; },

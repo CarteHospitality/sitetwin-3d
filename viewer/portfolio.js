@@ -37,7 +37,7 @@ const mapKey = `map:${absoluteUrl(indexUrl)}`;
 const storedMap = readSession(mapKey, {}) || {};
 // The logo, or a first visit, opens the home view: every site in view, nothing selected, no filter.
 const homeView = params.get("home") === "1" || !storedMap.bounds;
-if (params.has("home")) { params.delete("home"); history.replaceState(history.state, "", `${location.pathname}?${params}`); }
+if (params.has("home")) { params.delete("home"); history.replaceState(history.state, "", `${location.pathname}${params.toString() ? `?${params}` : ""}`); }
 const mapActions = Array.isArray(storedMap.actions) ? storedMap.actions.filter((a) => a && typeof a.text === "string" && typeof a.time === "string") : [];
 const seenProposals = storedMap.proposals && typeof storedMap.proposals === "object" ? storedMap.proposals : {};
 const baseIndex = await fetch(indexUrl).then((r) => (r.ok ? r.json() : fetch("data/samples/portfolio.json").then((s) => s.json())))
@@ -285,9 +285,11 @@ $("homePlan").onclick = () => {
 $("homeFixAll").onclick = () => mapAgent.ask(document.documentElement.lang === "tr"
   ? "Aksiyon gerektiren tüm sahaları sırayla düzelt" : "Fix every site that needs action, one by one");
 
-// The operator's opening summary, written from the checks (no model call); refreshed on every return home.
+// The operator's opening summary, written from the checks (no model call). Home starts a fresh
+// conversation: the earlier one is cleared, unless the operator is still working on it.
 let briefing = null;
-function showBriefing() {
+function showBriefing({ fresh = false } = {}) {
+  if (fresh && !$("chatInput").disabled) { chat.clear(); mapAgent.reset(); }
   const urgent = sites.filter((s) => ["critical", "high"].includes(s.a.level));
   const work = plannedWork().length;
   const lines = [`${tr(`Checked ${sites.length} sites automatically`)}.`,
@@ -309,7 +311,7 @@ function goHome() {
     if (reducedMotion.matches) map.fitBounds(all, { animate: false }); else map.flyToBounds(all, { duration: 1 });
   }
   $("list").closest(".panel").scrollTop = 0;
-  showBriefing();
+  showBriefing({ fresh: true });
   saveMapState();
 }
 document.querySelector(".app-brand").onclick = (event) => { event.preventDefault(); goHome(); };
@@ -444,7 +446,6 @@ const chat = initConversation({
   speak: (text) => voice.speak(text),
   transcriptKey: absoluteUrl(indexUrl),
 });
-if (homeView || !$("chatLog").children.length) showBriefing();
 const mapAgent = createAgent({
   definitions: MAP_TOOLS,
   handlers: {
@@ -498,6 +499,7 @@ match them to site_id. To show a site, use focus_site. To fix several or all pro
 that carries over exactly what the engineer asked; then say in one sentence what will happen there.`,
   ui: chat,
 });
+if (homeView || !$("chatLog").children.length) showBriefing({ fresh: homeView });
 const voice = initVoice({
   button: $("micButton"),
   status: (t) => { $("chatBusy").hidden = !t; if (t) $("chatBusy").textContent = t; },
