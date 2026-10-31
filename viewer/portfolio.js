@@ -102,6 +102,8 @@ window.addEventListener("pageshow", () => { pageActive = true; });
 function pinIcon(level, selected = false, attention = false) {
   const pin = el("div", { className: `pin ${level}${selected ? " selected" : ""}${attention ? " attention" : ""}` }, el("span", { textContent: LEVELS[level].glyph }));
   pin.style.color = token(level);
+  // A random start, so the live rings do not pulse in step across the map.
+  pin.style.setProperty("--pulse-delay", `${-Math.round(Math.random() * 2600)}ms`);
   return L.divIcon({ className: "map-pin", html: pin, iconSize: [32, 32], iconAnchor: [16, 16] });
 }
 
