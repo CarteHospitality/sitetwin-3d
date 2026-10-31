@@ -5,7 +5,7 @@ import { tr } from "./i18n.js";
 import { siteZones, REGIMES } from "./emf.js";
 import { checkSite, headline } from "./checks.js";
 import { populationContext } from "./population.js";
-import { createAgent } from "./agent.js";
+import { createAgent, hasServer, STATIC_NOTE } from "./agent.js";
 import { initVoice } from "./voice.js";
 import { initConversation } from "./conversation.js";
 import { readSession, writeSession, restoreProposed, canonical, handoffId, absoluteUrl, rememberUpload, withUploads, isUpload, forgetUpload, forgetPlan, startOver } from "./session.js";
@@ -230,6 +230,10 @@ function showBriefing({ fresh = false } = {}) {
   $("chatLog").append(briefing);
   $("chatLog").scrollTop = $("chatLog").scrollHeight;
 }
+// In the online demo (static files) there is no operator to ask: the briefing says so and offers
+// only what works without it.
+let staticDemo = false;
+hasServer().then((ok) => { staticDemo = !ok; renderBriefing(); });
 function renderBriefing() {
   if (!briefing) return;
   const urgent = sites.filter((s) => ["critical", "high"].includes(s.a.level));
@@ -241,8 +245,9 @@ function renderBriefing() {
       : `${tr(`Checked ${sites.length} sites automatically`)}. ${tr("No site needs urgent action.")}` }),
     ...(urgent.length ? [el("div", { className: "home-list" }, ...urgent.slice(0, 3).map(siteLink))] : []),
     ...(work.length ? [el("p", { textContent: tr(`${work.length} site(s) have planned field work.`) })] : []),
+    ...(staticDemo ? [el("p", { className: "muted", textContent: tr(STATIC_NOTE) })] : []),
     el("div", { className: "briefing-actions" },
-      ...(urgent.length ? [button("Fix urgent sites one by one", fixUrgent)] : []),
+      ...(urgent.length && !staticDemo ? [button("Fix urgent sites one by one", fixUrgent)] : []),
       ...(work.length ? [button(work.length > 1 ? `Combined action plan (${work.length} sites)` : "Action plan", openCombinedPlan)] : []),
       button("Download the list (CSV)", downloadSiteList)),
     Object.assign(el("details", {}, el("summary", { textContent: tr(`All sites (${sites.length})`) }),

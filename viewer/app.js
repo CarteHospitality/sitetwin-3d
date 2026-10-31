@@ -8,7 +8,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { REGIMES, siteZones } from "./emf.js";
 import { checkSite, headline, pointInPolygon, roofOf } from "./checks.js";
 import { coverageGrid, coverageGridAsync, paintBestServer } from "./coverage.js";
-import { initAgent } from "./agent.js";
+import { initAgent, hasServer, STATIC_NOTE } from "./agent.js";
 import { initPhoto, photoRequest, seenLine } from "./photo.js";
 import { finishStop, progress } from "./tour.js";
 import { composeBeforeAfter, openSnapshot } from "./snapshot.js";
@@ -1576,10 +1576,13 @@ $("sourcesButton").onclick = () => {
 if (!handoff && !$("chatLog").children.length) {
   const problem = siteProblem(checkSite(site, siteZones(site, REGIMES[regimeKey])), populationContext(site), { cell: kpi?.cells?.[0] ?? null });
   const clean = problem.startsWith("No problem found");
-  $("chatLog").append(el("div", { className: "msg assistant welcome" },
+  const welcome = el("div", { className: "msg assistant welcome" },
     el("div", { textContent: tr(`${site.site_id} is open.`) }),
     el("div", { className: "welcome-problem", textContent: tr(problem) }),
-    el("div", { textContent: tr(clean ? "Analyse it with the button below, or ask your own question." : "Analyse the problem with the button below, or ask your own question.") })));
+    el("div", { textContent: tr(clean ? "Analyse it with the button below, or ask your own question." : "Analyse the problem with the button below, or ask your own question.") }));
+  $("chatLog").append(welcome);
+  // In the online demo (static files) the operator cannot answer: say so before anyone asks.
+  hasServer().then((ok) => { if (!ok) welcome.append(el("div", { className: "muted", textContent: tr(STATIC_NOTE) })); });
   const ask = el("button", { type: "button", className: "chip suggest primary-ask", textContent: tr(clean ? "Analyse this site" : "Analyse this problem") });
   // One first step: the general "Analyse this site" question waits until this one is used.
   const general = document.querySelector(".composer .chips .suggest");

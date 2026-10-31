@@ -451,6 +451,7 @@ export const EXACT = {
   "Plan changed: compare again": "Plan değişti: yeniden karşılaştırın",
   "Muse Spark 1.3 · Meta Model API (fallback)": "Muse Spark 1.3 · Meta Model API (yedek)",
   "Download the list (CSV)": "Listeyi indir (CSV)",
+  "This online demo has no model server: the Expert Operator answers when SiteTwin 3D runs on your machine with a model key (see the README). The 3D twin, the checks, manual changes and the action plan work here.": "Bu çevrimiçi demoda model sunucusu yok: Uzman Operatör, SiteTwin 3D kendi bilgisayarınızda bir model anahtarıyla çalıştığında cevap verir (README'ye bakın). 3B ikiz, kontroller, elle değişiklikler ve eylem planı burada çalışır.",
   "Rank": "Sıra",
   "Urgency": "Aciliyet",
   "Issue": "Bulgu",

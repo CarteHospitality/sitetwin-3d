@@ -11,6 +11,17 @@ const MAX_STEPS = 12;
 const MODEL_TIMEOUT_MS = 60000;
 // Steps left at which the agent is told to stop exploring and commit to its best option.
 const DECIDE_AT = 4;
+// Served as static files (the online demo), the page has no model server: what to say instead.
+export const STATIC_NOTE = "This online demo has no model server: the Expert Operator answers when SiteTwin 3D runs on your machine with a model key (see the README). The 3D twin, the checks, manual changes and the action plan work here.";
+
+// Whether the page has its own server: an empty request is refused by the server's validation
+// without calling a model; a static host does not know the address at all.
+export async function hasServer() {
+  try {
+    const res = await fetch("api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    return ![404, 405, 501].includes(res.status);
+  } catch { return false; }
+}
 
 const CHANGE_SCHEMA = {
   type: "array",
@@ -276,9 +287,11 @@ export function createAgent({ definitions, handlers, systemPrompt, ui, limits = 
       // Said plainly, with what still works; the server's own text goes to the console.
       if (!res.ok) {
         console.warn("assistant unavailable", res.status, await res.text());
-        // 503: the server has no model key (a fresh clone); not an outage, so say what is missing.
+        // 503: the server has no model key (a fresh clone). 404/405/501: no server at all (the page is
+        // served as static files, as in the online demo). Neither is an outage: say what is missing.
         throw new Error(tr(res.status === 503
           ? "The Expert Operator needs a model API key on the server (BASETEN_API_KEY or MODEL_API_KEY in .env, see the README). The 3D twin, the checks and manual changes still work."
+          : [404, 405, 501].includes(res.status) ? STATIC_NOTE
           : `The Expert Operator cannot be reached right now (${res.status}). The 3D twin, the checks and manual changes still work.`));
       }
       return await res.json();
