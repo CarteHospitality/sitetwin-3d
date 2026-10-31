@@ -14,6 +14,20 @@ Built for the Meta Global AI Developer Hackathon (Indie track). Demo video: _lin
 6. **The change, watched**: **Add to plan (simulation)**; nothing changes on site. An analysis never adds anything by itself: the engineer picks the option. The plan's steps are listed, then carried out one at a time in the manual-adjustment card (the antenna is picked, its slider moves) while the 3D view moves with it; with **Camera story** on, the camera tells it as before, change, after. Skip plays the rest at once.
 7. **The plan**: "Action plan ready". Review shows the plan's status (a planning draft: a field measurement and approval come first), the finding that made it, the work, the expected result, the crew, tools, materials and precautions (with a school nearby, checking its garden and playgrounds on site comes first); Print / PDF, Copy or an e-mail draft take it to the site chief.
 
+## Does the agent hold up?
+
+Fourteen requests on the five sample sites against the real models ([docs/eval/agent-eval.md](docs/eval/agent-eval.md), measured with `scripts/agent_eval.js`):
+
+| | Result |
+|---|---|
+| Answered without an error | 14 / 14 |
+| Failed tool calls | 0 |
+| Analyses that left the plan unchanged | 6 / 6, each with a decision card of 3–4 options |
+| Instructions and goals carried out | 7 / 7 |
+| School or hospital out of the zone after a safety goal | 3 / 3 |
+| Model calls per request | 2–3, median 18 s |
+| Answered by the fallback | 1 call: Baseten ran past 30 s, Muse Spark 1.3 answered |
+
 ## Meta models used
 
 | Model | Where | What it does |
