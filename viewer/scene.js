@@ -6,7 +6,8 @@ import { standardEase, travelEase, shortestAngle } from "./motion.js";
 // A change applied for the engineer to watch takes this long to move into place.
 const SLOW_MS = 2800;
 // The scan while the operator works: how far either side it sweeps, its size, one round trip.
-const SCAN_REACH_M = 140, SCAN_SPAN_M = 320, SCAN_HEIGHT_M = 45, SCAN_PERIOD_MS = 4200;
+const SCAN_REACH_M = 140, SCAN_SPAN_M = 320, SCAN_HEIGHT_M = 45, SCAN_TRAIL_M = 36, SCAN_PERIOD_MS = 4200;
+const SCAN_COLOR = "#22D3EE", SCAN_EDGE_COLOR = "#0891B2";
 
 export function createSceneMotion({ THREE: T, scene, renderer, camera, controls, host, building, antennaGroup, zoneGroup, baselineGroup, neighbourMeshes, onEditFrame = () => {} }) {
   const antennas = new Map(), zones = new Map(), baseline = new Map(), tweens = new Map();
@@ -324,9 +325,11 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
       // Back and forth across the site; fades in, and out once stopped.
       const phase = (now - scanner.started) / SCAN_PERIOD_MS;
       scanner.group.position.x = SCAN_REACH_M * Math.sin(phase * Math.PI * 2);
+      // The trail lies behind the line, whichever way it is going.
+      scanner.trail.scale.x = Math.cos(phase * Math.PI * 2) >= 0 ? 1 : -1;
       const fade = scanner.stopping ? 1 - (now - scanner.stopping) / 500 : Math.min(1, (now - scanner.started) / 400);
-      if (fade <= 0) { scanner.texture.dispose(); dispose(scanner.group); scanner = null; }
-      else { scanner.wall.material.opacity = 0.32 * fade; scanner.line.material.opacity = 0.85 * fade; }
+      if (fade <= 0) { for (const t of scanner.textures) t.dispose(); dispose(scanner.group); scanner = null; }
+      else { scanner.wall.material.opacity = 0.55 * fade; scanner.trail.material.opacity = 0.5 * fade; scanner.line.material.opacity = 0.95 * fade; }
     }
     framing = true; controls.update(); framing = false;
     // Opaque depth testing remains authoritative. Transparent ordering is approximate.
@@ -432,28 +435,43 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
     }
     invalidate();
   }
-  // A wall of light, brightest at the ground, sweeping over the site: "the site is being examined".
+  // A wall of light sweeping over the site, a bright line where it meets the ground and a fading
+  // trail behind it: "the site is being examined". Normal blending: added light would vanish on
+  // the light ground and buildings of this scene.
   function scan(on) {
     if (!on || reducedMotion.matches) { if (scanner && !scanner.stopping) scanner.stopping = performance.now(); return; }
     if (scanner) { scanner.stopping = null; return; }
-    const color = new T.Color(token("accent"));
-    const canvas = document.createElement("canvas");
-    canvas.width = 2; canvas.height = 64;
-    const paint = canvas.getContext("2d"), gradient = paint.createLinearGradient(0, 64, 0, 0);
-    gradient.addColorStop(0, "rgba(255,255,255,1)"); gradient.addColorStop(1, "rgba(255,255,255,0)");
-    paint.fillStyle = gradient; paint.fillRect(0, 0, 2, 64);
-    const texture = new T.CanvasTexture(canvas);
-    const glow = { color, transparent: true, opacity: 0, depthWrite: false, toneMapped: false, blending: T.AdditiveBlending };
-    const wall = new T.Mesh(new T.PlaneGeometry(SCAN_SPAN_M, SCAN_HEIGHT_M), new T.MeshBasicMaterial({ ...glow, map: texture, side: T.DoubleSide }));
+    // Cyan, a colour no coverage sector or EMF zone uses, so the scan never reads as part of them.
+    const color = new T.Color(SCAN_COLOR), edge = new T.Color(SCAN_EDGE_COLOR);
+    // A white-to-clear ramp, drawn along y (the wall: solid at the ground) or x (the trail: solid at the line).
+    const ramp = (vertical) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = vertical ? 2 : 64; canvas.height = vertical ? 64 : 2;
+      const paint = canvas.getContext("2d");
+      const gradient = vertical ? paint.createLinearGradient(0, 64, 0, 0) : paint.createLinearGradient(64, 0, 0, 0);
+      gradient.addColorStop(0, "rgba(255,255,255,1)"); gradient.addColorStop(1, "rgba(255,255,255,0)");
+      paint.fillStyle = gradient; paint.fillRect(0, 0, canvas.width, canvas.height);
+      return new T.CanvasTexture(canvas);
+    };
+    const textures = [ramp(true), ramp(false)];
+    const glow = (extra = {}) => new T.MeshBasicMaterial({ color, transparent: true, opacity: 0, depthWrite: false, toneMapped: false, side: T.DoubleSide, ...extra });
+    const wall = new T.Mesh(new T.PlaneGeometry(SCAN_SPAN_M, SCAN_HEIGHT_M), glow({ map: textures[0] }));
     wall.rotation.y = Math.PI / 2;
     wall.position.y = SCAN_HEIGHT_M / 2;
-    const line = new T.Mesh(new T.PlaneGeometry(1.2, SCAN_SPAN_M), new T.MeshBasicMaterial(glow));
+    const line = new T.Mesh(new T.PlaneGeometry(2.4, SCAN_SPAN_M), glow({ color: edge }));
     line.rotation.x = -Math.PI / 2;
-    line.position.y = 0.4;
+    line.position.y = 0.6;
+    // The trail's own origin sits at the line, so flipping its x scale turns it to the other side.
+    const trailGeometry = new T.PlaneGeometry(SCAN_TRAIL_M, SCAN_SPAN_M).translate(-SCAN_TRAIL_M / 2, 0, 0);
+    const trail = new T.Mesh(trailGeometry, glow({ map: textures[1] }));
+    trail.rotation.x = -Math.PI / 2;
+    trail.position.y = 0.5;
     const group = new T.Group();
-    group.add(wall, line);
+    group.add(trail, wall, line);
+    group.renderOrder = 999;
+    for (const mesh of [trail, wall, line]) mesh.renderOrder = 999;
     scene.add(group);
-    scanner = { group, wall, line, texture, started: performance.now(), stopping: null };
+    scanner = { group, wall, line, trail, textures, started: performance.now(), stopping: null };
     invalidate();
   }
   return { sync, focus, invalidate, startProfile, highlight, scan, queueEdit: () => { editPending = true; invalidate(); },
