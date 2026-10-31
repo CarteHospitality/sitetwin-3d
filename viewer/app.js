@@ -90,7 +90,7 @@ let regimeKey = restored.regime;
 const layers = { zones: true, coverage: true, baseline: false };
 // Coverage comes back on with every opening; the other layers keep the engineer's choice.
 for (const key of ["zones", "baseline"]) if (typeof restored.view.layers?.[key] === "boolean") layers[key] = restored.view.layers[key];
-let coverageBand = restored.view.coverageBand ?? null;
+let coverageBand = freshOpen ? null : restored.view.coverageBand ?? null;
 let lastModelState = clone(site);
 const planActions = restored.actions.filter((a) => a && typeof a.time === "string" && Array.isArray(a.delta));
 let saveTimer = null;
@@ -682,14 +682,15 @@ const residents = [
 ];
 function renderStats() {
   const focus = site.antennas.some((a) => a.id === selectedId) ? selectedId : null;
-  let share = null, people = null;
+  let covered = null, strong = null, people = null;
   if (layers.coverage && paintedCoverage?.key === JSON.stringify([coverageBand, site.antennas])) {
     const { grid: { grid, server, n, size }, antennas } = paintedCoverage;
     const index = focus ? antennas.indexOf(focus) : -1;
     const mine = (k) => index < 0 || server[k] === index;
-    let strong = 0;
-    for (let k = 0; k < grid.length; k++) if (grid[k] >= STRONG_DBM && mine(k)) strong++;
-    share = Math.round((100 * strong) / grid.length);
+    // Covered: any usable signal; strong: the deeper colours. Shares of the whole 1.2 km area.
+    let usable = 0, deep = 0;
+    for (let k = 0; k < grid.length; k++) if (mine(k)) { if (grid[k] >= USABLE_DBM) usable++; if (grid[k] >= STRONG_DBM) deep++; }
+    covered = (100 * usable) / grid.length; strong = (100 * deep) / grid.length;
     // People served: those living in cells this antenna (or the site) serves with a usable signal.
     people = 0;
     for (const r of residents) {
@@ -701,10 +702,16 @@ function renderStats() {
   }
   const turkish = document.documentElement.lang === "tr";
   const row = (value, label) => el("div", { className: "stat-row" }, el("b", { textContent: value }), el("span", { textContent: label }));
+  // Whole numbers, but a small share keeps one decimal instead of rounding to nothing.
+  const pct = (v) => {
+    const text = v === 0 ? "0" : v < 0.1 ? (turkish ? "<0,1" : "<0.1") : v.toLocaleString(turkish ? "tr" : "en", { maximumFractionDigits: v < 10 ? 1 : 0 });
+    return turkish ? `%${text}` : `${text}%`;
+  };
   $("sceneStats").replaceChildren(
     el("div", { className: "stats-title", textContent: focus ?? "Whole site" }),
     row(people === null ? "…" : `~${people.toLocaleString(turkish ? "tr" : "en")}`, focus ? "people in the area it serves (estimated)" : "people in the covered area (estimated)"),
-    row(share === null ? "…" : turkish ? `%${share}` : `${share}%`, focus ? "of the area served by it with a strong signal" : "of the area with a strong signal"),
+    row(covered === null ? "…" : pct(covered), focus ? "of the area gets its signal" : "of the area is covered"),
+    ...(strong === null ? [] : [el("div", { className: "stat-note", textContent: `Strong signal: ${pct(strong)} of the area` })]),
     el("div", { className: "muted", textContent: `${coverageBand ?? ""} · 1.2 km × 1.2 km around the site` }),
   );
 }
