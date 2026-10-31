@@ -401,6 +401,7 @@ export const EXACT = {
   "Nearby": "Çevrede",
   "Imagery: Esri, Maxar, Earthstar Geographics": "Görüntü: Esri, Maxar, Earthstar Geographics",
   "Photo: BTK report, general view": "Fotoğraf: BTK raporu, genel görünüm",
+  "Click to open the 3D twin": "3B ikizi açmak için tıklayın",
   "Address": "Adres",
   "Coordinates": "Koordinat",
   "Map": "Harita",

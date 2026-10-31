@@ -382,6 +382,13 @@ function showCallout(s) {
       return [dt, dd];
     })));
   const line = el("div", { className: "callout-line" });
+  // The screen stays while the pointer is on it, and a click on it opens the site in 3D.
+  screen.append(el("div", { className: "callout-hint", textContent: "Click to open the 3D twin" }));
+  screen.onmouseenter = () => clearTimeout(calloutTimer);
+  screen.onmouseleave = () => hideCallout();
+  screen.onclick = () => { hideCallout(true); openTwin(s); };
+  L.DomEvent.disableClickPropagation(screen);
+  L.DomEvent.disableScrollPropagation(screen);
   callout.replaceChildren(line, screen);
   callout.style.setProperty("--level", color);
   callout.hidden = false;
