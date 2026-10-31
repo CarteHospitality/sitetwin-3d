@@ -143,7 +143,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(token("stage"));
 // Far enough to keep the neighbourhood sharp; only the horizon fades.
 scene.fog = new THREE.Fog(token("stage"), 450, 1400);
-const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 3000);
+const camera = new THREE.PerspectiveCamera(45, 1, 1, 3000);
 camera.position.set(55, 70, 75);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, baseline.building.height_m, 0);
@@ -429,6 +429,8 @@ function showcase(before, changes) {
   const isNew = changes.some((c) => c.action === "add_antenna" && c.antenna_id === focus);
   const added = !antenna ? null : isNew ? lowest(antenna.bands)
     : antenna.bands.find((b) => changes.some((c) => c.antenna_id === focus && (c.add_bands ?? []).includes(b.name)));
+  // The change is told on the coverage map, so it is turned on for it.
+  if (!layers.coverage && antenna && !reducedMotion.matches) { layers.coverage = true; syncLayerChips(); }
   if (layers.coverage && antenna) {
     if (added) coverageBand = added.name;
     else if (!antenna.bands.some((b) => b.name === coverageBand)) coverageBand = lowest(antenna.bands).name;
@@ -491,6 +493,24 @@ function glide(panel, top) {
   requestAnimationFrame(frame);
   setTimeout(() => { done = true; panel.scrollTop = top; }, ms);
 }
+// The coverage map of a given state, with only one antenna's area strong (the story's "before").
+function paintCoverageOf(result, antennaIds, focusId) {
+  const index = antennaIds.indexOf(focusId);
+  paintBestServer(coverageCanvas, result, (i) => rgb(sectorColor(antennaIds[i].split("-")[0])), index < 0 ? null : index, null, rgb(NEW_COLOR));
+  coverageTexture.needsUpdate = true;
+  coveragePlane.visible = true;
+  sceneMotion.invalidate();
+}
+// The line over the 3D view that says which part of the story is showing: before, change, after.
+function storyCaption(tag, text) {
+  const box = $("storyCaption");
+  if (!tag) { box.hidden = true; return; }
+  box.dataset.tag = tag.toLowerCase();
+  $("storyTag").textContent = tr(tag);
+  $("storyText").textContent = tr(text);
+  box.hidden = false;
+  if (!reducedMotion.matches) box.animate([{ opacity: 0, transform: "translate(-50%, -6px)" }, { opacity: 1, transform: "translate(-50%, 0)" }], { duration: 400, easing: "cubic-bezier(.16,1,.3,1)" });
+}
 // A value shown on an editor control without changing the plan (the playback moves the controls).
 function showValue(input, value) {
   input.value = value;
@@ -550,6 +570,7 @@ async function playPlan(before, focus, ids) {
   const pick = (id) => { selectedId = id; renderAntennaPicker(); };
   const bandRow = (name) => [...$("bands").children].find((row) => row.dataset.band === name);
 
+  const azimuthOf = (id, state) => state.antennas.find((a) => a.id === id)?.azimuth_deg ?? 0;
   // The plan first: the card opens with every step waiting its turn.
   const card = document.querySelector('.card[data-card="antenna"]'), panel = card.closest(".panel");
   foldCard("antenna", false);
@@ -564,7 +585,23 @@ async function playPlan(before, focus, ids) {
   let state = structuredClone(before);
   editorAt(state);
   glide(panel, panel.scrollTop + card.getBoundingClientRect().top - panel.getBoundingClientRect().top - 8);
-  await wait(PAUSE_MS + steps.length * 140);
+  // The story on the 3D view: from afar, only this antenna's area of service today; then close in
+  // on it while the steps play; then afar again for its new area (the new ground flashes green).
+  const story = Boolean(showcaseFrom && focus);
+  const existed = before.antennas.some((a) => a.id === focus);
+  let closeOn = null;
+  if (story) {
+    paintCoverageOf(showcaseFrom.grid, showcaseFrom.antennaIds, existed ? focus : null);
+    if (existed) pick(focus);
+    showScene(state);
+    storyCaption("Before", !existed ? "The site's coverage today"
+      : statsBefore?.stats.covered ? `${focus}: its ${coverageBand} coverage today` : `${focus} has no ${coverageBand} coverage yet`);
+    await Promise.all([sceneMotion.shot("wide", focus, azimuthOf(focus, existed ? before : target)), wait(PAUSE_MS + steps.length * 140)]);
+    await wait(1800);
+    storyCaption("Change", `Watching the work on ${focus}`);
+    await sceneMotion.shot("close", focus, azimuthOf(focus, existed ? before : target), 1600);
+    closeOn = focus;
+  } else await wait(PAUSE_MS + steps.length * 140);
 
   // Then one step at a time.
   for (const [i, step] of steps.entries()) {
@@ -577,6 +614,12 @@ async function playPlan(before, focus, ids) {
       const button = [...$("antennaPicker").querySelectorAll("button")].find((b) => b.textContent === step.id);
       if (button) press(button);
       editorAt(state);
+      // Another antenna in the same plan: the camera moves on to it.
+      if (story && step.id !== closeOn) {
+        storyCaption("Change", `Watching the work on ${step.id}`);
+        await sceneMotion.shot("close", step.id, azimuthOf(step.id, state), 1400);
+        closeOn = step.id;
+      }
       sceneMotion.highlight([step.id], NEW_COLOR, 2200);
       showScene(state);
       await wait(1400);
@@ -610,11 +653,16 @@ async function playPlan(before, focus, ids) {
     await wait(350);
   }
 
-  // Done: coverage and the numbers catch up with the whole plan, then the card closes.
+  // Done: back afar, coverage and the numbers catch up with the whole plan, then the card closes.
+  if (story) {
+    storyCaption("After", `${focus}: its new ${coverageBand} coverage, new ground in green`);
+    await sceneMotion.shot("wide", focus, azimuthOf(focus, target));
+  }
   finish();
   title.className = "operator-title done";
   title.textContent = `Done: all ${steps.length} steps applied`;
-  await wait(FLASH_MS + 400);
+  await wait(FLASH_MS + (story ? 1600 : 400));
+  storyCaption(null);
   card.classList.remove("operating");
 }
 

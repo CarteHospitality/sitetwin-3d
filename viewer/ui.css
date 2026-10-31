@@ -443,6 +443,13 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
 .plan-ready-text .muted:empty { display: none; }
 .plan-ready-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
+/* The story of a watched change, over the 3D view: before, change, after. */
+.story-caption { left: 50%; top: 16px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 8px;
+  font-size: 14px; font-weight: 500; pointer-events: none; max-width: calc(100% - 32px); white-space: nowrap; z-index: 600; }
+.story-tag { padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #fff; background: var(--text-secondary); }
+.story-caption[data-tag="change"] .story-tag { background: var(--accent); }
+.story-caption[data-tag="after"] .story-tag { background: var(--ok); }
+
 /* Manual adjustment while the operator works: the steps appear one by one, the control in use lights up. */
 .card.operating { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); transition: box-shadow .3s, border-color .3s; }
 .operator-title { margin: 12px 0 2px; font-size: 13px; font-weight: 600; color: var(--accent); }

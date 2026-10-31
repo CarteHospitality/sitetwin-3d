@@ -8,6 +8,8 @@ const SLOW_MS = 2800;
 // The scan while the operator works: how far either side it sweeps, its size, one round trip.
 const SCAN_REACH_M = 140, SCAN_SPAN_M = 320, SCAN_HEIGHT_M = 45, SCAN_TRAIL_M = 36, SCAN_PERIOD_MS = 4200;
 const SCAN_COLOR = "#22D3EE", SCAN_EDGE_COLOR = "#0891B2";
+// The watched change's camera: far enough to see an antenna's area of service, near enough to see it move.
+const WIDE_DISTANCE_M = 470, WIDE_AHEAD_M = 100, CLOSE_DISTANCE_M = 38;
 
 export function createSceneMotion({ THREE: T, scene, renderer, camera, controls, host, building, antennaGroup, zoneGroup, baselineGroup, neighbourMeshes, onEditFrame = () => {} }) {
   const antennas = new Map(), zones = new Map(), baseline = new Map(), tweens = new Map();
@@ -304,7 +306,7 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
     }
     status.hidden = !tweens.size;
     if (cameraTween) {
-      const t = reducedMotion.matches ? 1 : Math.min(1, (now - cameraTween.started) / 800), ease = travelEase(t);
+      const t = reducedMotion.matches ? 1 : Math.min(1, (now - cameraTween.started) / (cameraTween.ms ?? 800)), ease = travelEase(t);
       const target = cameraTween.target0.clone().lerp(cameraTween.target1, ease);
       const spherical = new T.Spherical(
         T.MathUtils.lerp(cameraTween.s0.radius, cameraTween.s1.radius, ease),
@@ -379,6 +381,30 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
     invalidate();
   }
   function cancelCamera() { cameraTween = null; }
+  // Camera moves for a watched change, slower than a click's. `wide` stands back over the area the
+  // antenna serves, seen from behind and above it; `close` comes in on the antenna from the side,
+  // to watch it rise, turn or arrive. Resolves once the camera is there.
+  function shot(kind, id, azimuthDeg = 0, ms = 1800) {
+    const node = antennas.get(id);
+    // The panel itself, up on its pole (the group stands on the ground); a new antenna's roof before it arrives.
+    node?.group.updateMatrixWorld(true);
+    const base = node ? new T.Vector3().setFromMatrixPosition((node.group.userData.panel ?? node.group).matrixWorld)
+      : new T.Vector3(building.x_m ?? 0, building.height_m, building.z_m ?? 0);
+    const a = T.MathUtils.degToRad(azimuthDeg);
+    const ahead = new T.Vector3(Math.sin(a), 0, -Math.cos(a)); // compass bearing: x east, -z north
+    const behind = Math.atan2(-ahead.x, -ahead.z); // the camera's side, opposite the beam
+    const center = kind === "wide" ? new T.Vector3(base.x, 0, base.z).addScaledVector(ahead, WIDE_AHEAD_M) : base;
+    const s1 = kind === "wide" ? new T.Spherical(WIDE_DISTANCE_M, T.MathUtils.degToRad(40), behind + 0.35)
+      : new T.Spherical(CLOSE_DISTANCE_M, T.MathUtils.degToRad(55), behind + 1.2);
+    if (reducedMotion.matches) {
+      camera.position.copy(center).add(new T.Vector3().setFromSpherical(s1)); controls.target.copy(center); invalidate();
+      return Promise.resolve();
+    }
+    const s0 = new T.Spherical().setFromVector3(camera.position.clone().sub(controls.target));
+    cameraTween = { target0: controls.target.clone(), target1: center, s0, s1, started: performance.now(), ms };
+    invalidate();
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
   function finishProfile() {
     if (!profile) return;
     const run = profile; profile = null;
@@ -474,7 +500,7 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
     scanner = { group, wall, line, trail, textures, started: performance.now(), stopping: null };
     invalidate();
   }
-  return { sync, focus, invalidate, startProfile, highlight, scan, queueEdit: () => { editPending = true; invalidate(); },
+  return { sync, focus, shot, invalidate, startProfile, highlight, scan, queueEdit: () => { editPending = true; invalidate(); },
     changedGeometry: () => { dirtyShadow = true; invalidate(); },
     get selectedBuilding() { return located; },
     get animating() { return Boolean(tweens.size || cameraTween); },
