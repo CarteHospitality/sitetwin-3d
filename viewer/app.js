@@ -663,6 +663,32 @@ function paintCoverageView() {
   paintBestServer(coverageCanvas, grid, (index) => rgb(sectorColor(antennas[index].split("-")[0])), focus < 0 ? null : focus);
   coverageTexture.needsUpdate = true;
   sceneMotion.invalidate();
+  renderStats();
+}
+
+// Two numbers on the 3D view, for the whole site or the selected antenna: the people it serves
+// (estimated from the buildings around it) and the share of the shown area with a strong signal.
+const STRONG_DBM = -90;
+function renderStats() {
+  const focus = site.antennas.some((a) => a.id === selectedId) ? selectedId : null;
+  const pop = populationContext(site);
+  const people = focus ? pop.people_per_antenna[focus] ?? 0 : pop.total_people_nearby;
+  let share = null;
+  if (layers.coverage && paintedCoverage?.key === JSON.stringify([coverageBand, site.antennas])) {
+    const { grid: { grid, server }, antennas } = paintedCoverage;
+    const index = focus ? antennas.indexOf(focus) : -1;
+    let strong = 0;
+    for (let k = 0; k < grid.length; k++) if (grid[k] >= STRONG_DBM && (index < 0 || server[k] === index)) strong++;
+    share = Math.round((100 * strong) / grid.length);
+  }
+  const turkish = document.documentElement.lang === "tr";
+  const row = (value, label) => el("div", { className: "stat-row" }, el("b", { textContent: value }), el("span", { textContent: label }));
+  $("sceneStats").replaceChildren(
+    el("div", { className: "stats-title", textContent: focus ?? "Whole site" }),
+    row(`~${people.toLocaleString(turkish ? "tr" : "en")}`, focus ? "people in its main direction (estimated)" : "people around the site (estimated)"),
+    row(share === null ? "…" : turkish ? `%${share}` : `${share}%`, focus ? "of the area served by it with a strong signal" : "of the area with a strong signal"),
+    el("div", { className: "muted", textContent: `${coverageBand ?? ""} · 1.2 km × 1.2 km around the site` }),
+  );
 }
 function renderCoverage(immediate = false) {
   clearTimeout(coverageTimer);
@@ -685,7 +711,7 @@ function renderCoverage(immediate = false) {
       }
       if (!layers.coverage || controller.signal.aborted) return;
       coverageComparison = { key, band, before: baselineCoverage.get(band), after: coverageArea(grid) };
-      paintedCoverage = { grid, antennas: snapshot.antennas.map((a) => a.id) };
+      paintedCoverage = { grid, antennas: snapshot.antennas.map((a) => a.id), key };
       paintCoverageView();
       paintedCoverageKey = key;
       coveragePending = false;
@@ -771,6 +797,7 @@ function update(options = {}) {
   renderCoverage();
   renderLegend();
   renderAntennaPicker();
+  renderStats();
 }
 
 function select(id, finding = null) {
