@@ -1,7 +1,7 @@
 // Portfolio map: every site, checked with the same code as the 3D planner,
 // ranked by how urgently it needs attention.
 
-import "./i18n.js";
+import { tr } from "./i18n.js";
 import { siteZones, REGIMES } from "./emf.js";
 import { checkSite, headline } from "./checks.js";
 import { populationContext } from "./population.js";
@@ -11,10 +11,10 @@ import { initConversation } from "./conversation.js";
 import { readSession, writeSession, restoreProposed, canonical, handoffId, absoluteUrl, rememberUpload, withUploads, isUpload, forgetUpload, forgetPlan } from "./session.js";
 import { $, el, token, initShell, reducedMotion } from "./ui.js";
 import { startTour, readTour, endTour } from "./tour.js";
-import { combinePlans, openActionPlan } from "./actionplan.js";
+import { combinePlans, openActionPlan, diffSites, sitePlan } from "./actionplan.js";
 import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
 import { parseKpi, twinKpi, PRB_BALANCE, PRB_EXPAND } from "./kpi.js";
-import { capacityAdded } from "./overview.js";
+import { capacityAdded, planSteps } from "./overview.js";
 
 initShell();
 initCards();
@@ -31,9 +31,13 @@ const LEVELS = {
 // Indicative: people in the main lobes of one antenna above which capacity is worth a look.
 const CAPACITY_PEOPLE_PER_ANTENNA = 1500;
 
-const indexUrl = new URLSearchParams(location.search).get("portfolio") || "data/private/portfolio.json";
+const params = new URLSearchParams(location.search);
+const indexUrl = params.get("portfolio") || "data/private/portfolio.json";
 const mapKey = `map:${absoluteUrl(indexUrl)}`;
 const storedMap = readSession(mapKey, {}) || {};
+// The logo, or a first visit, opens the home view: every site in view, nothing selected, no filter.
+const homeView = params.get("home") === "1" || !storedMap.bounds;
+if (params.has("home")) { params.delete("home"); history.replaceState(history.state, "", `${location.pathname}?${params}`); }
 const mapActions = Array.isArray(storedMap.actions) ? storedMap.actions.filter((a) => a && typeof a.text === "string" && typeof a.time === "string") : [];
 const seenProposals = storedMap.proposals && typeof storedMap.proposals === "object" ? storedMap.proposals : {};
 const baseIndex = await fetch(indexUrl).then((r) => (r.ok ? r.json() : fetch("data/samples/portfolio.json").then((s) => s.json())))
@@ -93,7 +97,7 @@ function assess(entry, source, site = source.site, regime = "tr", proposed = fal
 const sites = [];
 const markers = {};
 let selectedSite = null;
-let statusFilter = LEVELS[storedMap.filter] ? storedMap.filter : null;
+let statusFilter = !homeView && LEVELS[storedMap.filter] ? storedMap.filter : null;
 let attentionCount = 0;
 let pageActive = true;
 window.addEventListener("pagehide", () => { pageActive = false; });
@@ -171,6 +175,7 @@ function render(selected = selectedSite, force = false) {
   setCardSummary("portfolio", `${sites.length} sites${urgent ? ` · ${urgent} need action` : ""}`, counts.critical ? "bad" : urgent ? "warn" : "ok");
   setCardSummary("sites", statusFilter ? LEVELS[statusFilter].label : "All");
   renderSelected(selected);
+  renderHome(selected);
   $("clearFilter").hidden = !statusFilter;
   const list = $("list"), panel = list.closest(".panel");
   const before = new Map([...siteRows].map(([id, row]) => [id, row.getBoundingClientRect().top]));
@@ -242,6 +247,73 @@ function renderSelected(s) {
   shownSelected = s;
 }
 
+// ---------- home view: what needs attention and what work is planned, with nothing selected ----------
+const baselineOf = (s) => s.source.baseline ?? s.source.site;
+// Sites whose current plan (SiteTwin's or a session's) changes antennas: field work to do.
+const plannedWork = () => sites.filter((s) => diffSites(baselineOf(s), s.site).length);
+function homeRow(s, ...why) {
+  const row = el("button", { type: "button", className: "home-site" },
+    el("span", { className: "dot", style: `background:${token(s.a.level)}`, textContent: LEVELS[s.a.level].glyph }),
+    el("span", { className: "id", textContent: s.entry.site_id }), el("span", { className: "why" }, ...why));
+  row.onclick = () => select(s);
+  return row;
+}
+function renderHome(selected) {
+  if (selected) { hideCard("home"); return; }
+  const urgent = sites.filter((s) => ["critical", "high", "medium"].includes(s.a.level)).slice(0, 3);
+  $("homeUrgent").replaceChildren(...(urgent.length ? urgent.map((s) => homeRow(s, s.a.summary))
+    : [el("div", { className: "muted", textContent: "No site needs attention" })]));
+  $("homeFixAll").hidden = !sites.some((s) => ["critical", "high"].includes(s.a.level));
+  // The first few, so the combined plan button stays in view; the plan itself covers them all.
+  const work = plannedWork(), shown = work.slice(0, 4);
+  $("homeWork").replaceChildren(...(work.length ? shown.map((s) => {
+    const steps = planSteps(baselineOf(s), s.site);
+    return homeRow(s, el("span", { textContent: steps[0] ?? "" }), ...(steps.length > 1 ? [el("span", { className: "more", textContent: ` +${steps.length - 1}` })] : []));
+  }) : [el("div", { className: "muted", textContent: "No planned changes" })]),
+  ...(work.length > shown.length ? [el("div", { className: "muted", textContent: `+${work.length - shown.length} more site(s)` })] : []));
+  $("homePlan").hidden = !work.length;
+  $("homePlan").textContent = work.length > 1 ? `Combined action plan (${work.length} sites)` : "Action plan";
+  setCardSummary("home", urgent.length ? `${urgent.length} to look at` : "All clear", urgent.some((s) => s.a.level === "critical") ? "bad" : urgent.length ? "warn" : "ok");
+  showCard("home");
+}
+$("homePlan").onclick = () => {
+  const plans = plannedWork().map((s) => sitePlan({ site: s.site, baseline: baselineOf(s), entry: s.entry, regimeKey: s.regime,
+    reason: s.reason ?? s.entry.reason ?? null, kpi: readKpi(s.entry) ?? twinKpi(s.source) }).plan);
+  logAction(`Combined action plan for ${plans.length} sites`);
+  openActionPlan(combinePlans(plans));
+};
+$("homeFixAll").onclick = () => mapAgent.ask(document.documentElement.lang === "tr"
+  ? "Aksiyon gerektiren tüm sahaları sırayla düzelt" : "Fix every site that needs action, one by one");
+
+// The operator's opening summary, written from the checks (no model call); refreshed on every return home.
+let briefing = null;
+function showBriefing() {
+  const urgent = sites.filter((s) => ["critical", "high"].includes(s.a.level));
+  const work = plannedWork().length;
+  const lines = [`${tr(`Checked ${sites.length} sites automatically`)}.`,
+    urgent.length ? `${tr(`${urgent.length} site(s) need action, the most urgent is ${urgent[0].entry.site_id}`)}: ${tr(urgent[0].a.summary)}.` : tr("No site needs urgent action."),
+    ...(work ? [tr(`${work} site(s) have planned field work.`)] : []),
+    tr("Ask me about any site, or open one to plan its fix.")];
+  briefing ??= el("div", { className: "msg assistant briefing" });
+  briefing.replaceChildren(...lines.map((text) => el("div", { textContent: text })));
+  $("chatLog").append(briefing);
+  $("chatLog").scrollTop = $("chatLog").scrollHeight;
+}
+function goHome() {
+  statusFilter = null;
+  map.closePopup();
+  stopFollowing();
+  render(null, true);
+  if (sites.length) {
+    const all = L.latLngBounds(sites.map((s) => [s.entry.lat, s.entry.lon])).pad(0.2);
+    if (reducedMotion.matches) map.fitBounds(all, { animate: false }); else map.flyToBounds(all, { duration: 1 });
+  }
+  $("list").closest(".panel").scrollTop = 0;
+  showBriefing();
+  saveMapState();
+}
+document.querySelector(".app-brand").onclick = (event) => { event.preventDefault(); goHome(); };
+
 // A loaded file can be taken off the map again: the first click asks, the second removes.
 function removeButton(s) {
   const button = el("button", { textContent: "Remove from map" });
@@ -311,7 +383,7 @@ function recordProposal(s, saved) {
 // Assesses a site as the engineer last left it: the session plan, its EMF regime and any measured load.
 function reassess(s) {
   const saved = restoreProposed(s.entry.twin, s.source);
-  s.regime = saved.regime; s.planInfo = saved.message;
+  s.regime = saved.regime; s.planInfo = saved.message; s.site = saved.site; s.reason = saved.view?.reason;
   s.a = assess(s.entry, s.source, saved.site, saved.regime, saved.status === "restored" && canonical(saved.site) !== canonical(s.source.site));
   return saved;
 }
@@ -346,9 +418,9 @@ async function add(entry) {
 
 await Promise.all(index.sites.map(add)).catch((e) => { $("loading").textContent = `Site assessment failed: ${e.message}`; throw e; });
 const validBounds = Array.isArray(storedMap.bounds) && storedMap.bounds.length === 2 && storedMap.bounds.every((pair) => Array.isArray(pair) && pair.length === 2 && pair.every(Number.isFinite));
-if (validBounds) map.fitBounds(storedMap.bounds, { animate: false });
+if (validBounds && !homeView) map.fitBounds(storedMap.bounds, { animate: false });
 else map.fitBounds(L.latLngBounds(index.sites.map((s) => [s.lat, s.lon])).pad(0.2), { animate: false });
-render(sites.find((s) => s.entry.site_id === storedMap.selected) ?? null);
+render(homeView ? null : sites.find((s) => s.entry.site_id === storedMap.selected) ?? null);
 $("loading").hidden = true;
 saveMapState();
 new ResizeObserver(() => map.invalidateSize({ animate: false, pan: false })).observe($("map"));
@@ -372,6 +444,7 @@ const chat = initConversation({
   speak: (text) => voice.speak(text),
   transcriptKey: absoluteUrl(indexUrl),
 });
+if (homeView || !$("chatLog").children.length) showBriefing();
 const mapAgent = createAgent({
   definitions: MAP_TOOLS,
   handlers: {

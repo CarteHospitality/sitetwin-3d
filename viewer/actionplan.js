@@ -4,9 +4,51 @@
 
 import { el } from "./ui.js";
 import { tr } from "./i18n.js";
+import { REGIMES, siteZones } from "./emf.js";
+import { checkSite, headline } from "./checks.js";
+import { fieldWorkOrder } from "./fieldwork.js";
+import { crewPlan } from "./crew.js";
+import { planSteps } from "./overview.js";
+import { busyCells } from "./kpi.js";
 
 const uniq = (items) => [...new Set(items.filter(Boolean))];
 const MAILTO_MAX = 1800;
+
+// The change list between two plans, one line per parameter, band or antenna.
+export const FIELDS = { azimuth_deg: "azimuth", mechanical_tilt_deg: "mech. tilt", electrical_tilt_deg: "elec. tilt", height_agl_m: "height", x_m: "x", z_m: "z" };
+export function diffSites(before, after) {
+  const changes = [];
+  const prev = Object.fromEntries(before.antennas.map((a) => [a.id, a]));
+  const next = Object.fromEntries(after.antennas.map((a) => [a.id, a]));
+  for (const a of after.antennas) {
+    const p = prev[a.id];
+    if (!p) { changes.push(`Add ${a.id} at ${a.azimuth_deg}° (${a.bands.map((x) => x.name).join(", ")})`); continue; }
+    for (const [k, label] of Object.entries(FIELDS)) if (p[k] !== a[k]) changes.push(`${a.id} ${label}: ${p[k]} → ${a[k]}`);
+    const pb = Object.fromEntries(p.bands.map((x) => [x.name, x]));
+    const nb = Object.fromEntries(a.bands.map((x) => [x.name, x]));
+    for (const name of Object.keys(nb)) {
+      if (!pb[name]) changes.push(`${a.id} add band ${name}`);
+      else if (pb[name].tx_power_w !== nb[name].tx_power_w) changes.push(`${a.id} ${name} power: ${pb[name].tx_power_w} → ${nb[name].tx_power_w} W`);
+    }
+    for (const name of Object.keys(pb)) if (!nb[name]) changes.push(`${a.id} remove band ${name}`);
+  }
+  for (const id of Object.keys(prev)) if (!next[id]) changes.push(`Remove ${id}`);
+  return changes;
+}
+
+// One site's plan as a document, built the same way on the 3D page and on the map.
+export function sitePlan({ site, baseline, entry, regimeKey = "tr", reason = null, kpi = null }) {
+  const regime = REGIMES[regimeKey];
+  const zones = siteZones(site, regime);
+  const checks = checkSite(site, zones);
+  const order = fieldWorkOrder(baseline, site, checks);
+  const changes = diffSites(baseline, site);
+  const plan = actionPlan({
+    site, entry, regime: regime.name, reason, order, crew: crewPlan(order, site), changes, steps: planSteps(baseline, site), measured: busyCells(kpi),
+    before: headline(checkSite(baseline, siteZones(baseline, regime))), after: headline(checks),
+  });
+  return { plan, zones, checks, order, changes };
+}
 
 // What the change fixes first, then what is still open.
 export function result(before, after) {

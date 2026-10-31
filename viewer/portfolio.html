@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SiteTwin Portfolio</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="ui.css?v=ui-11">
+<link rel="stylesheet" href="ui.css?v=ui-14">
 </head>
 <body>
 <header class="topbar">
@@ -26,9 +26,7 @@
       <div class="brand">Expert Operator <span>Muse Spark Open</span></div>
       <details class="model-details"><summary>Model details</summary><div id="chatModel">Waiting for first response</div></details>
     </header>
-    <div id="chatLog" class="log">
-      <div class="msg assistant">Merhaba! Sahalar yüklenip aynı model ile kontrol edilir. “Hangi saha acil?” ya da “Ankara'yı aç ve okul sorununu çöz” diye yazabilir veya 🎤 ile konuşabilirsiniz.</div>
-    </div>
+    <div id="chatLog" class="log"></div>
     <div class="composer">
       <div class="chips">
         <button class="chip suggest">Which site is most urgent and why?</button>
@@ -56,6 +54,18 @@
           <div class="muted">Every site checked automatically with the same code as the 3D planner.</div>
           <div class="stats" id="stats"></div>
           <div class="row"><span class="muted" id="filterStatus">All sites</span><button id="clearFilter" hidden>Clear filter</button></div>
+        </div>
+      </section>
+
+      <section class="card" data-card="home">
+        <button class="card-head" aria-expanded="true"><span class="card-icon">🏠</span><span class="card-title">Where to start</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
+        <div class="card-body home">
+          <h3>Most urgent</h3>
+          <div id="homeUrgent" class="home-list"></div>
+          <button type="button" id="homeFixAll" hidden>Fix urgent sites one by one</button>
+          <h3>Planned field work</h3>
+          <div id="homeWork" class="home-list"></div>
+          <button type="button" class="primary" id="homePlan" hidden>Combined action plan</button>
         </div>
       </section>
 
@@ -90,6 +100,6 @@
 <nav class="mobile-nav" aria-label="Workspace navigation"><button data-pane="workspace" aria-pressed="true">Workspace</button><button data-pane="operator" aria-expanded="false">Operator</button><button data-pane="inspect" aria-expanded="false">Inspect</button></nav>
 <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
 <div id="liveStatus" class="sr-only" role="status" aria-live="polite"></div>
-<script type="module" src="portfolio.js?v=ui-11"></script>
+<script type="module" src="portfolio.js?v=ui-14"></script>
 </body>
 </html>

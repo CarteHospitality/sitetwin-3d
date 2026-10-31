@@ -16,12 +16,12 @@ import { initVoice } from "./voice.js";
 import { initConversation } from "./conversation.js";
 import { createSceneMotion } from "./scene.js";
 import { restoreProposed, saveProposed, sourceFingerprint, consumeHandoff, handoffId, absoluteUrl, withUploads, readSession, writeSession } from "./session.js";
-import { parseKpi, busyCells, twinKpi } from "./kpi.js";
+import { parseKpi, twinKpi } from "./kpi.js";
 import { fieldWorkOrder } from "./fieldwork.js";
 import { $, el, token, initShell, setText } from "./ui.js";
 import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
 import { crewPlan } from "./crew.js";
-import { actionPlan, openActionPlan, result } from "./actionplan.js";
+import { openActionPlan, result, diffSites, sitePlan, FIELDS } from "./actionplan.js";
 import { statusLines, planSteps } from "./overview.js";
 
 initShell();
@@ -211,28 +211,6 @@ scene.add(coveragePlane);
 
 const sceneMotion = createSceneMotion({ THREE, scene, renderer, camera, controls, host, building: b,
   antennaGroup, zoneGroup, baselineGroup, neighbourMeshes, onEditFrame: () => update() });
-
-// ---------- analysis ----------
-const FIELDS = { azimuth_deg: "azimuth", mechanical_tilt_deg: "mech. tilt", electrical_tilt_deg: "elec. tilt", height_agl_m: "height", x_m: "x", z_m: "z" };
-function diffSites(before, after) {
-  const changes = [];
-  const prev = Object.fromEntries(before.antennas.map((a) => [a.id, a]));
-  const next = Object.fromEntries(after.antennas.map((a) => [a.id, a]));
-  for (const a of after.antennas) {
-    const p = prev[a.id];
-    if (!p) { changes.push(`Add ${a.id} at ${a.azimuth_deg}° (${a.bands.map((x) => x.name).join(", ")})`); continue; }
-    for (const [k, label] of Object.entries(FIELDS)) if (p[k] !== a[k]) changes.push(`${a.id} ${label}: ${p[k]} → ${a[k]}`);
-    const pb = Object.fromEntries(p.bands.map((x) => [x.name, x]));
-    const nb = Object.fromEntries(a.bands.map((x) => [x.name, x]));
-    for (const name of Object.keys(nb)) {
-      if (!pb[name]) changes.push(`${a.id} add band ${name}`);
-      else if (pb[name].tx_power_w !== nb[name].tx_power_w) changes.push(`${a.id} ${name} power: ${pb[name].tx_power_w} → ${nb[name].tx_power_w} W`);
-    }
-    for (const name of Object.keys(pb)) if (!nb[name]) changes.push(`${a.id} remove band ${name}`);
-  }
-  for (const id of Object.keys(prev)) if (!next[id]) changes.push(`Remove ${id}`);
-  return changes;
-}
 
 // ---------- planner API used by the assistant ----------
 const EDITABLE = ["azimuth_deg", "mechanical_tilt_deg", "electrical_tilt_deg", "height_agl_m", "x_m", "z_m"];
@@ -792,20 +770,12 @@ $("addAntenna").onclick = () => {
 };
 $("reset").onclick = () => { undoStack.push(clone(site)); site = clone(baseline); selectedId = null; lastReason = null; refreshCoverageBands(); update(); renderEditor(); };
 async function buildPlan() {
-  const regime = REGIMES[regimeKey];
-  const zones = siteZones(site, regime);
-  const checks = checkSite(site, zones);
-  const order = fieldWorkOrder(baseline, site, checks);
-  const data = {
-    site_id: site.site_id, regime: regime.name, created: new Date().toISOString(),
-    changes: diffSites(baseline, site), checks: checks.findings,
-    zones, baseline, proposed: site, actions: planActions, field_work_order: order,
-  };
   const entry = (await portfolioIndex().catch(() => ({ sites: [] }))).sites.find((s) => s.site_id === site.site_id);
-  const plan = actionPlan({
-    site, entry, regime: regime.name, reason: lastReason, order, crew: crewPlan(order, site), changes: data.changes, steps: planSteps(baseline, site), measured: busyCells(kpi),
-    before: headline(checkSite(baseline, siteZones(baseline, regime))), after: headline(checks),
-  });
+  const { plan, zones, checks, order, changes } = sitePlan({ site, baseline, entry, regimeKey, reason: lastReason, kpi });
+  const data = {
+    site_id: site.site_id, regime: REGIMES[regimeKey].name, created: new Date().toISOString(),
+    changes, checks: checks.findings, zones, baseline, proposed: site, actions: planActions, field_work_order: order,
+  };
   return { plan, data };
 }
 // The current camera view drawn once with the source plan and once with the proposed one.
@@ -917,6 +887,8 @@ $("planSession").textContent = restored.message;
 $("regime").value = regimeKey;
 syncLayerChips();
 $("backToMap").href = backTo;
+// The logo opens the map's home view (all sites, nothing selected); "Portfolio" goes back to where the map was.
+document.querySelector(".app-brand").href = `portfolio.html?${new URLSearchParams({ portfolio: portfolioUrl, home: "1" })}`;
 refreshCoverageBands();
 update();
 $("loading").hidden = true;
