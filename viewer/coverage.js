@@ -84,8 +84,8 @@ export const RSRP_BINS = [
 ];
 
 // Who serves where: each cell in the colour of its best server's sector, stronger signal
-// more opaque, below the weakest bin transparent. `focus` (an antenna index) keeps
-// that antenna's area strong and fades the others.
+// more opaque, below the weakest bin transparent. `focus` (an antenna index) shows only
+// the area that antenna serves.
 const BIN_ALPHA = [0.55, 0.42, 0.28, 0.15];
 export function paintBestServer(canvas, { grid, server, n }, colorOf, focus = null) {
   if (canvas.width !== n || canvas.height !== n) throw new Error(`coverage canvas must be ${n}x${n}`);
@@ -94,7 +94,8 @@ export function paintBestServer(canvas, { grid, server, n }, colorOf, focus = nu
   for (let k = 0; k < n * n; k++) {
     const bin = RSRP_BINS.findIndex((b) => grid[k] >= b.min);
     if (bin < 0) continue;
-    const alpha = BIN_ALPHA[bin] * (focus === null || server[k] === focus ? 1 : 0.25);
+    if (focus !== null && server[k] !== focus) continue;
+    const alpha = BIN_ALPHA[bin];
     img.data.set([...colorOf(server[k]), Math.round(255 * alpha)], k * 4);
   }
   ctx.putImageData(img, 0, 0);

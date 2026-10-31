@@ -683,10 +683,14 @@ function renderLegend() {
   if (layers.baseline) items.push([token("baseline-wire"), "Baseline zones (wireframe)"]);
   $("legend").replaceChildren(...items.map(([c, t]) => el("div", {}, el("span", { className: "sw", style: `background:${c}` }), t)));
   // Who serves where: one colour per sector; the stronger the signal, the deeper the colour.
-  const sectors = sectorIds().filter((sector) => site.antennas.some((a) => a.id.startsWith(`${sector}-`) && a.bands.some((x) => x.name === coverageBand)));
+  // With an antenna selected, only the area it serves (select none to see them all again).
+  const focus = site.antennas.some((a) => a.id === selectedId) ? selectedId : null;
+  const sectors = focus ? [focus.split("-")[0]]
+    : sectorIds().filter((sector) => site.antennas.some((a) => a.id.startsWith(`${sector}-`) && a.bands.some((x) => x.name === coverageBand)));
   if (layers.coverage) $("legend").append(
-    el("div", { className: "coverage-key" }, ...sectors.flatMap((sector) => [el("span", { className: "sw", style: `background:${sectorColor(sector)}` }), el("span", { textContent: sector })])),
-    el("div", { textContent: `Coverage ${coverageBand ?? ""}: area served by each sector, deeper = stronger` }),
+    el("div", { className: "coverage-key" }, ...sectors.flatMap((sector) => [el("span", { className: "sw", style: `background:${sectorColor(sector)}` }), el("span", { textContent: focus ?? sector })])),
+    el("div", { textContent: focus ? `Coverage ${coverageBand ?? ""}: area served by ${focus}, deeper = stronger · click it again to see all`
+      : `Coverage ${coverageBand ?? ""}: area served by each sector, deeper = stronger` }),
     el("div", { className: "muted", textContent: coveragePending ? "Calculating coverage…" : "Coverage is indicative (Hata model, no terrain)." }));
 
 }
@@ -742,11 +746,18 @@ function update(options = {}) {
 function select(id, finding = null) {
   const changed = id !== selectedId || (finding?.building ?? null) !== sceneMotion.selectedBuilding;
   selectedId = id;
+  // The coverage view shows the selected antenna's own area, so it needs a band that antenna carries.
+  const carried = site.antennas.find((a) => a.id === id)?.bands ?? [];
+  if (layers.coverage && carried.length && !carried.some((x) => x.name === coverageBand)) {
+    coverageBand = [...carried].sort((x, y) => x.frequency_mhz - y.frequency_mhz)[0].name;
+    refreshCoverageBands();
+  }
   if (id && !finding) showCard("antenna", { reveal: true });
   update();
   renderEditor();
   paintCoverageView();
-  if (changed && id) sceneMotion.focus(id, finding?.building ?? null);
+  // The camera stays where the engineer put it; only a finding (a building in conflict) is flown to.
+  if (changed && id && finding) sceneMotion.focus(id, finding.building ?? null);
 }
 
 function bandNames() {

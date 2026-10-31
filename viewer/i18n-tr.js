@@ -567,6 +567,7 @@ export const PATTERNS = [
   ["^Checked (\\d+) sites, (\\d+) need action:$", "", "$1 saha kontrol edildi, $2 saha aksiyon bekliyor:"],
   ["^Saved (\\S+) in this browser · the site file is unchanged$", "", "$1'de bu tarayıcıya kaydedildi · saha dosyası değişmez"],
   ["^Coverage (\\S*): area served by each sector, deeper = stronger$", "", "Kapsama $1: her sektörün hizmet alanı, koyu renk = güçlü sinyal"],
+  ["^Coverage (\\S*): area served by (\\S+), deeper = stronger · click it again to see all$", "", "Kapsama $1: $2 anteninin hizmet verdiği alan, koyu renk = güçlü sinyal · hepsini görmek için tekrar tıklayın"],
   ["^All sites \\((\\d+)\\)$", "", "Tüm sahalar ($1)"],
   ["^(\\d+) site\\(s\\) have planned field work\\.$", "", "$1 sahada planlı saha işi var."],
   ["^Combined action plan \\((\\d+) sites\\)$", "", "Birleşik eylem planı ($1 saha)"],
