@@ -293,9 +293,10 @@ html.page-hidden .typing-dot { animation-play-state: paused; }
 /* Chat: one quiet header line, short suggestions on one line, no hint rows. */
 .chat .model-details, .composer .row.between > .muted:first-child { display: none; }
 .chat header { padding: 14px 16px; }
-.composer .chips { flex-wrap: nowrap; overflow-x: auto; max-height: none; scrollbar-width: none; }
+/* Ready questions stacked, each readable in full. */
+.composer .chips { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 6px; max-height: none; overflow: visible; }
 .composer .chips::-webkit-scrollbar { display: none; }
-.composer .chip { white-space: nowrap; max-width: 240px; overflow: hidden; text-overflow: ellipsis; background: var(--surface-2); border-color: var(--border); color: var(--text-secondary); }
+.composer .chip { white-space: normal; max-width: none; text-align: left; border-radius: var(--radius-control); padding: 7px 12px; background: var(--surface-2); border-color: var(--border); color: var(--text-secondary); }
 .msg.assistant { line-height: 1.55; }
 /* Scene overlays: keep only what helps you read the picture. */
 .scene-caption { display: none; }
