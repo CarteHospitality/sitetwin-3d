@@ -8,7 +8,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { REGIMES, siteZones } from "./emf.js";
 import { checkSite, headline, pointInPolygon, roofOf } from "./checks.js";
 import { coverageGrid, coverageGridAsync, paintBestServer } from "./coverage.js";
-import { initAgent, hasServer, STATIC_NOTE } from "./agent.js";
+import { initAgent, hasServer, staticChat, STATIC_NOTE } from "./agent.js";
 import { initPhoto, photoRequest, seenLine } from "./photo.js";
 import { finishStop, progress } from "./tour.js";
 import { composeBeforeAfter, openSnapshot } from "./snapshot.js";
@@ -1487,6 +1487,18 @@ initPhoto({
 $("chatInput").onkeydown = (event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(); } };
 // The suggestion chips are all questions about the site: they run as reviews, nothing is applied.
 for (const button of document.querySelectorAll(".suggest")) button.onclick = () => agent.ask(button.textContent, { review: true });
+// In the online demo (static files) the operator cannot answer: say so, under the welcome or after a
+// restored conversation, and drop the chat input. Checked on every load, whatever the chat holds.
+hasServer().then((ok) => {
+  if (ok) return;
+  const note = el("div", { className: "muted", textContent: tr(STATIC_NOTE) });
+  const welcome = document.querySelector(".msg.welcome");
+  // The welcome's "analyse with the button below" has no button here: it says what can be tried instead.
+  const ask = welcome?.querySelector(".welcome-ask");
+  if (ask) ask.textContent = tr("Try a change by hand in the Manual adjustment card, then open the action plan.");
+  if (welcome) welcome.append(note); else $("chatLog").append(el("div", { className: "msg assistant" }, note));
+  staticChat();
+});
 
 $("title").textContent = site.site_id;
 $("breadcrumbSite").textContent = site.site_id;
@@ -1579,10 +1591,8 @@ if (!handoff && !$("chatLog").children.length) {
   const welcome = el("div", { className: "msg assistant welcome" },
     el("div", { textContent: tr(`${site.site_id} is open.`) }),
     el("div", { className: "welcome-problem", textContent: tr(problem) }),
-    el("div", { textContent: tr(clean ? "Analyse it with the button below, or ask your own question." : "Analyse the problem with the button below, or ask your own question.") }));
+    el("div", { className: "welcome-ask", textContent: tr(clean ? "Analyse it with the button below, or ask your own question." : "Analyse the problem with the button below, or ask your own question.") }));
   $("chatLog").append(welcome);
-  // In the online demo (static files) the operator cannot answer: say so before anyone asks.
-  hasServer().then((ok) => { if (!ok) welcome.append(el("div", { className: "muted", textContent: tr(STATIC_NOTE) })); });
   const ask = el("button", { type: "button", className: "chip suggest primary-ask", textContent: tr(clean ? "Analyse this site" : "Analyse this problem") });
   // One first step: the general "Analyse this site" question waits until this one is used.
   const general = document.querySelector(".composer .chips .suggest");

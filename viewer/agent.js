@@ -14,6 +14,15 @@ const DECIDE_AT = 4;
 // Served as static files (the online demo), the page has no model server: what to say instead.
 export const STATIC_NOTE = "This online demo has no model server: the Expert Operator answers when SiteTwin 3D runs on your machine with a model key (see the README). The 3D twin, the checks, manual changes and the action plan work here.";
 
+// The online demo has no operator to ask: the chat keeps its welcome and the note, and drops the
+// input, the question chips, voice and photo, which could only fail there.
+export function staticChat() {
+  const composer = document.querySelector(".composer");
+  if (composer) composer.hidden = true;
+  const model = document.getElementById("chatModel");
+  if (model) model.textContent = tr("none in the online demo");
+}
+
 // Whether the page has its own server: an empty request is refused by the server's validation
 // without calling a model; a static host does not know the address at all.
 export async function hasServer() {

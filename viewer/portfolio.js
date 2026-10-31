@@ -5,7 +5,7 @@ import { tr } from "./i18n.js";
 import { siteZones, REGIMES } from "./emf.js";
 import { checkSite, headline } from "./checks.js";
 import { populationContext } from "./population.js";
-import { createAgent, hasServer, STATIC_NOTE } from "./agent.js";
+import { createAgent, hasServer, staticChat, STATIC_NOTE } from "./agent.js";
 import { initVoice } from "./voice.js";
 import { initConversation } from "./conversation.js";
 import { readSession, writeSession, restoreProposed, canonical, handoffId, absoluteUrl, rememberUpload, withUploads, isUpload, forgetUpload, forgetPlan, startOver } from "./session.js";
@@ -233,7 +233,7 @@ function showBriefing({ fresh = false } = {}) {
 // In the online demo (static files) there is no operator to ask: the briefing says so and offers
 // only what works without it.
 let staticDemo = false;
-hasServer().then((ok) => { staticDemo = !ok; renderBriefing(); });
+hasServer().then((ok) => { staticDemo = !ok; if (staticDemo) staticChat(); renderBriefing(); });
 function renderBriefing() {
   if (!briefing) return;
   const urgent = sites.filter((s) => ["critical", "high"].includes(s.a.level));
