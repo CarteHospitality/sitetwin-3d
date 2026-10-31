@@ -7,7 +7,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { REGIMES, siteZones } from "./emf.js";
 import { checkSite, headline, pointInPolygon, roofOf } from "./checks.js";
-import { coverageGrid, coverageGridAsync, paintCoverage, RSRP_BINS } from "./coverage.js";
+import { coverageGrid, coverageGridAsync, paintBestServer } from "./coverage.js";
 import { initAgent } from "./agent.js";
 import { initPhoto, photoRequest, seenLine } from "./photo.js";
 import { finishStop, progress } from "./tour.js";
@@ -64,8 +64,10 @@ let site = clone(restored.site);
 const kpi = twinKpi(twin);
 let selectedId = site.antennas.some((a) => a.id === restored.view.selected) ? restored.view.selected : null;
 let regimeKey = restored.regime;
-const layers = { zones: true, coverage: false, baseline: false };
-for (const key of Object.keys(layers)) if (typeof restored.view.layers?.[key] === "boolean") layers[key] = restored.view.layers[key];
+// Coverage is on by default: where each antenna reaches is half of what the twin shows.
+const layers = { zones: true, coverage: true, baseline: false };
+// Coverage comes back on with every opening; the other layers keep the engineer's choice.
+for (const key of ["zones", "baseline"]) if (typeof restored.view.layers?.[key] === "boolean") layers[key] = restored.view.layers[key];
 let coverageBand = restored.view.coverageBand ?? null;
 let lastModelState = clone(site);
 const planActions = restored.actions.filter((a) => a && typeof a.time === "string" && Array.isArray(a.delta));
@@ -249,12 +251,13 @@ intro.hide();
 
 // Size the canvas before the texture exists: three.js allocates GPU storage at
 // the first upload, and a later size change would only fill part of it.
-const COVERAGE_CELLS = 150;
+// The coverage view spans the street map (1.2 km): far enough to see where each sector fades.
+const COVERAGE_CELLS = 200, COVERAGE_SIZE_M = 1200;
 const coverageCanvas = Object.assign(document.createElement("canvas"), { width: COVERAGE_CELLS, height: COVERAGE_CELLS });
 const coverageTexture = new THREE.CanvasTexture(coverageCanvas);
 coverageTexture.colorSpace = THREE.SRGBColorSpace;
 coverageTexture.magFilter = THREE.NearestFilter;
-const coveragePlane = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshBasicMaterial({ map: coverageTexture, transparent: true, depthWrite: false, toneMapped: false }));
+const coveragePlane = new THREE.Mesh(new THREE.PlaneGeometry(COVERAGE_SIZE_M, COVERAGE_SIZE_M), new THREE.MeshBasicMaterial({ map: coverageTexture, transparent: true, depthWrite: false, toneMapped: false }));
 coveragePlane.rotation.x = -Math.PI / 2;
 coveragePlane.position.y = 0.05;
 coveragePlane.visible = false;
@@ -616,6 +619,21 @@ function renderFieldWork(order) {
 }
 
 let coverageTimer = null, coverageRequest = null, paintedCoverageKey = "", coverageComparison = null, coveragePending = false;
+// Sector colours for "who serves where" (red stays for EMF zones).
+const SECTOR_COLORS = ["#2563EB", "#0F9F6E", "#9333EA", "#D97706", "#DB2777", "#0891B2"];
+const sectorIds = () => [...new Set(site.antennas.map((a) => a.id.split("-")[0]))].sort();
+const sectorColor = (sector) => SECTOR_COLORS[Math.max(0, sectorIds().indexOf(sector)) % SECTOR_COLORS.length];
+const rgb = (hex) => hex.match(/[\da-f]{2}/gi).map((part) => parseInt(part, 16));
+let paintedCoverage = null;
+// Repaints the last result: on a new result, and when the selected antenna changes (its area stays strong).
+function paintCoverageView() {
+  if (!paintedCoverage) return;
+  const { grid, antennas } = paintedCoverage;
+  const focus = antennas.indexOf(selectedId);
+  paintBestServer(coverageCanvas, grid, (index) => rgb(sectorColor(antennas[index].split("-")[0])), focus < 0 ? null : focus);
+  coverageTexture.needsUpdate = true;
+  sceneMotion.invalidate();
+}
 function renderCoverage(immediate = false) {
   clearTimeout(coverageTimer);
   coverageRequest?.abort();
@@ -630,14 +648,15 @@ function renderCoverage(immediate = false) {
   const calculate = async () => {
     try {
       const snapshot = clone(site), band = coverageBand;
-      const grid = await coverageGridAsync(snapshot, band, 600, COVERAGE_CELLS, { signal: controller.signal });
+      const grid = await coverageGridAsync(snapshot, band, COVERAGE_SIZE_M, COVERAGE_CELLS, { signal: controller.signal });
       if (layers.baseline && !baselineCoverage.has(band)) {
-        const baseGrid = await coverageGridAsync(baseline, band, 600, COVERAGE_CELLS, { signal: controller.signal });
+        const baseGrid = await coverageGridAsync(baseline, band, COVERAGE_SIZE_M, COVERAGE_CELLS, { signal: controller.signal });
         baselineCoverage.set(band, coverageArea(baseGrid));
       }
       if (!layers.coverage || controller.signal.aborted) return;
       coverageComparison = { key, band, before: baselineCoverage.get(band), after: coverageArea(grid) };
-      paintCoverage(coverageCanvas, grid);
+      paintedCoverage = { grid, antennas: snapshot.antennas.map((a) => a.id) };
+      paintCoverageView();
       paintedCoverageKey = key;
       coveragePending = false;
       coveragePlane.visible = true;
@@ -662,11 +681,13 @@ function renderLegend() {
     [token("emf-front"), "EMF zone, main lobe"], [token("emf-back"), "EMF zone, back lobe"], [token("building-hit"), "Neighbour inside a zone"],
   ];
   if (layers.baseline) items.push([token("baseline-wire"), "Baseline zones (wireframe)"]);
-  if (layers.coverage) items.push(...RSRP_BINS.map((b) => [token(b.token), `${coverageBand ?? "No band"} ${b.label}`]));
   $("legend").replaceChildren(...items.map(([c, t]) => el("div", {}, el("span", { className: "sw", style: `background:${c}` }), t)));
+  // Who serves where: one colour per sector; the stronger the signal, the deeper the colour.
+  const sectors = sectorIds().filter((sector) => site.antennas.some((a) => a.id.startsWith(`${sector}-`) && a.bands.some((x) => x.name === coverageBand)));
   if (layers.coverage) $("legend").append(
-    el("div", { className: "muted", textContent: coveragePending ? "Calculating coverage…" : !coverageBand || paintedCoverageKey !== JSON.stringify([coverageBand, site.antennas]) ? "No coverage result" : "< −110 dBm · Below displayed range (transparent)" }),
-    el("div", { className: "muted", textContent: "Coverage is indicative (Hata model, no terrain)." }));
+    el("div", { className: "coverage-key" }, ...sectors.flatMap((sector) => [el("span", { className: "sw", style: `background:${sectorColor(sector)}` }), el("span", { textContent: sector })])),
+    el("div", { textContent: `Coverage ${coverageBand ?? ""}: area served by each sector, deeper = stronger` }),
+    el("div", { className: "muted", textContent: coveragePending ? "Calculating coverage…" : "Coverage is indicative (Hata model, no terrain)." }));
 
 }
 
@@ -724,6 +745,7 @@ function select(id, finding = null) {
   if (id && !finding) showCard("antenna", { reveal: true });
   update();
   renderEditor();
+  paintCoverageView();
   if (changed && id) sceneMotion.focus(id, finding?.building ?? null);
 }
 
@@ -732,8 +754,10 @@ function bandNames() {
 }
 function refreshCoverageBands() {
   const names = bandNames();
-  if (!names.includes(coverageBand)) coverageBand = names[0] ?? null;
-  $("coverageBand").replaceChildren(...names.map((n) => el("option", { value: n, textContent: n, selected: n === coverageBand })));
+  // The lowest band reaches farthest: the natural first look at the coverage area.
+  const lowest = site.antennas.flatMap((a) => a.bands).sort((x, y) => x.frequency_mhz - y.frequency_mhz)[0]?.name ?? null;
+  if (!names.includes(coverageBand)) coverageBand = lowest;
+  for (const select of [$("coverageBand"), $("viewBand")]) select.replaceChildren(...names.map((n) => el("option", { value: n, textContent: n, selected: n === coverageBand })));
 }
 
 // ---------- wiring ----------
@@ -811,7 +835,7 @@ $("export").onclick = async () => {
   openActionPlan(plan, { data, extra: [{ label: "Before / after", onclick: beforeAfter }] });
 };
 $("regime").onchange = (e) => { regimeKey = e.target.value; update(); };
-$("coverageBand").onchange = (e) => { coverageBand = e.target.value; renderCoverage(); renderLegend(); saveSessionPlan(); };
+$("coverageBand").onchange = $("viewBand").onchange = (e) => { coverageBand = e.target.value; refreshCoverageBands(); renderCoverage(); renderLegend(); saveSessionPlan(); };
 $("undo").onclick = () => planner.undo();
 function syncLayerChips() {
   for (const chip of document.querySelectorAll(".chip[data-layer]")) {
@@ -819,7 +843,17 @@ function syncLayerChips() {
     chip.setAttribute("aria-pressed", String(layers[chip.dataset.layer]));
   }
   $("coverageRow").hidden = !layers.coverage;
+  for (const button of document.querySelectorAll("[data-view-layer]")) button.setAttribute("aria-pressed", String(layers[button.dataset.viewLayer]));
+  $("viewBand").hidden = !layers.coverage;
   refreshCoverageBands();
+}
+// The same layers, on the 3D view itself.
+for (const button of document.querySelectorAll("[data-view-layer]")) {
+  button.onclick = () => {
+    layers[button.dataset.viewLayer] = !layers[button.dataset.viewLayer];
+    syncLayerChips();
+    update();
+  };
 }
 for (const chip of document.querySelectorAll(".chip[data-layer]")) {
   chip.onclick = () => {

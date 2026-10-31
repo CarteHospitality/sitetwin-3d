@@ -36,44 +36,44 @@ export function rsrpAt(antenna, band, x, z) {
   );
 }
 
-// Best-server RSRP for one band (by name) on an n x n grid of `size` metres.
-function coverageRow(antenna, band, j, size, n, grid) {
+// Best-server RSRP for one band (by name) on an n x n grid of `size` metres, and in
+// `server` the index (in site.antennas) of the antenna that gives it.
+function coverageRow(antenna, band, j, size, n, grid, server, index) {
   const step = size / n;
   const z = -size / 2 + (j + 0.5) * step;
   for (let i = 0; i < n; i++) {
     const x = -size / 2 + (i + 0.5) * step;
     const v = rsrpAt(antenna, band, x, z);
-    if (v > grid[j * n + i]) grid[j * n + i] = v;
+    if (v > grid[j * n + i]) { grid[j * n + i] = v; server[j * n + i] = index; }
   }
 }
 export function coverageGrid(site, bandName, size = 600, n = 150) {
-  const grid = new Float32Array(n * n).fill(-Infinity);
-  for (const a of site.antennas) {
+  const grid = new Float32Array(n * n).fill(-Infinity), server = new Uint8Array(n * n);
+  site.antennas.forEach((a, index) => {
     const band = a.bands.find((b) => b.name === bandName);
-    if (!band) continue;
-    for (let j = 0; j < n; j++) coverageRow(a, band, j, size, n, grid);
-  }
-  return { grid, n, size };
+    if (band) for (let j = 0; j < n; j++) coverageRow(a, band, j, size, n, grid, server, index);
+  });
+  return { grid, server, n, size };
 }
 
 // Display-only scheduling: identical row routine, antenna order, Float32 writes
 // and thresholds. Yield between antenna rows; obsolete requests are cancelled.
 export async function coverageGridAsync(site, bandName, size = 600, n = 150, { signal } = {}) {
-  const grid = new Float32Array(n * n).fill(-Infinity);
+  const grid = new Float32Array(n * n).fill(-Infinity), server = new Uint8Array(n * n);
   let started = performance.now();
-  for (const a of site.antennas) {
+  for (const [index, a] of site.antennas.entries()) {
     const band = a.bands.find((b) => b.name === bandName);
     if (!band) continue;
     for (let j = 0; j < n; j++) {
       if (signal?.aborted) throw Object.assign(new Error("Coverage cancelled"), { name: "AbortError" });
-      coverageRow(a, band, j, size, n, grid);
+      coverageRow(a, band, j, size, n, grid, server, index);
       if (performance.now() - started >= 3) {
         await new Promise((resolve) => setTimeout(resolve, 0));
         started = performance.now();
       }
     }
   }
-  return { grid, n, size };
+  return { grid, server, n, size };
 }
 
 export const RSRP_BINS = [
@@ -83,18 +83,19 @@ export const RSRP_BINS = [
   { min: -110, token: "coverage-weak", label: "−110 to <−100 dBm · weak" },
 ];
 
-export function paintCoverage(canvas, { grid, n }, colors) {
+// Who serves where: each cell in the colour of its best server's sector, stronger signal
+// more opaque, below the weakest bin transparent. `focus` (an antenna index) keeps
+// that antenna's area strong and fades the others.
+const BIN_ALPHA = [0.55, 0.42, 0.28, 0.15];
+export function paintBestServer(canvas, { grid, server, n }, colorOf, focus = null) {
   if (canvas.width !== n || canvas.height !== n) throw new Error(`coverage canvas must be ${n}x${n}`);
-  const palette = colors ?? RSRP_BINS.map((bin) => {
-    const hex = getComputedStyle(canvas.ownerDocument.documentElement).getPropertyValue(`--${bin.token}`).trim();
-    return hex.match(/[\da-f]{2}/gi).map((part) => parseInt(part, 16));
-  });
   const ctx = canvas.getContext("2d");
   const img = ctx.createImageData(n, n);
   for (let k = 0; k < n * n; k++) {
-    const index = RSRP_BINS.findIndex((b) => grid[k] >= b.min);
-    if (index < 0) continue;
-    img.data.set([...palette[index], Math.round(255 * 0.48)], k * 4);
+    const bin = RSRP_BINS.findIndex((b) => grid[k] >= b.min);
+    if (bin < 0) continue;
+    const alpha = BIN_ALPHA[bin] * (focus === null || server[k] === focus ? 1 : 0.25);
+    img.data.set([...colorOf(server[k]), Math.round(255 * alpha)], k * 4);
   }
   ctx.putImageData(img, 0, 0);
 }

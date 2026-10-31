@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SiteTwin 3D</title>
-<link rel="stylesheet" href="ui.css?v=ui-25">
+<link rel="stylesheet" href="ui.css?v=ui-27">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -52,7 +52,15 @@
       <div id="loading" class="hud loading-state" role="status">Loading twin…</div>
       <div id="legend"></div>
       <div class="hud scene-caption">Illustrative lighting · conservative EMF model</div>
-      <div class="hud antenna-picker" id="antennaPicker" role="group" aria-label="Antennas"></div>
+      <div class="hud scene-controls">
+        <div class="antenna-picker" id="antennaPicker" role="group" aria-label="Antennas"></div>
+        <div class="view-toggles" role="group" aria-label="Show on the map">
+          <span class="muted">Show</span>
+          <button type="button" data-view-layer="zones">EMF zones</button>
+          <button type="button" data-view-layer="coverage">Coverage area</button>
+          <select id="viewBand" aria-label="Coverage band" hidden></select>
+        </div>
+      </div>
       <div class="hud saved-toast" id="savedToast" role="status" hidden></div>
       <div class="map-attribution" id="mapAttribution" hidden>© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</div>
     </div>
@@ -159,6 +167,6 @@
 <nav class="mobile-nav" aria-label="Workspace navigation"><button data-pane="workspace" aria-pressed="true">Workspace</button><button data-pane="operator" aria-expanded="false">Operator</button><button data-pane="inspect" aria-expanded="false">Inspect</button></nav>
 <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
 <div id="liveStatus" class="sr-only" role="status" aria-live="polite"></div>
-<script type="module" src="app.js?v=ui-25"></script>
+<script type="module" src="app.js?v=ui-27"></script>
 </body>
 </html>

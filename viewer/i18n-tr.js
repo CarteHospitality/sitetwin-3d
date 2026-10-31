@@ -275,6 +275,8 @@ export const EXACT = {
   // ---- Antennas card
   "Antennas": "Antenler",
   "✓ Saved": "✓ Kaydedildi",
+  "Show": "Göster",
+  "Coverage area": "Kapsama alanı",
   "Not saved: this browser blocks storage, export the action plan to keep it": "Kaydedilmedi: bu tarayıcı depolamayı engelliyor, saklamak için eylem planını dışa aktarın",
   "ID": "Kimlik",
   "Az °": "Az °",
@@ -564,6 +566,7 @@ export const PATTERNS = [
   ["^Capacity is sufficient: busiest cell (\\S+ \\S+) at (\\d+)% PRB \\(measured\\)$", "", "Kapasite yeterli: en yoğun hücre $1, %$2 PRB (ölçülen)"],
   ["^Checked (\\d+) sites, (\\d+) need action:$", "", "$1 saha kontrol edildi, $2 saha aksiyon bekliyor:"],
   ["^Saved (\\S+) in this browser · the site file is unchanged$", "", "$1'de bu tarayıcıya kaydedildi · saha dosyası değişmez"],
+  ["^Coverage (\\S*): area served by each sector, deeper = stronger$", "", "Kapsama $1: her sektörün hizmet alanı, koyu renk = güçlü sinyal"],
   ["^All sites \\((\\d+)\\)$", "", "Tüm sahalar ($1)"],
   ["^(\\d+) site\\(s\\) have planned field work\\.$", "", "$1 sahada planlı saha işi var."],
   ["^Combined action plan \\((\\d+) sites\\)$", "", "Birleşik eylem planı ($1 saha)"],

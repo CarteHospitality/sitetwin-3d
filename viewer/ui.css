@@ -446,3 +446,15 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
 .home-site:hover { background: var(--surface-selected); }
 .home-site .id { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--text); }
 .home-site .why { color: var(--text-secondary); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Antenna buttons and layer switches together, top left of the 3D view. */
+.scene-controls { top: 16px; left: 16px; display: grid; gap: 6px; padding: 6px 8px; max-width: calc(100% - 32px); }
+.scene-controls .antenna-picker { position: static; max-width: none; padding: 0; }
+.view-toggles { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.view-toggles .muted { font-size: 12px; margin-right: 2px; }
+.view-toggles button { min-height: 0; padding: 3px 9px; font-size: 12px; border: 1px solid var(--border-control); background: var(--surface-0); }
+.view-toggles button[aria-pressed=true] { background: var(--surface-selected); border-color: var(--accent); color: var(--accent); }
+.view-toggles select { min-height: 0; padding: 2px 6px; font-size: 12px; }
+.coverage-key { display: flex; align-items: center; gap: 3px; }
+.coverage-key .sw { margin-right: 0; }
+.coverage-key span:last-child { margin-left: 6px; }
