@@ -68,11 +68,11 @@ function assess(entry, source, site = source.site, regime = "tr", proposed = fal
   if (cell) {
     const name = `${cell.sector} ${cell.band}`;
     const relieved = capacityAdded(source.site, site).has(cell.sector);
-    if (cell.prb_dl_pct >= PRB_BALANCE && relieved) issues.push(`Capacity: ${name} at ${cell.prb_dl_pct}% PRB (measured), the plan adds capacity there`);
+    if (cell.prb_dl_pct >= PRB_BALANCE && relieved) issues.push(`Capacity: ${name} at ${cell.prb_dl_pct}% PRB (${cell.tag}), the plan adds capacity there`);
     else if (cell.prb_dl_pct >= PRB_BALANCE) {
       capacity = true; full = cell.prb_dl_pct >= PRB_EXPAND;
-      capacityText = `${full ? "Full" : "Busy"} cell: ${name} at ${cell.prb_dl_pct}% PRB (measured)`;
-      issues.push(`Capacity: ${name} at ${cell.prb_dl_pct}% PRB in the busy hour (measured)`);
+      capacityText = `${full ? "Full" : "Busy"} cell: ${name} at ${cell.prb_dl_pct}% PRB (${cell.tag})`;
+      issues.push(`Capacity: ${name} at ${cell.prb_dl_pct}% PRB in the busy hour (${cell.tag})`);
     }
   } else {
     const busiest = Object.entries(pop.people_per_antenna).sort((a, b) => b[1] - a[1])[0];
@@ -376,7 +376,9 @@ function showCallout(s) {
   const color = token(s.a.level);
   const screen = el("div", { className: "callout-screen" },
     s.source.overview_photo?.data ? generalView(s.source.overview_photo) : aerialPhoto(s.entry.lat, s.entry.lon),
-    el("div", { className: "callout-title" }, el("strong", { textContent: s.entry.site_id }), el("span", { className: "callout-level", textContent: LEVELS[s.a.level].label })),
+    el("div", { className: "callout-title" }, el("strong", { textContent: s.entry.site_id }),
+      ...(s.entry.twin.includes("/samples/") ? [el("span", { className: "callout-sample", textContent: "Synthetic sample" })] : []),
+      el("span", { className: "callout-level", textContent: LEVELS[s.a.level].label })),
     el("p", { className: "callout-problem", textContent: s.a.problem }),
     el("dl", {}, ...calloutFacts(s).flatMap(([label, value], i) => {
       const dt = el("dt", { textContent: label }), dd = el("dd", {}, value);

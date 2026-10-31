@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SiteTwin 3D</title>
-<link rel="stylesheet" href="ui.css?v=ui-64">
+<link rel="stylesheet" href="ui.css?v=ui-66">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -16,7 +16,8 @@
 <header class="topbar">
   <a class="app-brand" href="portfolio.html">SiteTwin <span>3D</span></a>
   <div class="breadcrumb"><a id="backToMap" href="portfolio.html">Portfolio</a> / <span id="breadcrumbSite">Loading twin</span></div>
-  <span class="context">Planning simulation</span>
+  <span class="context" id="contextLabel">Planning simulation</span>
+  <button type="button" class="link-button" id="sourcesButton">Sources and assumptions</button>
   <label class="contrast-control"><input id="projector" type="checkbox"><span>Projector contrast</span></label>
   <button class="drawer-trigger operator-trigger" data-pane="operator" aria-expanded="false">Operator</button>
   <button class="drawer-trigger inspect-trigger" data-pane="inspect" aria-expanded="false">Inspect</button>
@@ -86,7 +87,7 @@
         </div>
         <div class="plan-ready" id="planReady" hidden>
           <div class="plan-ready-text"><strong>✓ Action plan ready</strong><span class="muted" id="planReadyCrew"></span></div>
-          <div class="plan-ready-actions"><button type="button" id="reviewPlan">Review plan</button><button type="button" class="primary" id="sendPlanNow">✉ E-mail</button></div>
+          <div class="plan-ready-actions"><button type="button" id="reviewPlan">Review plan</button><button type="button" class="primary" id="sendPlanNow">✉ E-mail draft</button></div>
         </div>
       </section>
 
@@ -184,6 +185,6 @@
 <nav class="mobile-nav" aria-label="Workspace navigation"><button data-pane="workspace" aria-pressed="true">Workspace</button><button data-pane="operator" aria-expanded="false">Operator</button><button data-pane="inspect" aria-expanded="false">Inspect</button></nav>
 <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
 <div id="liveStatus" class="sr-only" role="status" aria-live="polite"></div>
-<script type="module" src="app.js?v=ui-64"></script>
+<script type="module" src="app.js?v=ui-66"></script>
 </body>
 </html>

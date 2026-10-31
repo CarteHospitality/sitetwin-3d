@@ -141,6 +141,7 @@ li { margin: 6px 0; }
 .hud, #legend { position: absolute; z-index: 500; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px; box-shadow: var(--shadow-float); font-size: 13px; }
 #legend { left: 16px; bottom: 16px; max-width: calc(100% - 32px); pointer-events: none; }
 .stage-tools { top: 16px; left: 16px; display: flex; gap: 8px; padding: 8px; }
+.stage-tools button[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .scene-caption { right: 16px; top: 16px; max-width: 220px; pointer-events: none; }
 /* Antenna buttons and the "saved" confirmation on the 3D view. */
 .antenna-picker { top: 16px; left: 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; max-width: calc(100% - 32px); }
@@ -152,6 +153,8 @@ li { margin: 6px 0; }
 .saved-note { margin-top: 8px; font-size: 12px; }
 .plan-tools { display: flex; flex-wrap: wrap; gap: 6px; }
 .model-note { margin: 10px 0 0; font-size: 12px; line-height: 16px; }
+.link-button { background: none; border: 0; min-height: 0; padding: 4px 6px; color: var(--accent); font-size: 13px; text-decoration: underline; cursor: pointer; }
+.callout-sample { margin-left: auto; margin-right: 8px; font-size: 10.5px; font-weight: 600; letter-spacing: .02em; color: #F2C94C; white-space: nowrap; }
 .plan-reset { margin-top: 8px; padding: 5px 12px; min-height: 0; border: 1px solid var(--border-control); border-radius: var(--radius-control); background: var(--surface-0); color: var(--text-secondary); font-size: 13px; font-weight: 600; cursor: pointer; }
 .plan-reset:hover { border-color: var(--accent); color: var(--accent); }
 .map-attribution { position: absolute; right: 8px; bottom: 6px; z-index: 500; font-size: 11px; color: var(--text-secondary); background: rgb(255 255 255 / 70%); padding: 1px 6px; border-radius: 4px; }
@@ -555,7 +558,9 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
 /* The options the operator compared, open in the chat: the recommended one first, each with what it
    does to EMF conflicts, roof, coverage and field work, and its own Apply. */
 .decision-card { align-self: stretch; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface-0); padding: 10px 12px; font-size: 13px; }
-.decision-title { color: var(--text-secondary); font-weight: 600; margin-bottom: 8px; }
+.decision-title { color: var(--text-secondary); font-weight: 600; margin-bottom: 2px; }
+.decision-rule { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+.decision-card ol + .decision-rule { margin: 8px 0 0; }
 .decision-card ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .decision-card .option { border: 1px solid var(--border); border-radius: var(--radius-control); padding: 8px 10px; display: grid; gap: 6px; }
 .decision-card .option.recommended { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 5%, transparent); }
@@ -563,6 +568,7 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
 .option-head { display: flex; align-items: center; gap: 8px; }
 .option-name { flex: 1; color: var(--text); font-weight: 500; overflow-wrap: anywhere; }
 .option-head .badge { font-size: 11px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+.option-head .badge.quiet { color: var(--text-secondary); font-weight: 600; }
 .option-head button { min-height: 0; padding: 4px 12px; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .metrics { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--text-secondary); font-size: 12px; }
 .metric { display: inline-flex; gap: 4px; align-items: baseline; }

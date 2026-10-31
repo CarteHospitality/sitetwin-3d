@@ -39,7 +39,17 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
   const overview = el("button", { textContent: "Overview" });
   const selection = el("button", { textContent: "Selected antenna", disabled: true });
   const turn = el("button", { textContent: "Orbit", title: "Turn slowly around the site; click the view to stop" });
-  tools.append(overview, selection, turn); host.append(label, status, tools, reference);
+  // The camera story of a watched change (before, change, after) runs only when this is on.
+  const storyToggle = el("button", { textContent: "Camera story", title: "Film a watched change: before, change, after", ariaPressed: "false" });
+  let storyOn = false;
+  try { storyOn = localStorage.getItem("sitetwin:story") === "1"; } catch { /* storage may be disabled */ }
+  storyToggle.setAttribute("aria-pressed", String(storyOn));
+  storyToggle.onclick = () => {
+    storyOn = !storyOn;
+    storyToggle.setAttribute("aria-pressed", String(storyOn));
+    try { localStorage.setItem("sitetwin:story", storyOn ? "1" : "0"); } catch { /* optional */ }
+  };
+  tools.append(overview, selection, turn, storyToggle); host.append(label, status, tools, reference);
   status.style.top = "72px";
   controls.minPolarAngle = T.MathUtils.degToRad(25);
   controls.maxPolarAngle = T.MathUtils.degToRad(55);
@@ -328,9 +338,7 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
     for (const halo of halos) {
       const t = (now - halo.started) / halo.ms;
       if (t >= 1) { dispose(halo.mesh); halos.delete(halo); continue; }
-      const pulse = (Math.sin(t * Math.PI * 6) + 1) / 2;
-      halo.mesh.scale.setScalar(1 + pulse * 0.5);
-      halo.mesh.material.opacity = 0.55 * (1 - t) * (0.5 + pulse / 2);
+      halo.mesh.material.opacity = 0.4 * (1 - t);
     }
     framing = true; controls.update(); framing = false;
     // Opaque depth testing remains authoritative. Transparent ordering is approximate.
@@ -483,7 +491,7 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
     }
     invalidate();
   }
-  return { sync, focus, shot, drone, invalidate, startProfile, highlight, orbit, queueEdit: () => { editPending = true; invalidate(); },
+  return { sync, focus, shot, drone, get story() { return storyOn; }, invalidate, startProfile, highlight, orbit, queueEdit: () => { editPending = true; invalidate(); },
     changedGeometry: () => { dirtyShadow = true; invalidate(); },
     get selectedBuilding() { return located; },
     get animating() { return Boolean(tweens.size || cameraTween); },

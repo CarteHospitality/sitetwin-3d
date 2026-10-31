@@ -17,11 +17,11 @@ export function siteProblem({ findings, hit }, population, { cell = null, reliev
   const busiest = Object.entries(population.people_per_antenna).sort((a, b) => b[1] - a[1])[0];
   const busyCell = cell && !relieved && cell.prb_dl_pct >= PRB_BALANCE;
   const busySector = !cell && busiest && busiest[1] > CAPACITY_PEOPLE_PER_ANTENNA;
-  if (sensitive[0]?.health) return `The field from ${sensitive[0].antenna} at a hospital is above the 3 V/m health limit: the site cannot stay as it is.`;
-  if (sensitive.length) return `A ${sensitive[0].use} is inside the EMF safety zone of ${sensitive[0].antenna}: the site cannot stay as it is.`;
+  if (sensitive[0]?.health) return `The field from ${sensitive[0].antenna} at a hospital is above the 3 V/m health limit in the planning model: it needs a fix or a measurement.`;
+  if (sensitive.length) return `A ${sensitive[0].use} is inside the EMF safety zone of ${sensitive[0].antenna} in the planning model: it needs a fix or a measurement.`;
   if (bad.length) return `The EMF safety zone reaches ${hit.size} neighbouring ${hit.size === 1 ? "building" : "buildings"}: people there get more than the limit allows.`;
-  if (busyCell && cell.prb_dl_pct >= PRB_EXPAND) return `Cell ${cell.sector} ${cell.band} is ${cell.prb_dl_pct}% full in the busy hour: users there are already slowed down.`;
-  if (busyCell) return `Cell ${cell.sector} ${cell.band} runs at ${cell.prb_dl_pct}% in the busy hour: at today's growth it fills up in about ${Math.max(1, monthsUntil(cell.prb_dl_pct, PRB_EXPAND))} months.`;
+  if (busyCell && cell.prb_dl_pct >= PRB_EXPAND) return `Cell ${cell.sector} ${cell.band} is ${cell.prb_dl_pct}% full in the busy hour: users there are likely slowed down.`;
+  if (busyCell) return `Cell ${cell.sector} ${cell.band} runs at ${cell.prb_dl_pct}% in the busy hour: at about 20% growth a year it could fill up within roughly ${Math.max(1, monthsUntil(cell.prb_dl_pct, PRB_EXPAND))} months (a rough estimate).`;
   if (busySector) return `About ${Math.round(busiest[1] / 100) * 100} people rely on sector ${sectorOf(busiest[0])} alone: its capacity may soon not be enough.`;
   if (findings.some((f) => f.level === "warn")) return "Part of the roof is inside an EMF zone: access must be restricted before anyone works there.";
   if (proposed) return "A change is planned in SiteTwin 3D; the site itself is unchanged.";
@@ -49,9 +49,9 @@ export function statusLines(site, checks, population, { coverageLoss = [], kpi =
   const cell = kpi?.cells?.[0];
   if (cell) {
     const name = `${cell.sector} ${cell.band}`, prb = cell.prb_dl_pct;
-    if (prb < PRB_BALANCE) lines.push({ level: "ok", text: `No busy cell: busiest ${name} at ${prb}% PRB (measured)` });
-    else if (before && capacityAdded(before, site).has(cell.sector)) lines.push({ level: "ok", text: `Cell ${name} at ${prb}% PRB (measured): the plan adds capacity there` });
-    else lines.push({ level: prb >= PRB_EXPAND ? "bad" : "warn", text: `Cell ${name} is ${prb >= PRB_EXPAND ? "full" : "busy"}: ${prb}% PRB in the busy hour (measured)` });
+    if (prb < PRB_BALANCE) lines.push({ level: "ok", text: `No busy cell: busiest ${name} at ${prb}% PRB (${cell.tag})` });
+    else if (before && capacityAdded(before, site).has(cell.sector)) lines.push({ level: "ok", text: `Cell ${name} at ${prb}% PRB (${cell.tag}): the plan adds capacity there` });
+    else lines.push({ level: prb >= PRB_EXPAND ? "bad" : "warn", text: `Cell ${name} is ${prb >= PRB_EXPAND ? "full" : "busy"}: ${prb}% PRB in the busy hour (${cell.tag})` });
   } else {
     // The busy sector stays busy in people, but a plan that adds capacity there answers it.
     const busiest = Object.entries(population.people_per_antenna).sort((a, b) => b[1] - a[1])[0];

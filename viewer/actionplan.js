@@ -82,8 +82,8 @@ function planFindings(baseline, before, gained, kpi) {
     const cell = (kpi?.cells ?? []).filter((c) => c.sector === sector).sort((a, b) => b.prb_dl_pct - a.prb_dl_pct)[0];
     if (cell) {
       const months = monthsUntil(cell.prb_dl_pct, PRB_BALANCE);
-      findings.push({ cell, text: months ? `Cell ${cell.sector} ${cell.band} at ${cell.prb_dl_pct}% PRB in the busy hour (measured), and at today's growth it gets busy ${inTime(months)}`
-        : `Cell ${cell.sector} ${cell.band} is busy: ${cell.prb_dl_pct}% PRB in the busy hour (measured)` });
+      findings.push({ cell, text: months ? `Cell ${cell.sector} ${cell.band} at ${cell.prb_dl_pct}% PRB in the busy hour (${cell.tag}), and at today's growth it gets busy ${inTime(months)}`
+        : `Cell ${cell.sector} ${cell.band} is busy: ${cell.prb_dl_pct}% PRB in the busy hour (${cell.tag})` });
       continue;
     }
     const people = Math.max(0, ...Object.entries(populationContext(baseline).people_per_antenna).filter(([id]) => id.split("-")[0] === sector).map(([, n]) => n));
@@ -107,13 +107,14 @@ export function result(before, after) {
 // Sections of plain English lines; the page and the e-mail translate them.
 // `measured`: busy cells from the operator's KPI export, if one was loaded.
 export function actionPlan({ site, entry, before, after, changes, steps = [], reason, order, crew, regime, measured = [], findings = [{ text: before.text }], gained = [] }) {
-  const where = [`Structure: ${(site.structure ?? "rooftop").replaceAll("_", " ")}`];
+  const where = [...(entry?.twin?.includes("/samples/") ? ["Data: synthetic sample site (antennas and load invented for the demo)"] : []),
+    `Structure: ${(site.structure ?? "rooftop").replaceAll("_", " ")}`];
   if (entry?.address) where.push(`Address: ${entry.address}`);
   if (entry?.lat != null) where.push(`Coordinates: ${entry.lat}, ${entry.lon}`, `Map: https://www.google.com/maps?q=${entry.lat},${entry.lon}`);
   // A busy cell the finding already names is not listed again under measured load.
   const named = new Set(findings.map((f) => f.cell).filter(Boolean));
   const why = [...findings.map((f) => `Finding: ${f.text}`),
-    ...measured.filter((c) => ![...named].some((n) => n.sector === c.sector && n.band === c.band)).map((c) => `Measured load: ${c.sector} ${c.band} ${c.prb_dl_pct}% PRB (busy hour)`),
+    ...measured.filter((c) => ![...named].some((n) => n.sector === c.sector && n.band === c.band)).map((c) => `${c.tag === "measured" ? "Measured" : "Sample"} load: ${c.sector} ${c.band} ${c.prb_dl_pct}% PRB (busy hour)`),
     ...(reason ? [`Reason for the change: ${reason}`] : []), `EMF limit: ${regime}`];
   const visits = crew.visits.map((v) => `${v.name}: ${v.remote ? `${v.people} engineer, ~${v.hours} h, remote` : `${v.people} people, ${v.days} day(s)`}`);
   return {
@@ -124,7 +125,7 @@ export function actionPlan({ site, entry, before, after, changes, steps = [], re
       { heading: "Why", lines: why },
       { heading: "Work to do", lines: changes },
       // What the plan gains comes first: more capacity where it adds some, then the EMF state.
-      { heading: "Expected result", lines: [...gained.map((s) => `More capacity on sector ${s}`), ...result(before, after)] },
+      { heading: "Expected result", lines: [...gained.map((s) => `More capacity on sector ${s} (a new band; how much the load drops is not modelled)`), ...result(before, after)] },
       { heading: "Crew and schedule", lines: [...visits, ...crew.crew.map((c) => `${c.role}: ${c.count}`)] },
       { heading: "Work steps", lines: order.items.flatMap((i) => i.steps) },
       { heading: "Tools and equipment", lines: crew.tools },
@@ -193,9 +194,9 @@ export function openActionPlan(plan, { data, extra = [] } = {}) {
   const status = el("span", { className: "muted", role: "status" });
   const action = (label, onclick, primary = false) => Object.assign(el("button", { className: primary ? "primary" : "", textContent: tr(label) }), { onclick });
   const actions = [
-    action("Send by e-mail", async () => { status.textContent = await sendByEmail(plan); }, true),
+    action("Print / PDF", () => { const w = open("", "_blank"); if (!w) return; w.document.write(printable(plan)); w.document.close(); w.focus(); w.print(); }, true),
     action("Copy", async () => { await navigator.clipboard.writeText(text); status.textContent = tr("Copied"); }),
-    action("Print / PDF", () => { const w = open("", "_blank"); if (!w) return; w.document.write(printable(plan)); w.document.close(); w.focus(); w.print(); }),
+    action("E-mail draft", async () => { status.textContent = await sendByEmail(plan); }),
   ];
   actions.push(...extra.map((x) => action(x.label, x.onclick)));
   if (navigator.share) actions.push(action("Share", () => navigator.share({ title: titleOf(plan), text }).catch(() => {})));

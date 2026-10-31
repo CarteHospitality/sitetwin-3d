@@ -17,7 +17,7 @@ import { initVoice } from "./voice.js";
 import { initConversation } from "./conversation.js";
 import { createSceneMotion } from "./scene.js";
 import { restoreProposed, saveProposed, sourceFingerprint, consumeHandoff, handoffId, absoluteUrl, withUploads, startOver } from "./session.js";
-import { twinKpi, TRAFFIC_GROWTH, monthsUntil } from "./kpi.js";
+import { twinKpi, loadTag, TRAFFIC_GROWTH, monthsUntil } from "./kpi.js";
 import { groundMap } from "./groundmap.js";
 import { createIntro } from "./intro.js";
 import { fieldWorkOrder } from "./fieldwork.js";
@@ -654,7 +654,7 @@ async function playPlan(before, focus, ids) {
   glide(panel, panel.scrollTop + card.getBoundingClientRect().top - panel.getBoundingClientRect().top - 8);
   // The story on the 3D view: from afar, only this antenna's area of service today; then close in
   // on it while the steps play; then afar again for its new area (the new ground flashes green).
-  const story = Boolean(showcaseFrom && focus);
+  const story = sceneMotion.story && Boolean(showcaseFrom && focus);
   const existed = before.antennas.some((a) => a.id === focus);
   let closeOn = null;
   if (story) {
@@ -747,7 +747,8 @@ const planner = {
     const { buildings, ...people } = populationContext(site);
     const outlook = capacityOutlook();
     return { site_id: site.site_id, structure: site.structure, ...state, people: { ...people, buildings: buildings.filter((b) => b.sensitive || b.distance_m <= 120) },
-      ...(kpi ? { network_kpi: { source: "measured: operator OSS data carried in the site file, busiest hour per cell, current network before the plan", cells: kpi.cells } } : {}),
+      ...(kpi ? { network_kpi: { source: loadTag(kpi) === "measured" ? "measured: operator OSS data carried in the site file, busiest hour per cell, current network before the plan"
+        : "sample data: invented for this demo site, not a measurement; call it sample data, never measured", cells: kpi.cells } } : {}),
       ...(outlook ? { capacity_outlook: outlook } : {}) };
   },
   evaluate(changes) {
@@ -1516,6 +1517,31 @@ if (freshOpen) {
   url.searchParams.delete("fresh");
   history.replaceState(history.state, "", url.href);
 }
+// Where every figure comes from, one click away: the site file, the load, the calculations, the map.
+const syntheticSite = src.includes("/samples/") || loadTag(kpi) === "sample data";
+if (syntheticSite) $("contextLabel").textContent = tr("Planning simulation · synthetic sample site");
+$("sourcesButton").onclick = () => {
+  const section = (heading, lines) => el("section", {}, el("h2", { textContent: tr(heading) }), el("ul", {}, ...lines.map((line) => el("li", { textContent: tr(line) }))));
+  const close = Object.assign(el("button", { className: "icon-btn close", title: tr("Close"), ariaLabel: tr("Close") }), { onclick: () => dialog.close() });
+  const dialog = el("dialog", { className: "plan-dialog" },
+    el("header", {}, el("h1", { textContent: tr("Sources and assumptions") }), close),
+    el("div", { className: "plan-body" },
+      section("Site file", [syntheticSite ? "Synthetic sample site: antennas, bands and load are invented for the demo; the buildings around it are real."
+        : "SiteTwin site file (jevbtk-digital-site@1), produced from the site's BTK reports.", ...(baseline.notes ?? [])]),
+      section("Load", kpi ? [loadTag(kpi) === "measured" ? "Busy hour per cell, measured by the operator." : "Busy hour per cell, sample data invented for the demo: not a measurement.",
+        `${tr("Source")}: ${kpi.source ?? "–"}${kpi.period ? `, ${kpi.period}` : ""}`] : ["No load data in the site file: capacity is estimated from the people around the site."]),
+      section("Calculations", ["EMF: far-field screening with the Turkish single-device limit (20% of the ICNIRP field strength); health facilities against 3 V/m; overlapping antennas summed. Not a measurement.",
+        "Coverage: Hata model over 1.2 km, indicative: no terrain, clutter or building shadow; extrapolated above 2 GHz.",
+        "People: estimated from building footprints and heights, floor area per person by use.",
+        "Next year: about 20% traffic growth a year, an indicative figure."]),
+      section("Map and imagery", ["Buildings: Microsoft Global ML Building Footprints; uses: OpenStreetMap.",
+        "Ground imagery: Esri, Maxar, Earthstar Geographics; streets: OpenStreetMap contributors."])));
+  dialog.setAttribute("data-no-i18n", "");
+  dialog.addEventListener("close", () => dialog.remove());
+  document.body.append(dialog);
+  dialog.showModal();
+};
+
 // The problem the map showed for this site, said again on opening, with one button to analyse it.
 if (!handoff && !$("chatLog").children.length) {
   const problem = siteProblem(checkSite(site, siteZones(site, REGIMES[regimeKey])), populationContext(site), { cell: kpi?.cells?.[0] ?? null });

@@ -21,7 +21,26 @@ const STEP_TEXT = {
   evaluate_change: "Comparing options", apply_change: "Applying the change to the plan",
   get_field_work_order: "Preparing the field work", set_view: "Adjusting the view",
 };
-const SCAN_MS = 650, REVEAL_MS = 380;
+// The account's lines follow each other quickly (they are known at once); paragraphs appear together.
+const SCAN_MS = 90, REVEAL_MS = 0;
+// The card ranks options by a fixed rule, so the same options always come out in the same order:
+// sensitive buildings in a zone, then other buildings, heavy coverage loss (how many bands, how
+// much), roof restrictions, then the field work (remote before a site visit, fewer people-days).
+const MAX_CARD_OPTIONS = 4;
+function optionScore(r) {
+  const sensitive = r.neighbour_conflicts.filter((t) => t.includes("SENSITIVE")).length;
+  const loss = r.heavy_coverage_loss ?? [];
+  const work = !r.field_work || r.field_work.remote ? 0 : r.field_work.people * Math.max(1, r.field_work.days);
+  return [sensitive, r.neighbour_conflicts.length - sensitive, loss.length, loss.reduce((s, l) => s + Math.abs(l.change_pct), 0), r.roof_restrictions.length, work];
+}
+function byScore(p, q) {
+  const bad = (o) => Boolean(o.result?.errors?.length);
+  if (bad(p) !== bad(q)) return bad(p) ? 1 : -1;
+  if (bad(p)) return 0;
+  const a = optionScore(p.result), b = optionScore(q.result);
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] - b[i];
+  return p.label.localeCompare(q.label); // a tie keeps one order whatever order the options came in
+}
 // `stateNow()`: today's figures ({ conflicts }) shown beside each option's in the decision card.
 export function initConversation({ onBusy = () => {}, onComplete = () => {}, speak = () => {}, transcriptKey = "default", onApplyOption = null, onChoice = null, scanLines = null, stateNow = null } = {}) {
   const log = $("chatLog");
@@ -275,21 +294,21 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
     return el("div", { className: "choices" }, ...buttons);
   }
   // The options the operator compared, open: what each one does to the EMF conflicts (beside today's),
-  // the roof, the coverage and the field work, the recommended one first (the operator's first choice),
-  // each with its own Apply. `used`: the choices the card answers.
+  // the roof, the coverage and the field work, each with its own Apply. They are ranked by the fixed
+  // rule above; the top one is "Recommended", and the operator's own first choice is marked too when
+  // it differs, so nothing is hidden. `used`: the choices the card answers.
   function decisionCard(choiceList, options) {
-    const used = new Set(), picked = [];
-    for (const text of choiceList) {
-      const option = closestOption(text, options);
-      if (option && !picked.includes(option)) { picked.push(option); used.add(text); }
-    }
-    const rows = picked.length ? picked : options;
+    const used = new Set();
+    for (const text of choiceList) if (closestOption(text, options)) used.add(text);
+    const operatorPick = choiceList.length ? closestOption(choiceList[0], options) : null;
+    const rows = [...options].sort(byScore).slice(0, MAX_CARD_OPTIONS);
+    if (operatorPick && !rows.includes(operatorPick)) rows[rows.length - 1] = operatorPick;
     const today = stateNow?.();
     const buttons = [];
     const metric = (label, value, tone = "", note = "") => el("span", { className: `metric ${tone}` },
       el("span", { className: "metric-label", textContent: label }), el("span", { textContent: value }), ...(note ? [el("span", { className: "metric-note", textContent: note })] : []));
     const items = rows.map((o, i) => {
-      const r = o.result, recommended = i === 0 && picked.length > 0;
+      const r = o.result, recommended = i === 0 && !r?.errors?.length, operators = o === operatorPick && !recommended;
       const name = el("span", { className: "option-name", textContent: o.label });
       name.dataset.noI18n = "";
       if (r?.errors?.length) return el("li", { className: "option impossible" }, el("div", { className: "option-head" }, name), el("div", { className: "muted", textContent: "Not possible" }));
@@ -302,7 +321,8 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
       };
       buttons.push(apply);
       return el("li", { className: recommended ? "option recommended" : "option" },
-        el("div", { className: "option-head" }, name, ...(recommended ? [el("span", { className: "badge", textContent: "Recommended" })] : []), apply),
+        el("div", { className: "option-head" }, name, ...(recommended ? [el("span", { className: "badge", textContent: "Recommended" })] : []),
+          ...(operators ? [el("span", { className: "badge quiet", textContent: "Operator's choice" })] : []), apply),
         el("div", { className: "metrics" },
           metric("EMF conflicts", String(r.neighbour_conflicts.length), r.neighbour_conflicts.length ? "bad" : "ok", today ? `today ${today.conflicts}` : ""),
           metric("Roof", String(r.roof_restrictions.length), r.roof_restrictions.length ? "warn" : "ok"),
@@ -310,8 +330,12 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
           metric("Field work", !work ? "–" : work.remote ? "remote only" : `${work.people} people · ${work.days} day(s)`)));
     });
     liveButtons.push(...buttons);
+    const more = options.length - rows.length;
     return { used, element: el("section", { className: "decision-card" },
-      el("div", { className: "decision-title", textContent: "Options the operator compared" }), el("ol", {}, ...items)) };
+      el("div", { className: "decision-title", textContent: "Options the operator compared" }),
+      el("div", { className: "decision-rule", textContent: "Ranked by sensitive buildings, then other buildings, coverage loss, roof and field work" }),
+      el("ol", {}, ...items),
+      ...(more > 0 ? [el("div", { className: "decision-rule", textContent: `${more} more compared` })] : [])) };
   }
   if (transcript.length) {
     restoring = true;
