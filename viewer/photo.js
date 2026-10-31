@@ -12,12 +12,14 @@ export function seenLine(obs) {
 }
 
 // The request the agent receives: the full observation, and what to do with it. Buildings seen and
-// direction hints go too: the agent can hold them against the twin's neighbours and azimuths.
-export function photoRequest(obs, lang = "en") {
+// direction hints go too, with a drone photo's heading and height (`record`, from its metadata):
+// the agent can hold them against the twin's neighbours and azimuths.
+export function photoRequest(obs, lang = "en", record = {}) {
   const items = obs.items.map((i) => `- ${i.count} × ${kind(i.kind)}${i.manufacturer ? `, ${i.manufacturer}${i.model ? ` ${i.model}` : ""}` : ""}${i.label_text ? `, label "${i.label_text}"` : ""}${i.position ? ` (${i.position})` : ""}`);
   const side = (deg) => (Math.round(deg) === 0 ? "at the image centre" : `${Math.abs(Math.round(deg))}° ${deg < 0 ? "left" : "right"} of the image centre`);
   const structures = (obs.visible_structures ?? []).map((s) => `- ${s.description}: about ${Math.round(s.approx_distance_m)} m away, ${Math.round(s.approx_height_m)} m high${s.storeys ? ` (${s.storeys} storeys)` : ""}, ${side(s.bearing_offset_deg)}`);
-  const hints = obs.direction_hints ?? [];
+  const hints = [...(record?.heading_deg != null ? [`camera heading ${Math.round(record.heading_deg)}° from North (photo metadata)${record.drone_height_m != null ? `, ${Math.round(record.drone_height_m)} m above take-off` : ""}`] : []),
+    ...(obs.direction_hints ?? [])];
   return [`Site photo read by Muse Spark 1.3 (${kind(obs.photo_kind)}, confidence ${obs.confidence}): ${obs.summary}`,
     ...(items.length ? ["Equipment seen:", ...items] : []),
     ...(structures.length ? ["Buildings seen (estimated from the photo):", ...structures] : []),
@@ -47,7 +49,7 @@ export function initPhoto({ button, status, onRead }) {
       }
       const record = await res.json();
       status("");
-      onRead(record.observation, URL.createObjectURL(file));
+      onRead(record.observation, URL.createObjectURL(file), record);
     } catch (e) {
       status(`Photo could not be read: ${e.message ?? e}`);
     } finally {

@@ -57,14 +57,14 @@ export function statusLines(site, checks, population, { coverageLoss = [], kpi =
   if (cell) {
     const name = `${cell.sector} ${cell.band}`, prb = cell.prb_dl_pct;
     if (prb < PRB_BALANCE) lines.push({ level: "ok", text: `No busy cell: busiest ${name} at ${prb}% PRB (${cell.tag})` });
-    else if (before && capacityAdded(before, site).has(cell.sector)) lines.push({ level: "ok", text: `Cell ${name} at ${prb}% PRB (${cell.tag}): the plan adds capacity there, the load after it is not modelled` });
+    else if (before && capacityAdded(before, site).has(cell.sector)) lines.push({ level: "warn", text: `Cell ${name} at ${prb}% PRB (${cell.tag}): the plan adds capacity there, the load after it is not modelled` });
     else lines.push({ level: prb >= PRB_EXPAND ? "bad" : "warn", text: `Cell ${name} is ${prb >= PRB_EXPAND ? "full" : "busy"}: ${prb}% PRB in the busy hour (${cell.tag})` });
   } else {
     // The busy sector stays busy in people, but a plan that adds capacity there answers it.
     const busiest = Object.entries(population.people_per_antenna).sort((a, b) => b[1] - a[1])[0];
     const sector = busiest && sectorOf(busiest[0]), people = busiest && Math.round(busiest[1] / 100) * 100;
     if (!busiest || busiest[1] <= CAPACITY_PEOPLE_PER_ANTENNA) lines.push({ level: "ok", text: "No busy sector (estimated from the people nearby)" });
-    else if (before && capacityAdded(before, site).has(sector)) lines.push({ level: "ok", text: `Sector ${sector} has about ${people} people: the plan adds capacity there` });
+    else if (before && capacityAdded(before, site).has(sector)) lines.push({ level: "warn", text: `Sector ${sector} has about ${people} people: the plan adds capacity there` });
     else lines.push({ level: "warn", text: `Sector ${sector} is busy: about ${people} people` });
   }
   if (coverageLoss.length) lines.push({ level: "warn", text: `Coverage drops sharply: ${coverageLoss.map((l) => `${l.band} ${l.change_pct}%`).join(", ")}` });

@@ -40,7 +40,7 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
   const selection = el("button", { textContent: "Selected antenna", disabled: true });
   const turn = el("button", { textContent: "Orbit", title: "Turn slowly around the site; click the view to stop" });
   // The camera story of a watched change (before, change, after) runs only when this is on.
-  const storyToggle = el("button", { textContent: "Camera story", title: "Film a watched change: before, change, after", ariaPressed: "false" });
+  const storyToggle = el("button", { type: "button", textContent: "Camera story", title: "Film a watched change: before, change, after", ariaPressed: "false" });
   let storyOn = false;
   try { storyOn = localStorage.getItem("sitetwin:story") === "1"; } catch { /* storage may be disabled */ }
   storyToggle.setAttribute("aria-pressed", String(storyOn));
@@ -49,7 +49,12 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
     storyToggle.setAttribute("aria-pressed", String(storyOn));
     try { localStorage.setItem("sitetwin:story", storyOn ? "1" : "0"); } catch { /* optional */ }
   };
-  tools.append(overview, selection, turn, storyToggle); host.append(label, status, tools, reference);
+  // The story toggle sits with the layer toggles above the view, where it can be found; the other
+  // tools stay in the stage's (hidden) tool bar.
+  const toggles = document.querySelector(".view-toggles");
+  tools.append(overview, selection, turn, ...(toggles ? [] : [storyToggle]));
+  toggles?.append(storyToggle);
+  host.append(label, status, tools, reference);
   status.style.top = "72px";
   controls.minPolarAngle = T.MathUtils.degToRad(25);
   controls.maxPolarAngle = T.MathUtils.degToRad(55);

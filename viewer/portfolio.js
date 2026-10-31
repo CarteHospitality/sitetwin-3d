@@ -537,8 +537,8 @@ ${voice ? "The engineer is speaking: answer in 1-3 short spoken sentences, no li
 Answer in the engineer's language (Turkish if they speak Turkish). When you open a site, pass the instruction in the engineer's own language.
 ${document.documentElement.lang === "tr" ? "The engineer's screen is in Turkish: say the urgency levels and structure types in Turkish too (Critical = Kritik, Action needed = Aksiyon gerekli, Review = İnceleme, Change planned = Değişiklik planlandı, OK = Uygun; rooftop = çatı, ground = zemin)." : ""}
 Sites are ranked by automatic checks: Critical = an EMF zone reaches a sensitive building (school, kindergarten, hospital);
-Action needed = a zone reaches another building, or a cell is full (85% PRB or more in the busy hour, measured); Review = roof safety or a busy sector; Change planned = the engineer applied a change in SiteTwin 3D that is not built yet. Each site is assessed as it stands, the result of its latest SiteTwin application.
-Capacity issues marked "measured" come from the operator's network KPIs; "estimated" ones only from the people around the site.
+Action needed = a zone reaches another building, or a cell is full (85% PRB or more in the busy hour, from the site file's load); Review = roof safety or a busy sector; Change planned = the engineer applied a change in SiteTwin 3D that is not built yet. Each site is assessed as it stands, the result of its latest SiteTwin application.
+Capacity issues marked "measured" come from the operator's network KPIs, "sample data" from the invented load of a demo site (never call it measured); "estimated" ones only from the people around the site.
 Call a cell full only at 85% PRB or more; 70-85% is busy. When the plan already adds capacity on a busy sector, say so.
 Call list_sites before talking about sites; never invent sites or numbers. Site names may be spoken loosely ("Ankara", "the Izmir one"):
 match them to site_id. To show a site, use focus_site. To fix several or all problem sites, use fix_sites (most urgent first; skip OK sites). To fix, simulate, change or inspect one in 3D, use open_site with an instruction

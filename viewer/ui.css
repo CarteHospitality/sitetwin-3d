@@ -291,13 +291,13 @@ html.page-hidden .typing-dot { animation-play-state: paused; }
 
 /* ---- Calm, light, less-is-more pass ---- */
 /* Top bar: brand, where you are, language, one primary action. */
-.topbar .context, .topbar .contrast-control { display: none; }
+.topbar .contrast-control { display: none; }
 .topbar { box-shadow: 0 1px 0 var(--border); }
 .app-brand { font-weight: 700; letter-spacing: -.01em; }
 /* No emoji chrome. */
 .card-icon { display: none; }
 /* Chat: one quiet header line, short suggestions on one line, no hint rows. */
-.chat .model-details, .composer .row.between > .muted:first-child { display: none; }
+.composer .row.between > .muted:first-child { display: none; }
 .chat header { padding: 14px 16px; }
 /* Ready questions stacked, each readable in full. */
 .composer .chips { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 6px; max-height: none; overflow: visible; }

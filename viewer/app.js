@@ -45,6 +45,9 @@ const BAND_PRESETS = {
   N3500: { name: "N3500", frequency_mhz: 3500, tx_power_w: 80, gain_dbi: 22.0, horizontal_beamwidth_deg: 65, vertical_beamwidth_deg: 7, front_to_back_db: 30, feeder_loss_db: 0 },
   N3600: { name: "N3600", frequency_mhz: 3600, tx_power_w: 80, gain_dbi: 22.0, horizontal_beamwidth_deg: 65, vertical_beamwidth_deg: 7, front_to_back_db: 30, feeder_loss_db: 0 },
 };
+// Transmit power per band, the same limit for the operator's changes and the slider: 5G mid-band
+// (above 3 GHz) radios go higher than the 4G bands.
+const maxPowerW = (band) => (band.frequency_mhz > 3000 ? 240 : 80);
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
@@ -385,7 +388,7 @@ function applyChanges(s, changes) {
     const moved = c.action === "add_antenna" || typeof c.x_m === "number" || typeof c.z_m === "number";
     if (moved && !onRoof(a.x_m, a.z_m)) errors.push(`${a.id} is off the roof`);
     if ((c.action === "add_antenna" || typeof c.height_agl_m === "number") && (a.height_agl_m < HEIGHT_RANGE[0] || a.height_agl_m > HEIGHT_RANGE[1])) errors.push(`${a.id} height out of range (${HEIGHT_RANGE.join('-')} m)`);
-    if (a.bands.some((x) => x.tx_power_w < 1 || x.tx_power_w > 240)) errors.push(`${a.id} power out of range`);
+    if (a.bands.some((x) => x.tx_power_w < 1 || x.tx_power_w > maxPowerW(x))) errors.push(`${a.id} power out of range (1-80 W below 3 GHz, up to 240 W above)`);
   }
   return { site: out, errors };
 }
@@ -494,7 +497,7 @@ function showcase(before, changes) {
   if (!layers.coverage && antenna && !reducedMotion.matches) { layers.coverage = true; syncLayerChips(); }
   if (layers.coverage && antenna) {
     if (added) coverageBand = added.name;
-    else if (!antenna.bands.some((b) => b.name === coverageBand)) coverageBand = lowest(antenna.bands).name;
+    else if (antenna.bands.length && !antenna.bands.some((b) => b.name === coverageBand)) coverageBand = lowest(antenna.bands).name;
   }
   refreshCoverageBands();
   if (layers.coverage && coverageBand) {
@@ -740,7 +743,7 @@ const planner = {
   settled: () => lastShowcase,
   roofBounds,
   heightRange: HEIGHT_RANGE,
-  state: () => ({ regime: REGIMES[regimeKey].name, current_plan: summarize(site), baseline: summarize(baseline), neighbours: site.neighbours }),
+  state: () => ({ regime: REGIMES[regimeKey].name, current_plan: summarize(site), baseline: summarize(baseline), neighbours: site.neighbours.map(({ footprint, ...n }) => n) }),
   // What the agent knows before its first tool call, so a goal needs no reading turns.
   briefing: () => {
     const { neighbours, ...state } = planner.state();
@@ -861,7 +864,7 @@ function renderEditor() {
   bands.replaceChildren();
   for (const band of a.bands) {
     const out = el("output", { textContent: `${band.tx_power_w} W` });
-    const range = el("input", { type: "range", min: 1, max: band.frequency_mhz > 3000 ? 240 : 80, step: 1, value: band.tx_power_w });
+    const range = el("input", { type: "range", min: 1, max: maxPowerW(band), step: 1, value: band.tx_power_w });
     const del = el("button", { textContent: "×", title: `Remove ${band.name}`, ariaLabel: `Remove band ${band.name}`, className: "destructive" });
     del.onclick = () => { undoStack.push(clone(site)); a.bands = a.bands.filter((x) => x !== band); refreshCoverageBands(); update(); renderEditor(); };
     const row = el("div", { className: "row" }, el("label", { textContent: `${band.name} W` }), range, out, del);
@@ -955,7 +958,10 @@ function renderOverview(checks, changes, crew) {
   const after = changes.length ? statusLines(site, checks, populationContext(site), { coverageLoss: currentCoverageLoss(), kpi, before: baseline }) : [];
   const steps = planSteps(baseline, site);
   const install = crew.visits.find((v) => v.name === "Installation visit");
-  const crewText = !changes.length || !crew.visits.length ? "" : install ? `Field work: ${crew.headcount} people · ${install.days} day(s)` : "Field work: remote only, no site visit";
+  // Without an installation the change is remote, but an EMF measurement may still take someone on site.
+  const measured = crew.visits.some((v) => !v.remote);
+  const crewText = !changes.length || !crew.visits.length ? "" : install ? `Field work: ${crew.headcount} people · ${install.days} day(s)`
+    : measured ? "Field work: remote change, then an EMF measurement on site" : "Field work: remote only, no site visit";
   const signature = JSON.stringify([now, after, steps, crewText]);
   if (signature === overviewSignature) return;
   overviewSignature = signature;
@@ -1328,12 +1334,18 @@ async function buildPlan() {
   return { plan, data };
 }
 // The current camera view drawn once with the source plan and once with the proposed one.
+// One state of the plan as a picture: its antennas, zones and tower. The coverage layer is left out:
+// it is painted for the current plan only and would show the same area in both pictures.
 function captureScene(s) {
   const regime = REGIMES[regimeKey];
   const zones = siteZones(s, regime);
+  const coverageShown = coveragePlane.visible;
+  coveragePlane.visible = false;
+  renderTower(s);
   sceneMotion.sync(s, zones, checkSite(s, zones), layers, baseline, siteZones(baseline, regime), null);
   renderer.shadowMap.needsUpdate = true;
   renderer.render(scene, camera);
+  coveragePlane.visible = coverageShown;
   return { image: renderer.domElement.toDataURL("image/png"), headline: headline(checkSite(s, zones)) };
 }
 async function beforeAfter() {
@@ -1428,6 +1440,8 @@ const chat = initConversation({
   // tell the agent, and bring the plan forward on the right, ready to send to the team.
   // What an option changes, antenna by antenna, from today's values (the decision card lists it).
   describeOption: (changes) => { const { site: candidate, errors } = applyChanges(site, changes); return errors.length ? [] : diffSites(site, candidate); },
+  // The plan as it stands, so an option drawn on an older plan is not applied to a newer one.
+  planSignature: () => JSON.stringify(site.antennas),
   // Today's EMF conflicts, beside each option's in the decision card.
   stateNow: () => ({ conflicts: checkSite(site, siteZones(site, REGIMES[regimeKey])).findings.filter((f) => f.level === "bad").length }),
   onApplyOption: ({ label, changes }) => {
@@ -1457,28 +1471,33 @@ $("chatSend").onclick = send;
 initPhoto({
   button: $("photoButton"),
   status: (text) => { $("chatBusy").hidden = !text; $("chatBusy").textContent = text; },
-  onRead: (obs, src) => {
+  // A photo is compared with the twin, never acted on: it runs as a review.
+  onRead: (obs, src, record) => {
     chat.photo(src, seenLine(obs) || tr("No telecom equipment recognised"));
-    agent.ask(photoRequest(obs, document.documentElement.lang), { silent: true });
+    agent.ask(photoRequest(obs, document.documentElement.lang, record), { silent: true, review: true });
   },
 });
 $("chatInput").onkeydown = (event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(); } };
-for (const button of document.querySelectorAll(".suggest")) button.onclick = () => agent.ask(button.textContent);
+// The suggestion chips are all questions about the site: they run as reviews, nothing is applied.
+for (const button of document.querySelectorAll(".suggest")) button.onclick = () => agent.ask(button.textContent, { review: true });
 
 $("title").textContent = site.site_id;
 $("breadcrumbSite").textContent = site.site_id;
 $("subtitle").textContent = site.name ?? "";
 $("notes").textContent = (site.notes ?? []).join(" ");
-const profileButton = el("button", { textContent: "Measure 20-second orbit / edit" });
-const profileResult = el("pre", { className: "profile-result", textContent: "No recording profile measured in this session." });
-$("notes").after(el("details", { className: "performance-details" }, el("summary", { textContent: "Recording performance" }),
-  el("p", { className: "muted", textContent: "Use a 1440×900 viewport and a 250-building case. Orbit and edit during capture. Targets: p95 ≤22ms, ≤350 draw calls, ≤180,000 triangles, estimated textures ≤96MiB. A failed frame budget lowers DPR to 1 for the next run." }), profileButton, profileResult));
-profileButton.onclick = async () => {
-  profileButton.disabled = true;
-  profileResult.textContent = "Measuring actual frames for 20 seconds. Orbit and edit; keep this tab visible.";
-  try { profileResult.textContent = JSON.stringify(await sceneMotion.startProfile(), null, 2); }
-  finally { profileButton.disabled = false; }
-};
+// The frame-time profiler is a developer tool: only with ?debug=1 in the address.
+if (params.get("debug") === "1") {
+  const profileButton = el("button", { textContent: "Measure 20-second orbit / edit" });
+  const profileResult = el("pre", { className: "profile-result", textContent: "No recording profile measured in this session." });
+  $("notes").after(el("details", { className: "performance-details" }, el("summary", { textContent: "Recording performance" }),
+    el("p", { className: "muted", textContent: "Use a 1440×900 viewport and a 250-building case. Orbit and edit during capture. Targets: p95 ≤22ms, ≤350 draw calls, ≤180,000 triangles, estimated textures ≤96MiB. A failed frame budget lowers DPR to 1 for the next run." }), profileButton, profileResult));
+  profileButton.onclick = async () => {
+    profileButton.disabled = true;
+    profileResult.textContent = "Measuring actual frames for 20 seconds. Orbit and edit; keep this tab visible.";
+    try { profileResult.textContent = JSON.stringify(await sceneMotion.startProfile(), null, 2); }
+    finally { profileButton.disabled = false; }
+  };
+}
 $("planSession").textContent = restored.message;
 $("regime").value = regimeKey;
 syncLayerChips();

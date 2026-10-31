@@ -27,6 +27,8 @@ const SCAN_MS = 0, REVEAL_MS = 0;
 // sensitive buildings in a zone, then other buildings, heavy coverage loss (how many bands, how
 // much), roof restrictions, then the field work (remote before a site visit, fewer people-days).
 const MAX_CARD_OPTIONS = 4;
+// The model that answered, by name: the fallback says it is one (sitetwin3d/server.py).
+const MODEL_NAMES = { "meta-models/muse-spark-open-1026": "Muse Spark Open · Baseten", "muse-spark-1.3": "Muse Spark 1.3 · Meta Model API (fallback)" };
 function optionScore(r) {
   const sensitive = r.neighbour_conflicts.filter((t) => t.includes("SENSITIVE")).length;
   const loss = r.heavy_coverage_loss ?? [];
@@ -45,7 +47,8 @@ function byScore(p, q) {
 }
 // `stateNow()`: today's figures ({ conflicts }) shown beside each option's in the decision card.
 // `describeOption(changes)`: an option's changes as lines from today's values to the new ones.
-export function initConversation({ onBusy = () => {}, onComplete = () => {}, speak = () => {}, transcriptKey = "default", onApplyOption = null, onChoice = null, scanLines = null, stateNow = null, describeOption = null } = {}) {
+// `planSignature()`: the plan as a string, to tell whether it changed since options were drawn.
+export function initConversation({ onBusy = () => {}, onComplete = () => {}, speak = () => {}, transcriptKey = "default", onApplyOption = null, onChoice = null, scanLines = null, stateNow = null, describeOption = null, planSignature = null } = {}) {
   const log = $("chatLog");
   const stored = readSession(`transcript:${transcriptKey}`, []);
   const transcript = Array.isArray(stored) ? stored.filter((item) => item && ["user", "assistant"].includes(item.role) && typeof item.text === "string").slice(-12) : [];
@@ -274,14 +277,19 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
   function closestOption(text, options) {
     return options.find((o) => plain(o.label) === plain(text)) ?? null;
   }
+  // Options were scored on the plan as it stood when they were drawn. Once the plan has moved on (a
+  // manual edit, an undo), applying one would show old figures for a new state: a card refuses, a
+  // choice goes back to the operator to compare again.
+  const stale = (at) => planSignature != null && planSignature() !== at;
   function choiceButtons(list, options) {
     const buttons = [];
+    const at = planSignature?.();
     const pick = (fn) => () => { for (const b of buttons) b.disabled = true; fn(); };
     for (const text of list) {
       const option = closestOption(text, options);
       const button = el("button", { type: "button", className: "choice", textContent: text });
       button.dataset.noI18n = "";
-      button.onclick = pick(() => (option && onApplyOption ? onApplyOption(option) : onChoice?.(text)));
+      button.onclick = pick(() => (option && onApplyOption && !stale(at) ? onApplyOption(option) : onChoice?.(text)));
       buttons.push(button);
     }
     if (onChoice) {
@@ -303,6 +311,7 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
     const rows = [...options].sort(byScore).slice(0, MAX_CARD_OPTIONS);
     if (operatorPick && !rows.includes(operatorPick)) rows[rows.length - 1] = operatorPick;
     const today = stateNow?.();
+    const at = planSignature?.();
     const buttons = [];
     const metric = (label, value, tone = "", note = "") => el("span", { className: `metric ${tone}` },
       el("span", { className: "metric-label", textContent: label }), el("span", { textContent: value }), ...(note ? [el("span", { className: "metric-note", textContent: note })] : []));
@@ -316,6 +325,7 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
       const apply = el("button", { type: "button", className: recommended ? "primary" : "", textContent: "Add to plan (simulation)" });
       apply.onclick = () => {
         for (const b of buttons) b.disabled = true;
+        if (stale(at)) { apply.textContent = "Plan changed: compare again"; return; }
         apply.textContent = "Added to plan";
         onApplyOption(o);
       };
@@ -361,5 +371,5 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
     requestStart: (id) => { queuedRequests.get(id)?.remove(); queuedRequests.delete(id); },
     // A failed run says so at once: the account's remaining lines are dropped.
     failed: () => { runFailed = true; scanQueue = []; },
-    model: (model) => { $("chatModel").textContent = model; }, busy, waiting, toolStart, toolEnd, speak, say };
+    model: (model) => { $("chatModel").textContent = MODEL_NAMES[model] ?? model; }, busy, waiting, toolStart, toolEnd, speak, say };
 }

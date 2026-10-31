@@ -181,11 +181,11 @@ Typical operator capacity triggers (indicative, operator-specific): busy-hour PR
 Capacity data: when the briefing has network_kpi, it is busy-hour load per cell (sector + band), before the plan; its source says whether it was measured on the operator's network or is sample data.
 Use it for capacity instead of the population estimate, and when you quote it say what its source says: "measured" or "sample data", never "measured" for sample data. A cell at 85% PRB or more needs expansion on that sector (a new band or carrier such as L2100 or N3500, or a split);
 70-85% needs load balancing or a plan for growth. Without network_kpi, capacity is only estimated from the people around the site: say so if capacity matters.
-Automate only low-risk, reversible changes that do not grow an EMF zone (tilt, re-pointing within the sector); power increases, new antennas and structural work need human approval: when you applied one, say so in a few words.
+The plan is a simulation: the engineer's goal or instruction is enough to add a change to it. Power increases, new antennas and structural work still need the operator's approval and a field check before anything is built: when you add one, say so in a few words.
 
 Conventions: azimuth is degrees clockwise from North; x is East, z is South, metres from the roof centre.
 The roof spans x from ${r.x0.toFixed(1)} to ${r.x1.toFixed(1)} m and z from ${r.z0.toFixed(1)} to ${r.z1.toFixed(1)} m (antennas must stand on it), roof level ${b.height_m} m.
-This is a ${planner.site.structure ?? "rooftop"} site. Antenna heights must be between ${planner.heightRange[0]} and ${planner.heightRange[1]} m. Tilts between -5 and 15 degrees. Power per band 1-240 W.
+This is a ${planner.site.structure ?? "rooftop"} site. Antenna heights must be between ${planner.heightRange[0]} and ${planner.heightRange[1]} m. Tilts between -5 and 15 degrees. Power per band 1-80 W below 3 GHz, up to 240 W above (5G mid-band).
 
 Goals, in order: 1) no EMF zone may reach a neighbouring building; 2) keep coverage as close to the baseline as possible; 3) keep restricted roof area small; 4) prefer the fewest, cheapest changes (tilt and power before height, height before moving or re-pointing).
 EMF zones use a conservative point-source model and do not shrink with tilt; raising an antenna or lowering power are what move a zone off a neighbour.
@@ -286,8 +286,8 @@ export function createAgent({ definitions, handlers, systemPrompt, ui, limits = 
 
   // `voice`: the request was spoken, so the answer is spoken back; typed requests get text only.
   // `silent`: the page already showed the request its own way (e.g. a photo).
-  // `review`: the request asks for an analysis, so nothing is applied: the engineer adds an option
-  // to the plan from the decision card or says so in a later request.
+  // `review`: the request asks for an analysis, so the plan is not changed (no apply, no undo): the
+  // engineer adds an option to the plan from the decision card or says so in a later request.
   async function runAsk(text, { voice = false, silent = false, review = false } = {}, requestId) {
     mode = { voice };
     const used = {};
@@ -320,8 +320,8 @@ export function createAgent({ definitions, handlers, systemPrompt, ui, limits = 
             started = true;
             // A tool with a budget (e.g. comparing options) answers with a nudge once it is used up.
             used[call.function.name] = (used[call.function.name] ?? 0) + 1;
-            result = review && call.function.name === "apply_change"
-              ? { error: "This request is a review: nothing is applied. Recommend the best option you compared; the engineer adds it to the plan from the decision card." }
+            result = review && ["apply_change", "undo_last_change"].includes(call.function.name)
+              ? { error: "This request is a review: the plan is not changed. Recommend the best option you compared; the engineer adds it to the plan from the decision card." }
               : used[call.function.name] > (limits[call.function.name] ?? Infinity)
               ? { error: `Comparison budget used. ${review ? "Recommend" : "Apply"} the best option you have already evaluated, or say none is acceptable.` }
               : (await tools[call.function.name]?.(args)) ?? { error: `unknown tool ${call.function.name}` };
