@@ -597,7 +597,6 @@ function editorAt(state) {
 const STEP_MS = 2600, PAUSE_MS = 1400;
 async function playPlan(before, focus, ids) {
   const target = site;
-  sceneMotion.scan(false); // the examining is over: now the change itself is watched
   const finish = () => { selectedId = focus ?? selectedId; update({ animate: true, slow: true }); sceneMotion.highlight(ids, NEW_COLOR); renderEditor(); };
   const steps = [];
   for (const step of diffSteps(before, target)) {
@@ -606,7 +605,10 @@ async function playPlan(before, focus, ids) {
     steps.push(step);
   }
   if (!steps.length || reducedMotion.matches) { finish(); return; }
-  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  // "Skip" plays the rest at once: no more pauses, slides or camera flights.
+  let skipping = false;
+  const wait = (ms) => new Promise((r) => setTimeout(r, skipping ? 0 : ms));
+  const film = (kind, id, azimuth, ms) => sceneMotion.shot(kind, id, azimuth, skipping ? 0 : ms);
   const press = (control) => { control.classList.add("pressed"); setTimeout(() => control.classList.remove("pressed"), 600); };
   // Frames move the slider; a timer ends it, so a hidden tab (no frames) never stalls the playback.
   const slide = (input, a, b) => new Promise((resolve) => {
@@ -621,7 +623,7 @@ async function playPlan(before, focus, ids) {
       requestAnimationFrame(frame);
     };
     requestAnimationFrame(frame);
-    setTimeout(() => { done = true; showValue(input, b); row.classList.remove("changing"); resolve(); }, 1600);
+    setTimeout(() => { done = true; showValue(input, b); row.classList.remove("changing"); resolve(); }, skipping ? 0 : 1600);
   });
   const regime = REGIMES[regimeKey];
   const showScene = (state) => {
@@ -639,6 +641,9 @@ async function playPlan(before, focus, ids) {
   card.classList.add("operating");
   const title = $("operatorTitle"), list = $("operatorSteps");
   title.hidden = list.hidden = false;
+  const skip = $("skipPlay");
+  skip.hidden = false;
+  skip.onclick = () => { skipping = true; skip.hidden = true; };
   title.className = "operator-title";
   title.textContent = `The plan: ${steps.length} steps`;
   const items = steps.map((step) => el("li", { className: "pending", textContent: step.line }));
@@ -658,10 +663,10 @@ async function playPlan(before, focus, ids) {
     showScene(state);
     storyCaption("Before", !existed ? "The site's coverage today"
       : statsBefore?.stats.covered ? `${focus}: its ${coverageBand} coverage today` : `${focus} has no ${coverageBand} coverage yet`);
-    await Promise.all([sceneMotion.shot("wide", focus, azimuthOf(focus, existed ? before : target)), wait(PAUSE_MS + steps.length * 140)]);
+    await Promise.all([film("wide", focus, azimuthOf(focus, existed ? before : target)), wait(PAUSE_MS + steps.length * 140)]);
     await wait(1800);
     storyCaption("Change", `Watching the work on ${focus}`);
-    await sceneMotion.shot("close", focus, azimuthOf(focus, existed ? before : target), 1600);
+    await film("close", focus, azimuthOf(focus, existed ? before : target), 1600);
     closeOn = focus;
   } else await wait(PAUSE_MS + steps.length * 140);
 
@@ -679,7 +684,7 @@ async function playPlan(before, focus, ids) {
       // Another antenna in the same plan: the camera moves on to it.
       if (story && step.id !== closeOn) {
         storyCaption("Change", `Watching the work on ${step.id}`);
-        await sceneMotion.shot("close", step.id, azimuthOf(step.id, state), 1400);
+        await film("close", step.id, azimuthOf(step.id, state), 1400);
         closeOn = step.id;
       }
       sceneMotion.highlight([step.id], NEW_COLOR, 2200);
@@ -718,13 +723,14 @@ async function playPlan(before, focus, ids) {
   // Done: back afar, coverage and the numbers catch up with the whole plan, then the card closes.
   if (story) {
     storyCaption("After", `${focus}: its new ${coverageBand} coverage, new ground in green`);
-    await sceneMotion.shot("wide", focus, azimuthOf(focus, target));
+    await film("wide", focus, azimuthOf(focus, target));
   }
   finish();
   title.className = "operator-title done";
   title.textContent = `Done: all ${steps.length} steps applied`;
   await wait(FLASH_MS + (story ? 1600 : 400));
   storyCaption(null);
+  skip.hidden = true;
   card.classList.remove("operating");
 }
 
@@ -1407,7 +1413,7 @@ function renderAntennaPicker() {
 
 // ---------- assistant chat ----------
 const chat = initConversation({
-  onBusy: (on) => { voice.setRunning(on); sceneMotion.scan(on); },
+  onBusy: (on) => voice.setRunning(on),
   scanLines,
   onComplete: () => { if (pendingOpen && pageActive) location.href = pendingOpen; },
   speak: (text) => voice.speak(text),
@@ -1533,5 +1539,5 @@ function resize() {
 }
 new ResizeObserver(resize).observe(host);
 resize();
-// The site opens as a drone films it: from the side and above, then slowly around it until touched.
+// The site opens as a drone films it: from the side and above (the Orbit button turns around it).
 sceneMotion.drone(Math.max(baseline.building.height_m, ...site.antennas.map((a) => a.height_agl_m)) + 2);

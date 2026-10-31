@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SiteTwin 3D</title>
-<link rel="stylesheet" href="ui.css?v=ui-57">
+<link rel="stylesheet" href="ui.css?v=ui-58">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -147,7 +147,7 @@
       <section class="card" data-card="antenna" data-folded>
         <button class="card-head" aria-expanded="true"><span class="card-icon">🛠</span><span class="card-title">Manual adjustment</span><span class="card-summary"></span><span class="chev" aria-hidden="true">▾</span></button>
         <div class="card-body">
-      <div class="operator-title" id="operatorTitle" role="status" hidden></div>
+      <div class="operator-head"><div class="operator-title" id="operatorTitle" role="status" hidden></div><button type="button" class="skip-play" id="skipPlay" hidden>Skip</button></div>
       <ol class="operator-steps" id="operatorSteps" hidden></ol>
       <p class="muted" id="manualHint">Pick an antenna above the 3D view to change it by hand.</p>
       <div id="editor" hidden>
@@ -184,6 +184,6 @@
 <nav class="mobile-nav" aria-label="Workspace navigation"><button data-pane="workspace" aria-pressed="true">Workspace</button><button data-pane="operator" aria-expanded="false">Operator</button><button data-pane="inspect" aria-expanded="false">Inspect</button></nav>
 <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
 <div id="liveStatus" class="sr-only" role="status" aria-live="polite"></div>
-<script type="module" src="app.js?v=ui-57"></script>
+<script type="module" src="app.js?v=ui-58"></script>
 </body>
 </html>

@@ -5,9 +5,6 @@ import { standardEase, travelEase, shortestAngle } from "./motion.js";
 
 // A change applied for the engineer to watch takes this long to move into place.
 const SLOW_MS = 2800;
-// The scan while the operator works: how far either side it sweeps, its size, one round trip.
-const SCAN_REACH_M = 140, SCAN_SPAN_M = 320, SCAN_HEIGHT_M = 45, SCAN_TRAIL_M = 36, SCAN_PERIOD_MS = 4200;
-const SCAN_COLOR = "#22D3EE", SCAN_EDGE_COLOR = "#0891B2";
 // The watched change's camera: far enough to see an antenna's area of service, near enough to see it move.
 const WIDE_DISTANCE_M = 470, WIDE_AHEAD_M = 100, CLOSE_DISTANCE_M = 38;
 // The opening drone view: how high it looks down from, how far it stands for a given structure
@@ -23,8 +20,6 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
   let looping = false, editPending = false, disposed = false, dirtyShadow = true;
   // Halos around antennas that just changed: { mesh, started, ms }.
   const halos = new Set();
-  // The scan sweeping over the site while the operator examines it: { group, started, stopping }.
-  let scanner = null;
   // The drone turning around the site on opening: { starts, last }; any touch of the view ends it.
   let orbiting = null;
   let framing = false, profile = null, refreshAfterProfile = false, reducedEffects = false;
@@ -43,7 +38,8 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
     scaleLine, el("div", {}, scaleLabel), el("div", { className: "muted", textContent: "At target plane" }));
   const overview = el("button", { textContent: "Overview" });
   const selection = el("button", { textContent: "Selected antenna", disabled: true });
-  tools.append(overview, selection); host.append(label, status, tools, reference);
+  const turn = el("button", { textContent: "Orbit", title: "Turn slowly around the site; click the view to stop" });
+  tools.append(overview, selection, turn); host.append(label, status, tools, reference);
   status.style.top = "72px";
   controls.minPolarAngle = T.MathUtils.degToRad(25);
   controls.maxPolarAngle = T.MathUtils.degToRad(55);
@@ -336,16 +332,6 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
       halo.mesh.scale.setScalar(1 + pulse * 0.5);
       halo.mesh.material.opacity = 0.55 * (1 - t) * (0.5 + pulse / 2);
     }
-    if (scanner) {
-      // Back and forth across the site; fades in, and out once stopped.
-      const phase = (now - scanner.started) / SCAN_PERIOD_MS;
-      scanner.group.position.x = SCAN_REACH_M * Math.sin(phase * Math.PI * 2);
-      // The trail lies behind the line, whichever way it is going.
-      scanner.trail.scale.x = Math.cos(phase * Math.PI * 2) >= 0 ? 1 : -1;
-      const fade = scanner.stopping ? 1 - (now - scanner.stopping) / 500 : Math.min(1, (now - scanner.started) / 400);
-      if (fade <= 0) { for (const t of scanner.textures) t.dispose(); dispose(scanner.group); scanner = null; }
-      else { scanner.wall.material.opacity = 0.55 * fade; scanner.trail.material.opacity = 0.5 * fade; scanner.line.material.opacity = 0.95 * fade; }
-    }
     framing = true; controls.update(); framing = false;
     // Opaque depth testing remains authoritative. Transparent ordering is approximate.
     const ordered = [...zones.values()].flatMap((zone) => [zone.group.userData.front, zone.group.userData.back])
@@ -360,7 +346,7 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
       profile.triangles = Math.max(profile.triangles, renderer.info.render.triangles);
       if (now - profile.started >= 20000) finishProfile();
     }
-    if (!tweens.size && !halos.size && !scanner && !orbiting && !cameraTween && !clearing && !editPending && !profile && !refreshAfterProfile) { renderer.setAnimationLoop(null); looping = false; }
+    if (!tweens.size && !halos.size && !orbiting && !cameraTween && !clearing && !editPending && !profile && !refreshAfterProfile) { renderer.setAnimationLoop(null); looping = false; }
   }
   function invalidate() { if (!looping && !document.hidden && !disposed) { looping = true; renderer.setAnimationLoop(frame); } }
   function focus(id = null, buildingId = null, snap = false) {
@@ -396,15 +382,20 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
   }
   function cancelCamera() { cameraTween = null; orbiting = null; }
   // The opening view, as a drone would film it: from the side and above, the whole structure
-  // (`top`, metres) in frame, then slowly around the site once the build-up (`delay`) is done.
-  function drone(top, delay = 1600) {
+  // (`top`, metres) in frame. It turns around the site only when asked (the Orbit button).
+  function drone(top) {
     const center = new T.Vector3(building.x_m ?? 0, top * 0.45, building.z_m ?? 0);
     const distance = T.MathUtils.clamp(top * DRONE_DISTANCE_PER_M, ...DRONE_DISTANCE_M);
     const theta = new T.Spherical().setFromVector3(camera.position.clone().sub(controls.target)).theta;
     camera.position.copy(center).add(new T.Vector3().setFromSpherical(new T.Spherical(distance, T.MathUtils.degToRad(DRONE_POLAR_DEG), theta)));
     controls.target.copy(center);
     cameraTween = null;
-    orbiting = reducedMotion.matches ? null : { starts: performance.now() + delay, last: null };
+    invalidate();
+  }
+  // Slowly around the site from where the camera is; any touch of the view stops it.
+  function orbit() {
+    if (reducedMotion.matches) return;
+    orbiting = { starts: performance.now(), last: null };
     invalidate();
   }
   // Camera moves for a watched change, slower than a click's. `wide` stands back over the area the
@@ -470,6 +461,8 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
     invalidate(); return promise;
   }
   overview.onclick = () => focus(); selection.onclick = () => focus(selected);
+  // The click itself reaches the view's "stop the turn" listener first; start after it.
+  turn.onclick = () => setTimeout(orbit);
   renderer.domElement.addEventListener("pointerdown", cancelCamera);
   // A click anywhere on the view, its buttons included, ends the opening drone turn.
   host.addEventListener("pointerdown", () => { orbiting = null; });
@@ -490,46 +483,7 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
     }
     invalidate();
   }
-  // A wall of light sweeping over the site, a bright line where it meets the ground and a fading
-  // trail behind it: "the site is being examined". Normal blending: added light would vanish on
-  // the light ground and buildings of this scene.
-  function scan(on) {
-    if (!on || reducedMotion.matches) { if (scanner && !scanner.stopping) scanner.stopping = performance.now(); return; }
-    if (scanner) { scanner.stopping = null; return; }
-    // Cyan, a colour no coverage sector or EMF zone uses, so the scan never reads as part of them.
-    const color = new T.Color(SCAN_COLOR), edge = new T.Color(SCAN_EDGE_COLOR);
-    // A white-to-clear ramp, drawn along y (the wall: solid at the ground) or x (the trail: solid at the line).
-    const ramp = (vertical) => {
-      const canvas = document.createElement("canvas");
-      canvas.width = vertical ? 2 : 64; canvas.height = vertical ? 64 : 2;
-      const paint = canvas.getContext("2d");
-      const gradient = vertical ? paint.createLinearGradient(0, 64, 0, 0) : paint.createLinearGradient(64, 0, 0, 0);
-      gradient.addColorStop(0, "rgba(255,255,255,1)"); gradient.addColorStop(1, "rgba(255,255,255,0)");
-      paint.fillStyle = gradient; paint.fillRect(0, 0, canvas.width, canvas.height);
-      return new T.CanvasTexture(canvas);
-    };
-    const textures = [ramp(true), ramp(false)];
-    const glow = (extra = {}) => new T.MeshBasicMaterial({ color, transparent: true, opacity: 0, depthWrite: false, toneMapped: false, side: T.DoubleSide, ...extra });
-    const wall = new T.Mesh(new T.PlaneGeometry(SCAN_SPAN_M, SCAN_HEIGHT_M), glow({ map: textures[0] }));
-    wall.rotation.y = Math.PI / 2;
-    wall.position.y = SCAN_HEIGHT_M / 2;
-    const line = new T.Mesh(new T.PlaneGeometry(2.4, SCAN_SPAN_M), glow({ color: edge }));
-    line.rotation.x = -Math.PI / 2;
-    line.position.y = 0.6;
-    // The trail's own origin sits at the line, so flipping its x scale turns it to the other side.
-    const trailGeometry = new T.PlaneGeometry(SCAN_TRAIL_M, SCAN_SPAN_M).translate(-SCAN_TRAIL_M / 2, 0, 0);
-    const trail = new T.Mesh(trailGeometry, glow({ map: textures[1] }));
-    trail.rotation.x = -Math.PI / 2;
-    trail.position.y = 0.5;
-    const group = new T.Group();
-    group.add(trail, wall, line);
-    group.renderOrder = 999;
-    for (const mesh of [trail, wall, line]) mesh.renderOrder = 999;
-    scene.add(group);
-    scanner = { group, wall, line, trail, textures, started: performance.now(), stopping: null };
-    invalidate();
-  }
-  return { sync, focus, shot, drone, invalidate, startProfile, highlight, scan, queueEdit: () => { editPending = true; invalidate(); },
+  return { sync, focus, shot, drone, invalidate, startProfile, highlight, orbit, queueEdit: () => { editPending = true; invalidate(); },
     changedGeometry: () => { dirtyShadow = true; invalidate(); },
     get selectedBuilding() { return located; },
     get animating() { return Boolean(tweens.size || cameraTween); },
