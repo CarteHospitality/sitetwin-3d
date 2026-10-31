@@ -4,6 +4,11 @@
 // Busy-hour PRB utilisation at which operators typically act (indicative, operator-specific).
 export const PRB_BALANCE = 70;
 export const PRB_EXPAND = 85;
+// Indicative: mobile data traffic per site grows about 20% a year (operator and industry outlooks
+// give roughly 15-30%). Used for "what if nothing changes".
+export const TRAFFIC_GROWTH = 0.2;
+// Months until a load grows from `now` to `target` (0 if it is already there).
+export const monthsUntil = (now, target) => (now >= target ? 0 : Math.round((12 * Math.log(target / now)) / Math.log(1 + TRAFFIC_GROWTH)));
 
 // The twin's measured load, busiest cell first, or null when the site file has none.
 export function twinKpi(twin) {

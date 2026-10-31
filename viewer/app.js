@@ -17,7 +17,7 @@ import { initVoice } from "./voice.js";
 import { initConversation } from "./conversation.js";
 import { createSceneMotion } from "./scene.js";
 import { restoreProposed, saveProposed, sourceFingerprint, consumeHandoff, handoffId, absoluteUrl, withUploads, startOver } from "./session.js";
-import { twinKpi } from "./kpi.js";
+import { twinKpi, TRAFFIC_GROWTH, monthsUntil } from "./kpi.js";
 import { groundMap } from "./groundmap.js";
 import { createIntro } from "./intro.js";
 import { fieldWorkOrder } from "./fieldwork.js";
@@ -62,12 +62,9 @@ const fingerprint = sourceFingerprint(twin);
 let site = clone(restored.site);
 // Measured load: the busy hour per cell that the site file carries (network_kpi), if any.
 const kpi = twinKpi(twin);
-// Where the busiest cell will be in a year, for "what if nothing changes". Indicative: mobile data
-// traffic per site grows about 20% a year (operator and industry outlooks give roughly 15-30%).
-const TRAFFIC_GROWTH = 0.2;
+// Where the busiest cell will be in a year, for "what if nothing changes" (growth: see kpi.js).
 function capacityOutlook() {
   const cell = kpi?.cells[0];
-  const monthsUntil = (now, target) => (now >= target ? 0 : Math.round((12 * Math.log(target / now)) / Math.log(1 + TRAFFIC_GROWTH)));
   if (!cell) {
     // No measured load: the same outlook from the people in the busiest antenna's main lobe.
     const [antenna, people] = Object.entries(populationContext(site).people_per_antenna).sort((a, b) => b[1] - a[1])[0] ?? [];

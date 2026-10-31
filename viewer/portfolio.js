@@ -13,7 +13,7 @@ import { $, el, token, initShell, reducedMotion, confirmClick } from "./ui.js";
 import { startTour, readTour, endTour } from "./tour.js";
 import { combinePlans, openActionPlan, diffSites, sitePlan } from "./actionplan.js";
 import { initCards, showCard, hideCard, setCardSummary } from "./cards.js";
-import { twinKpi, PRB_BALANCE, PRB_EXPAND } from "./kpi.js";
+import { twinKpi, PRB_BALANCE, PRB_EXPAND, monthsUntil } from "./kpi.js";
 import { capacityAdded, planSteps } from "./overview.js";
 
 initShell();
@@ -89,7 +89,17 @@ function assess(entry, source, site = source.site, regime = "tr", proposed = fal
   // One sentence for the list: the EMF state, or else the next most important thing.
   const head = headline(checks);
   const summary = head.level !== "ok" ? head.text : capacity ? capacityText : proposed ? "Change planned" : "No issues found";
-  return { level, score, issues, summary, hitBuildings: hit.size, findingCount: bad.length, people: pop.total_people_nearby, buildings: site.neighbours.length };
+  // The problem in one plain sentence, with what it means: the most serious one only.
+  const busiest = Object.entries(pop.people_per_antenna).sort((a, b) => b[1] - a[1])[0];
+  const problem = sensitive.length ? `A ${sensitive[0].use} is inside the EMF safety zone of ${sensitive[0].antenna}: the site cannot stay as it is.`
+    : bad.length ? `The EMF safety zone reaches ${hit.size} neighbouring ${hit.size === 1 ? "building" : "buildings"}: people there get more than the limit allows.`
+    : full ? `Cell ${cell.sector} ${cell.band} is ${cell.prb_dl_pct}% full in the busy hour: users there are already slowed down.`
+    : capacity && cell ? `Cell ${cell.sector} ${cell.band} runs at ${cell.prb_dl_pct}% in the busy hour: at today's growth it fills up in about ${Math.max(1, monthsUntil(cell.prb_dl_pct, PRB_EXPAND))} months.`
+    : capacity ? `About ${Math.round(busiest[1] / 100) * 100} people rely on sector ${busiest[0].split("-")[0]} alone: its capacity may soon not be enough.`
+    : findings.some((f) => f.level === "warn") ? "Part of the roof is inside an EMF zone: access must be restricted before anyone works there."
+    : proposed ? "A change is planned in SiteTwin 3D; the site itself is unchanged."
+    : "No problem found: the EMF zones reach no building and the capacity is enough.";
+  return { level, score, issues, summary, problem, hitBuildings: hit.size, findingCount: bad.length, people: pop.total_people_nearby, buildings: site.neighbours.length };
 }
 
 const sites = [];
@@ -355,7 +365,6 @@ function calloutFacts(s) {
   // Separate text nodes, so the page translator finds the words it knows ("rooftop").
   const structure = el("span", {}, el("span", { textContent: (s.entry.structure ?? "rooftop").replaceAll("_", " ") }), s.entry.technology ? `, ${s.entry.technology}` : "");
   return [
-    ["Status", s.a.summary],
     ["Location", s.entry.address ?? `${s.entry.lat}, ${s.entry.lon}`],
     ["Structure", structure],
     ["Antennas", `${antennas.length} antennas: ${bands.join(", ")}`],
@@ -376,8 +385,9 @@ function showCallout(s) {
   const screen = el("div", { className: "callout-screen" },
     s.source.overview_photo?.data ? generalView(s.source.overview_photo) : aerialPhoto(s.entry.lat, s.entry.lon),
     el("div", { className: "callout-title" }, el("strong", { textContent: s.entry.site_id }), el("span", { className: "callout-level", textContent: LEVELS[s.a.level].label })),
+    el("p", { className: "callout-problem", textContent: s.a.problem }),
     el("dl", {}, ...calloutFacts(s).flatMap(([label, value], i) => {
-      const dt = el("dt", { textContent: label }), dd = el("dd", { className: i === 0 ? "wrap" : "" }, value);
+      const dt = el("dt", { textContent: label }), dd = el("dd", {}, value);
       dt.style.setProperty("--i", i); dd.style.setProperty("--i", i);
       return [dt, dd];
     })));
