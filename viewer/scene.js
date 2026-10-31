@@ -10,6 +10,9 @@ const SCAN_REACH_M = 140, SCAN_SPAN_M = 320, SCAN_HEIGHT_M = 45, SCAN_TRAIL_M = 
 const SCAN_COLOR = "#22D3EE", SCAN_EDGE_COLOR = "#0891B2";
 // The watched change's camera: far enough to see an antenna's area of service, near enough to see it move.
 const WIDE_DISTANCE_M = 470, WIDE_AHEAD_M = 100, CLOSE_DISTANCE_M = 38;
+// The opening drone view: how high it looks down from, how far it stands for a given structure
+// height, and one slow turn around the site.
+const DRONE_POLAR_DEG = 52, DRONE_DISTANCE_PER_M = 4.3, DRONE_DISTANCE_M = [150, 260], DRONE_TURN_MS = 48000;
 
 // `tower`: a ground site (lattice tower, monopole): the structure is drawn by the page, and each
 // antenna hangs on a short mount pipe at its height instead of standing on a pole from the roof.
@@ -22,6 +25,8 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
   const halos = new Set();
   // The scan sweeping over the site while the operator examines it: { group, started, stopping }.
   let scanner = null;
+  // The drone turning around the site on opening: { starts, last }; any touch of the view ends it.
+  let orbiting = null;
   let framing = false, profile = null, refreshAfterProfile = false, reducedEffects = false;
   const neighbourOutlines = new Map();
   const panelMaterial = new T.MeshStandardMaterial({ color: token("scene-antenna"), roughness: .8 });
@@ -317,6 +322,12 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
       camera.position.copy(target).add(new T.Vector3().setFromSpherical(spherical)); controls.target.copy(target);
       if (t === 1) cameraTween = null;
     }
+    if (orbiting && now >= orbiting.starts && !cameraTween) {
+      const dt = Math.min(64, now - (orbiting.last ?? now));
+      orbiting.last = now;
+      const offset = camera.position.clone().sub(controls.target).applyAxisAngle(new T.Vector3(0, 1, 0), (2 * Math.PI * dt) / DRONE_TURN_MS);
+      camera.position.copy(controls.target).add(offset);
+    }
     const clearing = settleClearing(now);
     for (const halo of halos) {
       const t = (now - halo.started) / halo.ms;
@@ -349,7 +360,7 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
       profile.triangles = Math.max(profile.triangles, renderer.info.render.triangles);
       if (now - profile.started >= 20000) finishProfile();
     }
-    if (!tweens.size && !halos.size && !scanner && !cameraTween && !clearing && !editPending && !profile && !refreshAfterProfile) { renderer.setAnimationLoop(null); looping = false; }
+    if (!tweens.size && !halos.size && !scanner && !orbiting && !cameraTween && !clearing && !editPending && !profile && !refreshAfterProfile) { renderer.setAnimationLoop(null); looping = false; }
   }
   function invalidate() { if (!looping && !document.hidden && !disposed) { looping = true; renderer.setAnimationLoop(frame); } }
   function focus(id = null, buildingId = null, snap = false) {
@@ -377,12 +388,25 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
     const s0 = new T.Spherical().setFromVector3(offset);
     const s1 = new T.Spherical(distance, T.MathUtils.degToRad(40), s0.theta);
     cameraTween = { target0: controls.target.clone(), target1: sphere.center, s0, s1, started: performance.now() };
+    orbiting = null;
     if (snap || reducedMotion.matches) {
       camera.position.copy(sphere.center).add(new T.Vector3().setFromSpherical(s1)); controls.target.copy(sphere.center); cameraTween = null;
     }
     invalidate();
   }
-  function cancelCamera() { cameraTween = null; }
+  function cancelCamera() { cameraTween = null; orbiting = null; }
+  // The opening view, as a drone would film it: from the side and above, the whole structure
+  // (`top`, metres) in frame, then slowly around the site once the build-up (`delay`) is done.
+  function drone(top, delay = 1600) {
+    const center = new T.Vector3(building.x_m ?? 0, top * 0.45, building.z_m ?? 0);
+    const distance = T.MathUtils.clamp(top * DRONE_DISTANCE_PER_M, ...DRONE_DISTANCE_M);
+    const theta = new T.Spherical().setFromVector3(camera.position.clone().sub(controls.target)).theta;
+    camera.position.copy(center).add(new T.Vector3().setFromSpherical(new T.Spherical(distance, T.MathUtils.degToRad(DRONE_POLAR_DEG), theta)));
+    controls.target.copy(center);
+    cameraTween = null;
+    orbiting = reducedMotion.matches ? null : { starts: performance.now() + delay, last: null };
+    invalidate();
+  }
   // Camera moves for a watched change, slower than a click's. `wide` stands back over the area the
   // antenna serves, seen from behind and above it; `close` comes in on the antenna from the side,
   // to watch it rise, turn or arrive. Resolves once the camera is there.
@@ -403,6 +427,7 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
       return Promise.resolve();
     }
     const s0 = new T.Spherical().setFromVector3(camera.position.clone().sub(controls.target));
+    orbiting = null;
     cameraTween = { target0: controls.target.clone(), target1: center, s0, s1, started: performance.now(), ms };
     invalidate();
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -446,6 +471,8 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
   }
   overview.onclick = () => focus(); selection.onclick = () => focus(selected);
   renderer.domElement.addEventListener("pointerdown", cancelCamera);
+  // A click anywhere on the view, its buttons included, ends the opening drone turn.
+  host.addEventListener("pointerdown", () => { orbiting = null; });
   renderer.domElement.addEventListener("wheel", cancelCamera, { passive: true });
   controls.addEventListener("start", cancelCamera);
   controls.addEventListener("change", () => { if (!framing) invalidate(); });
@@ -502,7 +529,7 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
     scanner = { group, wall, line, trail, textures, started: performance.now(), stopping: null };
     invalidate();
   }
-  return { sync, focus, shot, invalidate, startProfile, highlight, scan, queueEdit: () => { editPending = true; invalidate(); },
+  return { sync, focus, shot, drone, invalidate, startProfile, highlight, scan, queueEdit: () => { editPending = true; invalidate(); },
     changedGeometry: () => { dirtyShadow = true; invalidate(); },
     get selectedBuilding() { return located; },
     get animating() { return Boolean(tweens.size || cameraTween); },

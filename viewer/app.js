@@ -1533,5 +1533,5 @@ function resize() {
 }
 new ResizeObserver(resize).observe(host);
 resize();
-sceneMotion.focus(null, null, true);
-sceneMotion.invalidate();
+// The site opens as a drone films it: from the side and above, then slowly around it until touched.
+sceneMotion.drone(Math.max(baseline.building.height_m, ...site.antennas.map((a) => a.height_agl_m)) + 2);
