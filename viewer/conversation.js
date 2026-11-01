@@ -331,7 +331,7 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
       const loss = r.heavy_coverage_loss ?? [], work = r.field_work;
       // It adds the option to the simulated plan; nothing reaches the network. An option that keeps
       // the site as it is ("keep and monitor") has nothing to add.
-      const empty = !o.changes?.length;
+      const empty = changeSize(o) === 0;
       const apply = el("button", { type: "button", className: recommended && !empty ? "primary" : "", textContent: empty ? "Nothing to add" : "Add to plan (simulation)", disabled: empty });
       apply.onclick = () => {
         for (const b of buttons) b.disabled = true;

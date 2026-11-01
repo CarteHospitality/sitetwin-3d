@@ -575,22 +575,29 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
 .decision-rule { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
 .decision-card ol + .decision-rule { margin: 8px 0 0; }
 .decision-card ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.decision-card .option { border: 1px solid var(--border); border-radius: var(--radius-control); padding: 8px 10px; display: grid; gap: 6px; }
+.decision-card .option { border: 1px solid var(--border); border-radius: var(--radius-control); padding: 10px 12px; display: grid; gap: 8px; }
 .decision-card .option.recommended { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 5%, transparent); }
 .decision-card .option.impossible { opacity: .7; }
-.option-head { display: flex; align-items: center; gap: 8px; }
-.option-name { flex: 1; color: var(--text); font-weight: 500; overflow-wrap: anywhere; }
-.option-head .badge { font-size: 11px; font-weight: 700; color: var(--accent); white-space: nowrap; }
-.option-head .badge.quiet { color: var(--text-secondary); font-weight: 600; }
-.option-head button { min-height: 0; padding: 4px 12px; font-size: 12px; font-weight: 600; white-space: nowrap; }
-.metrics { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--text-secondary); font-size: 12px; }
-.metric { display: inline-flex; gap: 4px; align-items: baseline; }
+/* The option's name on its own line, as wide as the card (a narrow chat panel squeezed it to one
+   letter a line beside the badge and the button); the badge and the button share the line below. */
+.option-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.option-name { flex: 1 1 100%; color: var(--text); font-weight: 600; line-height: 1.35; overflow-wrap: break-word; }
+.option-head .badge { font-size: 11px; font-weight: 600; color: var(--accent); white-space: nowrap; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.option-head .badge.quiet { color: var(--text-secondary); background: var(--surface-2); }
+.option-head button { margin-left: auto; min-height: 0; padding: 5px 14px; font-size: 12px; font-weight: 600; white-space: nowrap;
+  border: 1px solid var(--accent); border-radius: var(--radius-pill); background: var(--surface-0); color: var(--accent); }
+.option-head button:hover { background: color-mix(in srgb, var(--accent) 8%, var(--surface-0)); color: var(--accent); border-color: var(--accent); }
+.option-head button.primary { background: var(--accent); color: var(--on-accent); }
+.option-head button.primary:hover { background: #0A58B8; color: var(--on-accent); }
+.option-head button:disabled { border-color: transparent; background: transparent; color: var(--muted); opacity: 1; padding-right: 0; }
+.metrics { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 4px 12px; color: var(--text-secondary); font-size: 12px; }
+.metric { display: flex; flex-wrap: wrap; gap: 0 4px; align-items: baseline; }
 .metric-label { color: var(--muted); }
 .metric.ok > :nth-child(2) { color: var(--ok); }
 .metric.warn > :nth-child(2) { color: var(--medium); }
 .metric.bad > :nth-child(2) { color: var(--critical); font-weight: 600; }
 .metric-note { color: var(--muted); }
-.option-changes { margin: 0; padding-left: 16px; font-size: 12px; line-height: 17px; color: var(--text-secondary); font-family: var(--font-mono); }
+.option-changes { margin: 0; padding: 6px 0 0 16px; border-top: 1px solid var(--border); font-size: 12px; line-height: 18px; color: var(--text-secondary); }
 
 /* Map page: the right panel opens for the selected site only; the operator sums up the portfolio
    on the left, with links to the sites and the actions that span them. */
