@@ -253,7 +253,7 @@ The baseline is the site as it stands, the result of its latest SiteTwin applica
 Every result also lists problems_after: each problem the site would still have with that option (a busy sector the option adds a layer to is not one of them). An empty list: it solves every problem found.
 Solve everything: when the site has two or more problems (an EMF zone on a building, part of the roof closed off, a busy sector, ...), one of the options you compare tries to solve them all at once,
 from the usual remedies above. Label it by what it does like any option: the card itself marks an option that leaves no problem.
-If its problems_after is not empty, use your second evaluate_change call to try other combinations; if none clears them all, keep the one that leaves least and say what remains.
+If its problems_after is not empty, use your next evaluate_change calls to try other combinations; if none clears them all, keep the one that leaves least and say what remains.
 Offer it as a choice next to the one you recommend (unless the one you recommend already solves everything), with its field work, so the engineer can do it all in one visit.
 
 Work method for goals, in as few turns as possible: read the briefing (do not call get_site_state or get_population_context for it).
@@ -300,8 +300,9 @@ export function initAgent(planner, ui) {
     },
     systemPrompt: (mode) => systemPrompt(planner, mode),
     ui,
-    // Each call compares up to four options; a third round adds time, rarely a better answer.
-    limits: { evaluate_change: 2 },
+    // Each call compares up to four options. The later rounds are for a site with several problems, while
+    // no option solves them all (see `searchOn`); each adds a model call.
+    limits: { evaluate_change: 3 },
   });
 }
 
@@ -385,7 +386,7 @@ export function createAgent({ definitions, handlers, systemPrompt, ui, limits = 
         // search first. The check's verdict only; the combinations are the operator's own.
         if (!message.tool_calls?.length && searchOn && MAX_STEPS - step > DECIDE_AT) {
           searchOn = false;
-          history.push({ role: "system", content: "Every option you compared leaves a problem (problems_after) and one comparison is left: compare other combinations with evaluate_change before you answer." });
+          history.push({ role: "system", content: "Every option you compared leaves a problem (problems_after) and a comparison is left: compare other combinations with evaluate_change before you answer." });
           continue;
         }
         if (!message.tool_calls?.length) {
