@@ -3,7 +3,7 @@ import { replyHtml } from "./agent.js";
 import { readSession, writeSession } from "./session.js";
 import { tr } from "./i18n.js";
 import { byScore, changeSize } from "./ranking.js";
-import { healthCheckLine } from "./overview.js";
+import { problemName } from "./overview.js";
 
 const LABELS = {
   get_site_state: "Reading site state", get_population_context: "Checking nearby occupancy",
@@ -298,12 +298,25 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
   // the roof, the coverage and the field work, each with its own Apply. They are ranked by the fixed
   // rule above; the top one is "Recommended", and the operator's own first choice is marked too when
   // it differs, so nothing is hidden. `used`: the choices the card answers.
+  // What the site would still need with an option, in a few words, or that it solves every problem found
+  // (including a 3 V/m distance past the checked 150 m: "EMF conflicts 0" only covers the buildings checked).
+  function problemsLeft(problems) {
+    const names = [...new Set(problems.map((p) => problemName(p.topic)))];
+    const line = el("div", { className: names.length ? "option-left" : "option-left solves",
+      textContent: names.length ? `${tr("Still open")}: ${names.map((n) => tr(n)).join(", ")}` : `✓ ${tr("Solves every problem found")}` });
+    line.dataset.noI18n = "";
+    return line;
+  }
   function decisionCard(choiceList, options) {
     const used = new Set();
     for (const text of choiceList) if (closestOption(text, options)) used.add(text);
     const operatorPick = choiceList.length ? closestOption(choiceList[0], options) : null;
-    const rows = [...options].sort(byScore).slice(0, MAX_CARD_OPTIONS);
-    if (operatorPick && !rows.includes(operatorPick)) rows[rows.length - 1] = operatorPick;
+    const ranked = [...options].sort(byScore), rows = ranked.slice(0, MAX_CARD_OPTIONS);
+    // The operator's own pick and an option that solves every problem stay on the card, whatever their rank.
+    const complete = ranked.find((o) => !o.result?.errors?.length && o.result?.problems_after?.length === 0);
+    for (const keep of [complete, operatorPick]) if (keep && !rows.includes(keep)) rows[rows.findLastIndex((o) => o !== complete && o !== operatorPick)] = keep;
+    // "Solves everything" stands out only beside options that do not: when every option does, it says nothing.
+    const someLeave = rows.some((o) => o.result?.problems_after?.length);
     const today = stateNow?.();
     const buttons = [];
     const metric = (label, value, tone = "", note = "") => el("span", { className: `metric ${tone}` },
@@ -328,6 +341,7 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
       buttons.push(apply);
       return el("li", { className: recommended ? "option recommended" : "option" },
         el("div", { className: "option-head" }, name, ...(recommended ? [el("span", { className: "badge", textContent: "Recommended" })] : []),
+          ...(r.problems_after?.length === 0 && someLeave ? [el("span", { className: "badge solves", textContent: "Solves everything" })] : []),
           ...(operators ? [el("span", { className: "badge quiet", textContent: "Operator's choice" })] : []), apply),
         el("div", { className: "metrics" },
           metric("EMF conflicts", String(r.neighbour_conflicts.length), r.neighbour_conflicts.length ? "bad" : "ok", today ? `today ${today.conflicts}` : ""),
@@ -335,8 +349,7 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
           metric("Coverage", coverageText(r, loss), loss.length ? "warn" : (r.coverage_change ?? []).some((c) => c.change_pct < 0) ? "" : "ok"),
           metric("Field work", !work ? "–" : work.remote ? (work.measurement ? "remote · EMF measurement on site" : "remote only")
             : work.people ? `${work.people} people · ${work.days} day(s)` : "none")),
-        // "EMF conflicts 0" only covers the buildings checked: say so when the option's field reaches past them.
-        ...(r.health_beyond_check_m ? [el("div", { className: "option-warn", textContent: healthCheckLine(r.health_beyond_check_m) })] : []),
+        ...(r.problems_after ? [problemsLeft(r.problems_after)] : []),
         ...(changes.length ? [el("ul", { className: "option-changes" }, ...changes.map((line) => el("li", { textContent: line })))] : []));
     });
     liveButtons.push(...buttons);

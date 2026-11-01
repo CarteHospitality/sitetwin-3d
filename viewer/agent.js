@@ -250,6 +250,12 @@ Every result also lists coverage_change: each band whose strong-signal area chan
 when a band loses some area, say roughly how much ("a little, about a tenth"); say the coverage is unchanged only when coverage_change is empty.
 The baseline is the site as it stands, the result of its latest SiteTwin application; the plan is the next change on top of it.
 
+Every result also lists problems_after: each problem the site would still have with that option (a busy sector the option adds a layer to is not one of them). An empty list: it solves every problem found.
+Solve everything: when the site has two or more problems (an EMF zone on a building, part of the roof closed off, a busy sector, ...), one of the options you compare tries to solve them all at once,
+from the usual remedies above. Label it by what it does like any option: the card itself marks an option that leaves no problem.
+If its problems_after is not empty, use your second evaluate_change call to try other combinations; if none clears them all, keep the one that leaves least and say what remains.
+Offer it as a choice next to the one you recommend (unless the one you recommend already solves everything), with its field work, so the engineer can do it all in one visit.
+
 Work method for goals, in as few turns as possible: read the briefing (do not call get_site_state or get_population_context for it).
 Compare two to four different options in ONE evaluate_change call. Pick the best by the goals, apply it with apply_change (for a review: recommend it and wait for approval), and answer.
 Never invent numbers: quote only figures returned by the tools, and say "estimated" for population figures.
@@ -365,6 +371,8 @@ export function createAgent({ definitions, handlers, systemPrompt, ui, limits = 
     ui.busy(true);
     try {
       let leaving = false;
+      // Set when every option of the last comparison left a problem and a comparison is left (see below).
+      let searchOn = false;
       for (let step = 0; step < MAX_STEPS; step++) {
         // After a navigation tool (e.g. open_site) the page is about to change: one last answer, no more tools.
         const nudge = MAX_STEPS - step <= DECIDE_AT
@@ -373,6 +381,13 @@ export function createAgent({ definitions, handlers, systemPrompt, ui, limits = 
         const { message, model, fallback } = await callModel([{ role: "system", content: systemPrompt(mode) }, ...history, ...nudge], !leaving);
         ui.model(model, fallback);
         history.push(message);
+        // An answer while the check still says no option solves everything, with a comparison left: one more
+        // search first. The check's verdict only; the combinations are the operator's own.
+        if (!message.tool_calls?.length && searchOn && MAX_STEPS - step > DECIDE_AT) {
+          searchOn = false;
+          history.push({ role: "system", content: "Every option you compared leaves a problem (problems_after) and one comparison is left: compare other combinations with evaluate_change before you answer." });
+          continue;
+        }
         if (!message.tool_calls?.length) {
           ui.assistant(message.content || "(no answer)");
           if (mode.voice) await ui.speak?.(message.content || "");
@@ -396,6 +411,13 @@ export function createAgent({ definitions, handlers, systemPrompt, ui, limits = 
           } catch (e) {
             if (!started) ui.toolStart?.(call.id, call.function.name, args);
             result = { error: String(e.message ?? e) };
+          }
+          // The check's own verdict, not a hint: when no compared option leaves the site without problems and
+          // a comparison is left, the operator is told so; which combination to try next is its own search.
+          if (call.function.name === "evaluate_change") {
+            const left = (limits.evaluate_change ?? Infinity) - used.evaluate_change;
+            searchOn = left > 0 && Array.isArray(result?.options) && !result.options.some((o) => o.problems_after?.length === 0);
+            if (searchOn) result = { ...result, note: "None of these options solves every problem found (see problems_after). Before you answer, compare other combinations in one more evaluate_change call." };
           }
           ui.tool?.(call.function.name, args, result, call.id);
           ui.toolEnd?.(call.id, call.function.name, args, result);

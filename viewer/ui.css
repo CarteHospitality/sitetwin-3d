@@ -590,6 +590,7 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
 .option-name { flex: 1 1 100%; color: var(--text); font-weight: 600; line-height: 1.35; overflow-wrap: break-word; }
 .option-head .badge { font-size: 11px; font-weight: 600; color: var(--accent); white-space: nowrap; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .option-head .badge.quiet { color: var(--text-secondary); background: var(--surface-2); }
+.option-head .badge.solves { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
 .option-head button { margin-left: auto; min-height: 0; padding: 5px 14px; font-size: 12px; font-weight: 600; white-space: nowrap;
   border: 1px solid var(--accent); border-radius: var(--radius-pill); background: var(--surface-0); color: var(--accent); }
 .option-head button:hover { background: color-mix(in srgb, var(--accent) 8%, var(--surface-0)); color: var(--accent); border-color: var(--accent); }
@@ -603,7 +604,8 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
 .metric.warn > :nth-child(2) { color: var(--medium); }
 .metric.bad > :nth-child(2) { color: var(--critical); font-weight: 600; }
 .metric-note { color: var(--muted); }
-.option-warn { font-size: 12px; line-height: 18px; color: var(--medium); }
+.option-left { font-size: 12px; line-height: 18px; color: var(--medium); }
+.option-left.solves { color: var(--ok); font-weight: 600; }
 .option-changes { margin: 0; padding: 6px 0 0 16px; border-top: 1px solid var(--border); font-size: 12px; line-height: 18px; color: var(--text-secondary); }
 
 /* Map page: the right panel opens for the selected site only; the operator sums up the portfolio

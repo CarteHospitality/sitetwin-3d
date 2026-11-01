@@ -40,12 +40,11 @@ export function siteProblem({ findings, hit }, population, { cell = null, reliev
   return "No problem found in the model: no building in an EMF zone (school gardens not checked), no busy sector.";
 }
 
-// The same line in the panel and on an option of the decision card (viewer/conversation.js).
-export const healthCheckLine = (reach) => `Health facilities are checked within ${CHECK_RADIUS_M} m; the 3 V/m distance reaches ${Math.round(reach)} m`;
+const healthCheckLine = (reach) => `Health facilities are checked within ${CHECK_RADIUS_M} m; the 3 V/m distance reaches ${Math.round(reach)} m`;
 
-// One line per topic, good or bad: [{ level: "ok" | "warn" | "bad", text, topic, fileOnly? }]. `topic` pairs a
-// line today with the same point after the plan (compareLines); `fileOnly` lines are about the site file,
-// shown for today only.
+// One line per topic, good or bad: [{ level: "ok" | "warn" | "bad", text, topic, fileOnly?, addressed? }]. `topic`
+// pairs a line today with the same point after the plan (compareLines); `fileOnly` lines are about the site
+// file, shown for today only; `addressed`: a busy sector the plan adds capacity to (its load after is not modelled).
 // `coverageLoss`: bands that lose a large share of their coverage against the baseline.
 // `kpi`: measured busy-hour load per cell; when given it replaces the population estimate.
 // `before`: the site before the plan, to tell whether the plan adds capacity on the busy sector.
@@ -73,14 +72,14 @@ export function statusLines(site, checks, population, { coverageLoss = [], kpi =
   if (cell) {
     const name = `${cell.sector} ${cell.band}`, prb = cell.prb_dl_pct;
     if (prb < PRB_BALANCE) lines.push({ level: "ok", topic: "capacity", text: `No busy cell: busiest ${name} at ${prb}% PRB (${cell.tag})` });
-    else if (before && capacityAdded(before, site).has(cell.sector)) lines.push({ level: "warn", topic: "capacity", text: `Cell ${name} at ${prb}% PRB (${cell.tag}): the plan adds capacity there, the load after it is not modelled` });
+    else if (before && capacityAdded(before, site).has(cell.sector)) lines.push({ level: "warn", topic: "capacity", addressed: true, text: `Cell ${name} at ${prb}% PRB (${cell.tag}): the plan adds capacity there, the load after it is not modelled` });
     else lines.push({ level: prb >= PRB_EXPAND ? "bad" : "warn", topic: "capacity", text: `Cell ${name} is ${prb >= PRB_EXPAND ? "full" : "busy"}: ${prb}% PRB in the busy hour (${cell.tag})` });
   } else {
     // The busy sector stays busy in people, but a plan that adds capacity there answers it.
     const busiest = Object.entries(population.people_per_antenna).sort((a, b) => b[1] - a[1])[0];
     const sector = busiest && sectorOf(busiest[0]), people = busiest && Math.round(busiest[1] / 100) * 100;
     if (!busiest || busiest[1] <= CAPACITY_PEOPLE_PER_ANTENNA) lines.push({ level: "ok", topic: "capacity", text: "No busy sector (estimated from the people nearby)" });
-    else if (before && capacityAdded(before, site).has(sector)) lines.push({ level: "warn", topic: "capacity", text: `Sector ${sector} has about ${people} people: the plan adds capacity there` });
+    else if (before && capacityAdded(before, site).has(sector)) lines.push({ level: "warn", topic: "capacity", addressed: true, text: `Sector ${sector} has about ${people} people: the plan adds capacity there` });
     else lines.push({ level: "warn", topic: "capacity", text: `Sector ${sector} is busy: about ${people} people` });
   }
   if (coverageLoss.length) lines.push({ level: "warn", topic: "coverage", text: `Coverage drops sharply: ${coverageLoss.map((l) => `${l.band} ${l.change_pct}%`).join(", ")}` });
@@ -97,6 +96,17 @@ export function statusLines(site, checks, population, { coverageLoss = [], kpi =
     for (const b of a.bands) if (!(b.tx_power_w > 0)) lines.push({ level: "warn", topic: `file:${a.id}:${b.name}`, fileOnly: true, text: `${a.id} ${b.name} has no power in the site file (0 W): check the file` });
   }
   return lines;
+}
+
+// The problems a plan leaves (statusLines with `before`): what still needs work, a busy sector it adds
+// capacity to not counted. None left: the plan solves every problem found.
+export const openProblems = (lines) => lines.filter((l) => l.level !== "ok" && !l.addressed && !l.fileOnly).map(({ topic, text }) => ({ topic, text }));
+// The same problems in a few words each, for the decision card.
+export function problemName(topic) {
+  if (topic === "hospital") return "hospital above 3 V/m";
+  if (topic.startsWith("use:") || topic.startsWith("height:")) return "school or hospital in a zone";
+  return { others: "buildings in a zone", roof: "roof partly closed off", capacity: "busy sector", coverage: "sharp coverage drop",
+    "health-reach": "3 V/m past the checked 150 m" }[topic] ?? topic;
 }
 
 // The plan's lines against today's, so the engineer sees what it changes: each line after the plan

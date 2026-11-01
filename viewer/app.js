@@ -25,7 +25,7 @@ import { $, el, token, initShell, setText, reducedMotion, confirmClick } from ".
 import { initCards, showCard, hideCard, setCardSummary, foldCard } from "./cards.js";
 import { crewPlan } from "./crew.js";
 import { openActionPlan, result, diffSites, diffSteps, sitePlan, FIELDS, sendByEmail } from "./actionplan.js";
-import { statusLines, compareLines, planSteps, siteProblem, usesUnknown, healthReach, CHECK_RADIUS_M, CAPACITY_PEOPLE_PER_ANTENNA } from "./overview.js";
+import { statusLines, compareLines, openProblems, planSteps, siteProblem, usesUnknown, healthReach, CHECK_RADIUS_M, CAPACITY_PEOPLE_PER_ANTENNA } from "./overview.js";
 
 initShell();
 initCards();
@@ -796,9 +796,13 @@ const planner = {
     const { site: candidate, errors } = applyChanges(site, changes);
     if (errors.length) return { errors };
     // What the option would take on site, so options can be weighed by their work too.
-    const crew = crewPlan(fieldWorkOrder(baseline, candidate, checkSite(candidate, siteZones(candidate, REGIMES[regimeKey]))), candidate);
+    const checks = checkSite(candidate, siteZones(candidate, REGIMES[regimeKey]));
+    const crew = crewPlan(fieldWorkOrder(baseline, candidate, checks), candidate);
     const install = crew.visits.find((v) => v.name === "Installation visit");
-    return { ...summarize(candidate), field_work: install ? { people: crew.headcount, days: install.days }
+    const summary = summarize(candidate);
+    // Every problem the site would still have with it, as the panel would list them after the plan.
+    const after = statusLines(candidate, checks, populationContext(candidate), { coverageLoss: summary.heavy_coverage_loss, kpi, before: baseline });
+    return { ...summary, problems_after: openProblems(after), field_work: install ? { people: crew.headcount, days: install.days }
       : { remote: crew.visits.some((v) => v.remote), measurement: crew.visits.some((v) => !v.remote) } };
   },
   apply(changes, reason) {
