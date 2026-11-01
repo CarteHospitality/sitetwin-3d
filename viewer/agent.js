@@ -4,6 +4,7 @@
 // tries is scored by the same EMF, conflict and coverage code as the UI.
 
 import { tr } from "./i18n.js";
+import { byScore } from "./ranking.js";
 
 // A goal usually takes three model calls: compare options, apply one, answer.
 const MAX_STEPS = 12;
@@ -86,7 +87,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "evaluate_change",
-      description: "Try 2-4 alternative options at once, each on its own copy of the current plan, without showing them. Returns per option the resulting zones, conflicts, roof restriction and coverage. Put every option you want to compare in one call.",
+      description: "Try 2-4 alternative options at once, each on its own copy of the current plan, without showing them. Returns per option the resulting zones, conflicts, roof restriction and coverage, in the order the engineer's card ranks them. Put every option you want to compare in one call.",
       parameters: {
         type: "object",
         properties: {
@@ -190,7 +191,8 @@ How to speak. The person in front of you may not be a radio engineer (a manager,
 - An analysis ("analyse this site", "is capacity enough", "is there a risk") has this shape, a sentence or two each:
   1. Today: how the site works now (reach, people served, safety).
   2. Next year: what happens if nothing changes, from capacity_outlook in the briefing (say it is an estimate); skip it when there is no outlook.
-  3. What would improve it, with the expected effect in plain words.
+  3. What would improve it, with the expected effect in plain words. Name the option you recommend by what it does ("adding a 4G layer facing south"),
+     never by its number or place ("the first option", "ilk seçenek"): the card below orders the options by its own rule, not in the order you compared them.
   4. Two or three choices, each alone on its own line starting with "▸ " (they become buttons). Use exactly the label you gave that option in evaluate_change.
   5. Last line: offer the technical details, in the answer's language (English: "I can also explain the technical details."; Turkish: "İstersen teknik ayrıntılarını da anlatabilirim.").
 - Label every option you evaluate the way the engineer would click it, in the engineer's language, with no units, band names (L2100, N3500) or antenna and sector codes (S2, S1-1):
@@ -253,7 +255,7 @@ and when height_checks lists assumed heights, that those heights must be measure
 When nothing is needed yet (no zone reaches a building and capacity_outlook's months_until_busy or months_until_busy_70pct is over 24),
 one of the options you compare keeps the site as it is (no changes): recommend it, and say when to act (e.g. "plan a new layer when the load passes 70%").
 Final answer, in the same language as the engineer (Turkish if they speak Turkish). ${document.documentElement.lang === "tr" ? "The engineer's screen is in Turkish: always answer in Turkish, even when an instruction arrives in English." : ""}
-Final answer content: what you changed (or recommend), why, and what it brings, in plain words (technical numbers only when asked). If no option meets goal 1, say so plainly and give the least-bad option. Speak of the options you compared ("none of the options I compared..."), never that it cannot be done at all.
+Final answer content: what you changed (or recommend, named by what it does, never by its number), why, and what it brings, in plain words (technical numbers only when asked). If no option meets goal 1, say so plainly and give the least-bad option. Speak of the options you compared ("none of the options I compared..."), never that it cannot be done at all.
 After every apply_change, without being asked, finish with what has to happen physically, using the field_crew it returned:
 ${voice
     ? "in one spoken sentence: how many people go to site and for how long (from crew), and that the action plan is ready in the panel."
@@ -269,8 +271,10 @@ export function initAgent(planner, ui) {
     definitions: TOOLS,
     handlers: {
       get_site_state: () => planner.state(),
+      // In the card's order (viewer/ranking.js), so the operator's "first option" is the card's first.
       evaluate_change: ({ options, changes }) => options?.length
-        ? { options: options.slice(0, 4).map((o) => ({ label: o.label, ...planner.evaluate(o.changes ?? []) })) }
+        ? { options: options.slice(0, 4).map((o) => ({ label: o.label, changes: o.changes ?? [], result: planner.evaluate(o.changes ?? []) }))
+          .sort(byScore).map(({ label, result }) => ({ label, ...result })) }
         : planner.evaluate(changes ?? []),
       // The page plays the change step by step; the reply comes once the engineer has seen it.
       apply_change: async ({ changes, reason }) => {
