@@ -118,7 +118,36 @@ def test_a_call_that_hangs_is_cut_at_the_provider_deadline(client, monkeypatch):
 
 
 def test_the_page_can_tell_it_has_a_server(client):
-    assert client.get("/api/health").json() == {"ok": True}
+    assert client.get("/api/health").json() == {"ok": True, "public": False}
+
+
+def test_the_public_demo_caps_model_calls_per_visitor(client, monkeypatch):
+    monkeypatch.setattr(server, "PUBLIC", True)
+    monkeypatch.setattr(server, "DAILY_PER_VISITOR", 2)
+    monkeypatch.setattr(server, "_used", {})
+    FakeOpenAI.down = set()
+    visitor = {"cf-connecting-ip": "203.0.113.7"}
+    body = {"messages": [{"role": "user", "content": "hi"}], "tools": []}
+    assert [client.post("/api/chat", json=body, headers=visitor).status_code for _ in range(3)] == [200, 200, 429]
+    # Another visitor still has their own calls.
+    assert client.post("/api/chat", json=body, headers={"cf-connecting-ip": "198.51.100.4"}).status_code == 200
+
+
+def test_the_public_demo_loads_no_files_and_says_so(client, monkeypatch):
+    monkeypatch.setattr(server, "PUBLIC", True)
+    assert client.get("/api/health").json() == {"ok": True, "public": True}
+    r = client.post("/api/import", json={"site_id": "X", "site": {}})
+    assert r.status_code == 403 and "public demo" in r.json()["detail"]
+    # An operator's own sites are never served, even when they are on disk.
+    assert client.get("/data/private/portfolio.json").status_code == 404
+    # Mounted under a prefix (as behind a reverse proxy that keeps it), still never served.
+    mounted = TestClient(server.mounted("/3d"))
+    assert mounted.get("/3d/data/private/portfolio.json").status_code == 404
+    assert mounted.get("/3d/data/uploads/sites/x.twin.json").status_code == 404
+    assert mounted.get("/3d/data/samples/portfolio.json").status_code == 200
+    # The bare prefix leads to the app's folder, so its relative links resolve.
+    assert mounted.get("/3d", follow_redirects=False).headers["location"] == "/3d/"
+    assert client.get("/data/samples/portfolio.json").status_code == 200
 
 
 def test_voice_without_the_meta_key_says_what_is_missing(client, monkeypatch):

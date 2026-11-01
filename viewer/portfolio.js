@@ -5,7 +5,7 @@ import { tr } from "./i18n.js";
 import { siteZones, REGIMES } from "./emf.js";
 import { checkSite, headline } from "./checks.js";
 import { populationContext } from "./population.js";
-import { createAgent, hasServer, staticChat, STATIC_NOTE } from "./agent.js";
+import { createAgent, serverInfo, staticChat, STATIC_NOTE } from "./agent.js";
 import { initVoice } from "./voice.js";
 import { initConversation } from "./conversation.js";
 import { readSession, writeSession, restoreProposed, canonical, handoffId, absoluteUrl, rememberUpload, withUploads, isUpload, forgetUpload, forgetPlan, startOver } from "./session.js";
@@ -32,7 +32,10 @@ const LEVELS = {
 const CAPACITY_PEOPLE_PER_ANTENNA = 1500;
 
 const params = new URLSearchParams(location.search);
-const indexUrl = params.get("portfolio") || "data/private/portfolio.json";
+// The operator's own portfolio by default; where there is none (the public demo, a fresh clone), the
+// sample one, used then as the portfolio throughout (the twins' site lists included).
+const ownIndex = params.get("portfolio") ? null : await fetch("data/private/portfolio.json").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+const indexUrl = params.get("portfolio") || (ownIndex ? "data/private/portfolio.json" : "data/samples/portfolio.json");
 const mapKey = `map:${absoluteUrl(indexUrl)}`;
 const storedMap = readSession(mapKey, {}) || {};
 // The logo, or a first visit, opens the home view: every site in view, nothing selected.
@@ -40,7 +43,7 @@ const homeView = params.get("home") === "1" || !storedMap.bounds;
 if (params.has("home")) { params.delete("home"); history.replaceState(history.state, "", `${location.pathname}${params.toString() ? `?${params}` : ""}`); }
 const mapActions = Array.isArray(storedMap.actions) ? storedMap.actions.filter((a) => a && typeof a.text === "string" && typeof a.time === "string") : [];
 const seenProposals = storedMap.proposals && typeof storedMap.proposals === "object" ? storedMap.proposals : {};
-const baseIndex = await fetch(indexUrl).then((r) => (r.ok ? r.json() : fetch("data/samples/portfolio.json").then((s) => s.json())))
+const baseIndex = ownIndex ?? await fetch(indexUrl).then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
   .catch((e) => { $("loading").textContent = `Portfolio unavailable: ${e.message}`; throw e; });
 const index = withUploads(indexUrl, baseIndex);
 
@@ -240,7 +243,8 @@ function showBriefing({ fresh = false } = {}) {
 // In the online demo (static files) there is no operator to ask: the briefing says so and offers
 // only what works without it.
 let staticDemo = false;
-hasServer().then((ok) => { staticDemo = !ok; if (staticDemo) staticChat(); renderBriefing(); });
+// The public demo's server runs the operator but loads no files.
+serverInfo().then(({ ok, public: isPublic }) => { staticDemo = !ok; if (staticDemo) staticChat(); if (isPublic) $("loadTwin").hidden = true; renderBriefing(); });
 function renderBriefing() {
   if (!briefing) return;
   const urgent = sites.filter((s) => ["critical", "high"].includes(s.a.level));

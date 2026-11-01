@@ -460,6 +460,7 @@ export const EXACT = {
   "Download the list (CSV)": "Listeyi indir (CSV)",
   "none in the online demo": "çevrimiçi demoda yok",
   "Nothing to add": "Eklenecek değişiklik yok",
+  "The public demo's daily limit for the Expert Operator is reached: try again tomorrow, or run SiteTwin 3D on your own computer (see the README). The 3D twin, the checks and manual changes still work.": "Çevrimiçi demoda Uzman Operatör için günlük sınıra ulaşıldı: yarın tekrar deneyin ya da SiteTwin 3D'yi kendi bilgisayarınızda çalıştırın (README'ye bakın). 3B ikiz, kontroller ve elle değişiklikler çalışmaya devam ediyor.",
   "none": "yok",
   "remote · EMF measurement on site": "uzaktan · sahada EMF ölçümü",
   "Try a change by hand in the Manual adjustment card, then open the action plan.": "Manuel müdahale kartında elle bir değişiklik deneyin, sonra eylem planını açın.",

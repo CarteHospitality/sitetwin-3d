@@ -40,10 +40,15 @@ for (const type of ["pageswap", "pagereveal"]) {
 // Whether the page has its own server: it answers api/health; a static host does not know the address.
 // The online demo on GitHub Pages is known to have none, so it is not asked (no 404 in its console).
 export async function hasServer() {
-  if (location.hostname.endsWith(".github.io")) return false;
+  return (await serverInfo()).ok;
+}
+// { ok, public }: public is a server run as the public demo (sample sites only, no file loading).
+export async function serverInfo() {
+  if (location.hostname.endsWith(".github.io")) return { ok: false, public: false };
   try {
-    return (await fetch("api/health")).ok;
-  } catch { return false; }
+    const res = await fetch("api/health");
+    return res.ok ? { ok: true, public: Boolean((await res.json()).public) } : { ok: false, public: false };
+  } catch { return { ok: false, public: false }; }
 }
 
 const CHANGE_SCHEMA = {
@@ -332,6 +337,7 @@ export function createAgent({ definitions, handlers, systemPrompt, ui, limits = 
         // served as static files, as in the online demo). Neither is an outage: say what is missing.
         throw new Error(tr(res.status === 503
           ? "The Expert Operator needs a model API key on the server (BASETEN_API_KEY or MODEL_API_KEY in .env, see the README). The 3D twin, the checks and manual changes still work."
+          : res.status === 429 ? "The public demo's daily limit for the Expert Operator is reached: try again tomorrow, or run SiteTwin 3D on your own computer (see the README). The 3D twin, the checks and manual changes still work."
           : [404, 405, 501].includes(res.status) ? STATIC_NOTE
           : `The Expert Operator cannot be reached right now (${res.status}). The 3D twin, the checks and manual changes still work.`));
       }
