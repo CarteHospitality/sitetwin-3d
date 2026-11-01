@@ -98,6 +98,14 @@ def test_leak_retries_stay_within_the_provider_budget(client):
     assert "<|" not in r.json()["message"]["content"]
 
 
+def test_muse_wonder_answers_when_it_is_the_configured_provider(client, monkeypatch):
+    monkeypatch.setenv("AGENT_PROVIDER", "wonder")
+    FakeOpenAI.down = set()
+    r = ask(client)
+    assert r.status_code == 200 and r.json()["model"] == "muse-wonder-1.0" and r.json()["fallback"] is False
+    assert FakeOpenAI.calls == ["muse-wonder-1.0"]
+
+
 def test_a_call_that_hangs_is_cut_at_the_provider_deadline(client, monkeypatch):
     # Baseten stalls past its whole budget: the call is abandoned at the deadline and the
     # Meta Model API answers, well before the stalled call would have returned.

@@ -29,7 +29,7 @@ const SCAN_MS = 0, REVEAL_MS = 0;
 const MAX_CARD_OPTIONS = 4;
 // The model that answered, by name; "(fallback)" when the configured provider failed and the other one
 // answered (sitetwin3d/server.py).
-const MODEL_NAMES = { "meta-models/muse-spark-open-1026": "Muse Spark Open · Baseten", "muse-spark-1.3": "Muse Spark 1.3 · Meta Model API" };
+const MODEL_NAMES = { "meta-models/muse-spark-open-1026": "Muse Spark Open · Baseten", "muse-spark-1.3": "Muse Spark 1.3 · Meta Model API", "muse-wonder-1.0": "Muse Wonder · Meta Model API" };
 function optionScore(r) {
   const sensitive = r.neighbour_conflicts.filter((t) => t.includes("SENSITIVE")).length;
   const loss = r.heavy_coverage_loss ?? [];

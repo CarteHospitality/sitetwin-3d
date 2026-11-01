@@ -34,8 +34,10 @@ from .extract import PROVIDERS, extract
 from .portfolio import import_site
 
 VIEWER = Path(__file__).resolve().parents[1] / "viewer"
-# The planning agent runs on the open-weight model by default.
-AGENT_MODELS = {"baseten": PROVIDERS["baseten"], "meta": PROVIDERS["meta"]}
+# The planning agent runs on the open-weight model by default; AGENT_PROVIDER=wonder runs it on
+# Muse Wonder (Meta Model API, same key), with the same tools on the same twin.
+AGENT_MODELS = {"baseten": PROVIDERS["baseten"], "meta": PROVIDERS["meta"],
+                "wonder": {**PROVIDERS["meta"], "model": "muse-wonder-1.0"}}
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 app = FastAPI(title="SiteTwin 3D")
