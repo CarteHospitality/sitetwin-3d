@@ -434,7 +434,7 @@ export const EXACT = {
   "✕ Failed": "✕ Başarısız",
   "Options the operator compared": "Operatörün karşılaştırdığı seçenekler",
   "Operator's choice": "Operatörün tercihi",
-  "Ranked by sensitive buildings, then other buildings, coverage loss, roof, field work and the size of the change": "Sıralama: önce hassas binalar, sonra diğer binalar, kapsama kaybı, çatı, saha işi ve değişikliğin büyüklüğü",
+  "Ranked by sensitive buildings, then other buildings, a 3 V/m distance past the checked 150 m, coverage loss, roof, field work and the size of the change": "Sıralama: önce hassas binalar, sonra diğer binalar, kontrol edilen 150 m'yi aşan 3 V/m mesafesi, kapsama kaybı, çatı, saha işi ve değişikliğin büyüklüğü",
   "Recommended": "Önerilen",
   "EMF conflicts": "EMF çakışması",
   "Field work": "Saha işi",

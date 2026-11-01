@@ -3,6 +3,7 @@ import { replyHtml } from "./agent.js";
 import { readSession, writeSession } from "./session.js";
 import { tr } from "./i18n.js";
 import { byScore, changeSize } from "./ranking.js";
+import { healthCheckLine } from "./overview.js";
 
 const LABELS = {
   get_site_state: "Reading site state", get_population_context: "Checking nearby occupancy",
@@ -334,13 +335,15 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
           metric("Coverage", coverageText(r, loss), loss.length ? "warn" : (r.coverage_change ?? []).some((c) => c.change_pct < 0) ? "" : "ok"),
           metric("Field work", !work ? "–" : work.remote ? (work.measurement ? "remote · EMF measurement on site" : "remote only")
             : work.people ? `${work.people} people · ${work.days} day(s)` : "none")),
+        // "EMF conflicts 0" only covers the buildings checked: say so when the option's field reaches past them.
+        ...(r.health_beyond_check_m ? [el("div", { className: "option-warn", textContent: healthCheckLine(r.health_beyond_check_m) })] : []),
         ...(changes.length ? [el("ul", { className: "option-changes" }, ...changes.map((line) => el("li", { textContent: line })))] : []));
     });
     liveButtons.push(...buttons);
     const more = options.length - rows.length;
     return { used, element: el("section", { className: "decision-card" },
       el("div", { className: "decision-title", textContent: "Options the operator compared" }),
-      el("div", { className: "decision-rule", textContent: "Ranked by sensitive buildings, then other buildings, coverage loss, roof, field work and the size of the change" }),
+      el("div", { className: "decision-rule", textContent: "Ranked by sensitive buildings, then other buildings, a 3 V/m distance past the checked 150 m, coverage loss, roof, field work and the size of the change" }),
       el("ol", {}, ...items),
       ...(more > 0 ? [el("div", { className: "decision-rule", textContent: `${more} more compared` })] : [])) };
   }

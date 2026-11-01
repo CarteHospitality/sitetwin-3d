@@ -25,7 +25,7 @@ import { $, el, token, initShell, setText, reducedMotion, confirmClick } from ".
 import { initCards, showCard, hideCard, setCardSummary, foldCard } from "./cards.js";
 import { crewPlan } from "./crew.js";
 import { openActionPlan, result, diffSites, diffSteps, sitePlan, FIELDS, sendByEmail } from "./actionplan.js";
-import { statusLines, planSteps, siteProblem, usesUnknown, CAPACITY_PEOPLE_PER_ANTENNA } from "./overview.js";
+import { statusLines, planSteps, siteProblem, usesUnknown, healthReach, CHECK_RADIUS_M, CAPACITY_PEOPLE_PER_ANTENNA } from "./overview.js";
 
 initShell();
 initCards();
@@ -462,7 +462,10 @@ function summarize(s) {
   const zones = siteZones(s, REGIMES[regimeKey]);
   const zoneById = Object.fromEntries(zones.map((z) => [z.antenna_id, z]));
   const { findings } = checkSite(s, zones);
+  // Past the checked radius the 3 V/m level could reach a health facility no one has looked at.
+  const reach = Math.round(healthReach(s));
   return {
+    ...(reach > CHECK_RADIUS_M ? { health_beyond_check_m: reach } : {}),
     antennas: s.antennas.map((a) => ({
       id: a.id, azimuth_deg: a.azimuth_deg, facing: facing(a.azimuth_deg), mechanical_tilt_deg: a.mechanical_tilt_deg, electrical_tilt_deg: a.electrical_tilt_deg,
       height_agl_m: a.height_agl_m, x_m: a.x_m, z_m: a.z_m,

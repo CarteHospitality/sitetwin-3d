@@ -1,7 +1,7 @@
 // The decision card's fixed rule, so the same options always come out in the same order: sensitive
-// buildings in a zone, then other buildings, heavy coverage loss (how many bands, how much), any
-// coverage loss, roof restrictions, the field work (remote before a site visit, fewer people-days),
-// then the smaller change. evaluate_change returns its options in this order too (viewer/agent.js),
+// buildings in a zone, then other buildings, a 3 V/m distance past the checked radius (a health
+// facility there would go unseen), heavy coverage loss (how many bands, how much), any coverage loss,
+// roof restrictions, the field work (remote before a site visit, fewer people-days), then the smaller change. evaluate_change returns its options in this order too (viewer/agent.js),
 // so the operator's "first option" is the card's first.
 
 // Coverage an option loses (every band's lost share, in points) and gains (good-signal km²).
@@ -13,7 +13,7 @@ function optionScore(r) {
   // No visit (a remote change, or no change at all) is no field work.
   const work = !r.field_work?.people || r.field_work.remote ? 0 : r.field_work.people * Math.max(1, r.field_work.days);
   // Heavy losses first, then any loss.
-  return [sensitive, r.neighbour_conflicts.length - sensitive, loss.length, coverageLost(r), r.roof_restrictions.length, work];
+  return [sensitive, r.neighbour_conflicts.length - sensitive, r.health_beyond_check_m ? 1 : 0, loss.length, coverageLost(r), r.roof_restrictions.length, work];
 }
 // Sorts options ({ label, changes, result }) by the rule; one that failed goes last.
 export function byScore(p, q) {

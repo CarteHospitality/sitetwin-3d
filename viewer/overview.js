@@ -6,7 +6,10 @@ import { PRB_BALANCE, PRB_EXPAND, monthsUntil } from "./kpi.js";
 import { safetyZone, HEALTH } from "./emf.js";
 
 // Buildings are analysed within this radius (the importer's neighbours, sitetwin3d/osm.py).
-const CHECK_RADIUS_M = 150;
+export const CHECK_RADIUS_M = 150;
+// How far the 3 V/m health-facility level reaches from the site's strongest antenna: past
+// CHECK_RADIUS_M, a hospital or clinic could be above it unseen.
+export const healthReach = (site) => Math.max(0, ...site.antennas.filter((a) => a.bands.length).map((a) => safetyZone(a, HEALTH).front_m));
 
 // Indicative, as on the portfolio map: people in one antenna's main lobe worth a capacity look.
 export const CAPACITY_PEOPLE_PER_ANTENNA = 1500;
@@ -36,6 +39,9 @@ export function siteProblem({ findings, hit }, population, { cell = null, reliev
   if (proposed) return "A change is planned in SiteTwin 3D; the site itself is unchanged.";
   return "No problem found in the model: no building in an EMF zone (school gardens not checked), no busy sector.";
 }
+
+// The same line in the panel and on an option of the decision card (viewer/conversation.js).
+export const healthCheckLine = (reach) => `Health facilities are checked within ${CHECK_RADIUS_M} m; the 3 V/m distance reaches ${Math.round(reach)} m`;
 
 // One line per topic, good or bad: [{ level: "ok" | "warn" | "bad", text }].
 // `coverageLoss`: bands that lose a large share of their coverage against the baseline.
@@ -77,8 +83,8 @@ export function statusLines(site, checks, population, { coverageLoss = [], kpi =
   }
   if (coverageLoss.length) lines.push({ level: "warn", text: `Coverage drops sharply: ${coverageLoss.map((l) => `${l.band} ${l.change_pct}%`).join(", ")}` });
   // A health facility beyond the checked radius could still be above 3 V/m: say where the check stops.
-  const healthReach = Math.max(0, ...site.antennas.filter((a) => a.bands.length).map((a) => safetyZone(a, HEALTH).front_m));
-  if (healthReach > CHECK_RADIUS_M) lines.push({ level: "warn", text: `Health facilities are checked within ${CHECK_RADIUS_M} m; the 3 V/m distance reaches ${Math.round(healthReach)} m` });
+  const reach = healthReach(site);
+  if (reach > CHECK_RADIUS_M) lines.push({ level: "warn", text: healthCheckLine(reach) });
   // No building around at all makes "no building in a zone" an empty all-clear: the coordinates may be
   // wrong (or the site is rural).
   if (!before && !site.neighbours.length) lines.push({ level: "warn", text: `No building found within ${CHECK_RADIUS_M} m: check the coordinates, unless the site is rural` });
