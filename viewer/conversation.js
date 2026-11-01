@@ -30,12 +30,24 @@ const MAX_CARD_OPTIONS = 4;
 // The model that answered, by name; "(fallback)" when the configured provider failed and the other one
 // answered (sitetwin3d/server.py).
 const MODEL_NAMES = { "meta-models/muse-spark-open-1026": "Muse Spark Open · Baseten", "muse-spark-1.3": "Muse Spark 1.3 · Meta Model API", "muse-wonder-1.0": "Muse Wonder · Meta Model API" };
+// The card's coverage figure: every band whose good-signal area changes, a new band first, then the
+// largest change; a share for a band the site had, km² for a new one.
+function coverageText(r, heavy) {
+  if (!r.coverage_change) return heavy.length ? heavy.map((l) => `${l.band} ${l.change_pct}%`).join(", ") : "no heavy loss";
+  const moved = r.coverage_change.filter((c) => c.change_pct !== 0)
+    .sort((a, b) => (a.change_pct === null ? -1 : 0) - (b.change_pct === null ? -1 : 0) || Math.abs(b.change_pct) - Math.abs(a.change_pct));
+  return moved.length ? moved.slice(0, 3).map((c) => c.change_pct === null ? `${c.band} +${c.after_km2} km²` : `${c.band} ${c.change_pct > 0 ? "+" : ""}${c.change_pct}%`).join(", ") : "unchanged";
+}
+// Coverage an option loses (every band's lost share, in points) and gains (good-signal km²).
+const coverageLost = (r) => (r.coverage_change ?? r.heavy_coverage_loss ?? []).reduce((s, c) => s + Math.max(0, -(c.change_pct ?? 0)), 0);
+const coverageGained = (r) => (r.coverage_change ?? []).reduce((s, c) => s + Math.max(0, c.after_km2 - c.before_km2), 0);
 function optionScore(r) {
   const sensitive = r.neighbour_conflicts.filter((t) => t.includes("SENSITIVE")).length;
   const loss = r.heavy_coverage_loss ?? [];
   // No visit (a remote change, or no change at all) is no field work.
   const work = !r.field_work?.people || r.field_work.remote ? 0 : r.field_work.people * Math.max(1, r.field_work.days);
-  return [sensitive, r.neighbour_conflicts.length - sensitive, loss.length, loss.reduce((s, l) => s + Math.abs(l.change_pct), 0), r.roof_restrictions.length, work];
+  // Heavy losses first, then any loss; the area an option adds breaks a tie after the field work.
+  return [sensitive, r.neighbour_conflicts.length - sensitive, loss.length, coverageLost(r), r.roof_restrictions.length, work, -coverageGained(r)];
 }
 function byScore(p, q) {
   const bad = (o) => Boolean(o.result?.errors?.length);
@@ -347,7 +359,7 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
         el("div", { className: "metrics" },
           metric("EMF conflicts", String(r.neighbour_conflicts.length), r.neighbour_conflicts.length ? "bad" : "ok", today ? `today ${today.conflicts}` : ""),
           metric("Roof", String(r.roof_restrictions.length), r.roof_restrictions.length ? "warn" : "ok"),
-          metric("Coverage", loss.length ? loss.map((l) => `${l.band} ${l.change_pct}%`).join(", ") : "no heavy loss", loss.length ? "warn" : "ok"),
+          metric("Coverage", coverageText(r, loss), loss.length ? "warn" : (r.coverage_change ?? []).some((c) => c.change_pct < 0) ? "" : "ok"),
           metric("Field work", !work ? "–" : work.remote ? (work.measurement ? "remote · EMF measurement on site" : "remote only")
             : work.people ? `${work.people} people · ${work.days} day(s)` : "none")),
         ...(changes.length ? [el("ul", { className: "option-changes" }, ...changes.map((line) => el("li", { textContent: line })))] : []));

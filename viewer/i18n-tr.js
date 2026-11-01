@@ -439,6 +439,7 @@ export const EXACT = {
   "EMF conflicts": "EMF çakışması",
   "Field work": "Saha işi",
   "no heavy loss": "büyük kayıp yok",
+  "unchanged": "değişmedi",
   "remote only": "yalnız uzaktan",
   "Analyse this problem": "Bu sorunu analiz et",
   "Analyse the problem with the button below, or ask your own question.": "Sorunu aşağıdaki düğmeyle analiz edin ya da kendi sorunuzu sorun.",

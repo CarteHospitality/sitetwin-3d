@@ -436,6 +436,15 @@ function coverageLoss(cov) {
     return { band, before_km2: before, after_km2: after, change_pct: before ? Math.round(((after - before) / before) * 100) : 0 };
   }).filter((x) => x.change_pct <= -HEAVY_COVERAGE_LOSS * 100);
 }
+// Every band's good-signal area against the baseline, a new band included: the card shows the change,
+// so options alike in heavy loss still differ in what they cost or bring.
+function coverageChange(cov) {
+  baselineCoverageMetric ??= coverageMetric(baseline);
+  return [...new Set([...Object.keys(baselineCoverageMetric), ...Object.keys(cov)])].map((band) => {
+    const before = baselineCoverageMetric[band]?.km2_above_minus90dBm ?? 0, after = cov[band]?.km2_above_minus90dBm ?? 0;
+    return { band, before_km2: before, after_km2: after, change_pct: before ? Math.round(((after - before) / before) * 100) : null };
+  }).filter((x) => x.before_km2 !== x.after_km2);
+}
 // The overview renders often (sliders): coverage is recomputed only when antennas change.
 let coverageMemo = { key: "", loss: [] };
 function currentCoverageLoss() {
@@ -462,6 +471,7 @@ function summarize(s) {
     neighbour_conflicts: findings.filter((f) => f.level === "bad").map((f) => f.text),
     roof_restrictions: findings.filter((f) => f.level === "warn").map((f) => f.text),
     coverage,
+    coverage_change: coverageChange(coverage),
     heavy_coverage_loss: coverageLoss(coverage),
   };
 }
