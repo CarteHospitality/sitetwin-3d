@@ -440,6 +440,12 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
   color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
 .status-lines .warn .mark { color: var(--medium); background: color-mix(in srgb, var(--medium) 14%, transparent); }
 .status-lines .bad .mark { color: var(--critical); background: color-mix(in srgb, var(--critical) 12%, transparent); }
+/* After the plan each line says what the plan does to it; a problem it clears is struck through. */
+.status-tag { display: inline-block; margin-left: 2px; padding: 0 7px; border-radius: 999px; font-size: 11px; line-height: 17px; font-weight: 600;
+  white-space: nowrap; color: var(--text-secondary); background: var(--surface-2); vertical-align: 1px; }
+.status-lines .fixed .status-tag { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
+.status-lines .fixed .line-text { text-decoration: line-through; color: var(--muted); }
+.status-lines .new .status-tag, .status-lines .worse .status-tag { color: var(--medium); background: color-mix(in srgb, var(--medium) 14%, transparent); }
 /* The state after the plan is simulated: a dashed rule beside it says so. */
 .after-lines { padding-left: 12px; border-left: 2px dashed var(--border-control); }
 .plan-steps li { position: relative; padding-left: 18px; font-size: 14px; line-height: 20px; }

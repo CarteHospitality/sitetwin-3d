@@ -43,7 +43,9 @@ export function siteProblem({ findings, hit }, population, { cell = null, reliev
 // The same line in the panel and on an option of the decision card (viewer/conversation.js).
 export const healthCheckLine = (reach) => `Health facilities are checked within ${CHECK_RADIUS_M} m; the 3 V/m distance reaches ${Math.round(reach)} m`;
 
-// One line per topic, good or bad: [{ level: "ok" | "warn" | "bad", text }].
+// One line per topic, good or bad: [{ level: "ok" | "warn" | "bad", text, topic, fileOnly? }]. `topic` pairs a
+// line today with the same point after the plan (compareLines); `fileOnly` lines are about the site file,
+// shown for today only.
 // `coverageLoss`: bands that lose a large share of their coverage against the baseline.
 // `kpi`: measured busy-hour load per cell; when given it replaces the population estimate.
 // `before`: the site before the plan, to tell whether the plan adds capacity on the busy sector.
@@ -52,64 +54,83 @@ export function statusLines(site, checks, population, { coverageLoss = [], kpi =
   const bad = checks.findings.filter((f) => f.level === "bad");
   const sensitiveUses = [...new Set(bad.filter((f) => f.sensitive && !f.health).map((f) => f.use))];
   const others = new Set(bad.filter((f) => !f.sensitive).map((f) => f.building));
-  if (bad.some((f) => f.health)) lines.push({ level: "bad", text: "A hospital is above the 3 V/m health-facility level (screening, not a measurement)" });
-  for (const use of sensitiveUses) lines.push({ level: "bad", text: `A ${use} is inside an EMF zone` });
-  for (const line of heightLines(bad)) lines.push({ level: "warn", text: line });
+  if (bad.some((f) => f.health)) lines.push({ level: "bad", topic: "hospital", text: "A hospital is above the 3 V/m health-facility level (screening, not a measurement)" });
+  for (const use of sensitiveUses) lines.push({ level: "bad", topic: `use:${use}`, text: `A ${use} is inside an EMF zone` });
+  for (const f of lowestHeights(bad)) lines.push({ level: "warn", topic: `height:${f.building}`, text: heightText(f) });
   // One all-clear line: about schools and hospitals when other buildings are hit, else about all.
   const sensitiveHit = sensitiveUses.length || bad.some((f) => f.health);
   const unknown = usesUnknown(site);
-  if (unknown && !before) lines.push({ level: "warn", text: "Building uses unknown (OpenStreetMap was unavailable): schools and hospitals are not identified, load the site file again" });
+  if (unknown && !before) lines.push({ level: "warn", topic: "uses", fileOnly: true, text: "Building uses unknown (OpenStreetMap was unavailable): schools and hospitals are not identified, load the site file again" });
   if (others.size) {
-    if (!sensitiveHit && !unknown) lines.push({ level: "ok", text: "No school or hospital building found in an EMF zone (school gardens not checked)" });
-    lines.push({ level: "bad", text: `EMF zone reaches ${others.size} other building(s)` });
-  } else if (!sensitiveHit) lines.push({ level: "ok", text: "No building found in an EMF zone (school gardens not checked)" });
+    if (!sensitiveHit && !unknown) lines.push({ level: "ok", topic: "clear", text: "No school or hospital building found in an EMF zone (school gardens not checked)" });
+    lines.push({ level: "bad", topic: "others", text: `EMF zone reaches ${others.size} other building(s)` });
+  } else if (!sensitiveHit) lines.push({ level: "ok", topic: "clear", text: "No building found in an EMF zone (school gardens not checked)" });
   if (site.structure === "rooftop") {
     const roof = checks.findings.filter((f) => f.level === "warn").length;
-    lines.push(roof ? { level: "warn", text: "Part of the roof must be closed off" } : { level: "ok", text: "No roof area inside a zone at head height" });
+    lines.push(roof ? { level: "warn", topic: "roof", text: "Part of the roof must be closed off" } : { level: "ok", topic: "roof", text: "No roof area inside a zone at head height" });
   }
   const cell = kpi?.cells?.[0];
   if (cell) {
     const name = `${cell.sector} ${cell.band}`, prb = cell.prb_dl_pct;
-    if (prb < PRB_BALANCE) lines.push({ level: "ok", text: `No busy cell: busiest ${name} at ${prb}% PRB (${cell.tag})` });
-    else if (before && capacityAdded(before, site).has(cell.sector)) lines.push({ level: "warn", text: `Cell ${name} at ${prb}% PRB (${cell.tag}): the plan adds capacity there, the load after it is not modelled` });
-    else lines.push({ level: prb >= PRB_EXPAND ? "bad" : "warn", text: `Cell ${name} is ${prb >= PRB_EXPAND ? "full" : "busy"}: ${prb}% PRB in the busy hour (${cell.tag})` });
+    if (prb < PRB_BALANCE) lines.push({ level: "ok", topic: "capacity", text: `No busy cell: busiest ${name} at ${prb}% PRB (${cell.tag})` });
+    else if (before && capacityAdded(before, site).has(cell.sector)) lines.push({ level: "warn", topic: "capacity", text: `Cell ${name} at ${prb}% PRB (${cell.tag}): the plan adds capacity there, the load after it is not modelled` });
+    else lines.push({ level: prb >= PRB_EXPAND ? "bad" : "warn", topic: "capacity", text: `Cell ${name} is ${prb >= PRB_EXPAND ? "full" : "busy"}: ${prb}% PRB in the busy hour (${cell.tag})` });
   } else {
     // The busy sector stays busy in people, but a plan that adds capacity there answers it.
     const busiest = Object.entries(population.people_per_antenna).sort((a, b) => b[1] - a[1])[0];
     const sector = busiest && sectorOf(busiest[0]), people = busiest && Math.round(busiest[1] / 100) * 100;
-    if (!busiest || busiest[1] <= CAPACITY_PEOPLE_PER_ANTENNA) lines.push({ level: "ok", text: "No busy sector (estimated from the people nearby)" });
-    else if (before && capacityAdded(before, site).has(sector)) lines.push({ level: "warn", text: `Sector ${sector} has about ${people} people: the plan adds capacity there` });
-    else lines.push({ level: "warn", text: `Sector ${sector} is busy: about ${people} people` });
+    if (!busiest || busiest[1] <= CAPACITY_PEOPLE_PER_ANTENNA) lines.push({ level: "ok", topic: "capacity", text: "No busy sector (estimated from the people nearby)" });
+    else if (before && capacityAdded(before, site).has(sector)) lines.push({ level: "warn", topic: "capacity", text: `Sector ${sector} has about ${people} people: the plan adds capacity there` });
+    else lines.push({ level: "warn", topic: "capacity", text: `Sector ${sector} is busy: about ${people} people` });
   }
-  if (coverageLoss.length) lines.push({ level: "warn", text: `Coverage drops sharply: ${coverageLoss.map((l) => `${l.band} ${l.change_pct}%`).join(", ")}` });
+  if (coverageLoss.length) lines.push({ level: "warn", topic: "coverage", text: `Coverage drops sharply: ${coverageLoss.map((l) => `${l.band} ${l.change_pct}%`).join(", ")}` });
   // A health facility beyond the checked radius could still be above 3 V/m: say where the check stops.
   const reach = healthReach(site);
-  if (reach > CHECK_RADIUS_M) lines.push({ level: "warn", text: healthCheckLine(reach) });
+  if (reach > CHECK_RADIUS_M) lines.push({ level: "warn", topic: "health-reach", text: healthCheckLine(reach) });
   // No building around at all makes "no building in a zone" an empty all-clear: the coordinates may be
   // wrong (or the site is rural).
-  if (!before && !site.neighbours.length) lines.push({ level: "warn", text: `No building found within ${CHECK_RADIUS_M} m: check the coordinates, unless the site is rural` });
+  if (!before && !site.neighbours.length) lines.push({ level: "warn", topic: "neighbours", fileOnly: true, text: `No building found within ${CHECK_RADIUS_M} m: check the coordinates, unless the site is rural` });
   // The site as filed (not the plan): an antenna without a band, or a band without power, radiates
   // nothing here, most likely a gap in the file.
   if (!before) for (const a of site.antennas) {
-    if (!a.bands.length) lines.push({ level: "warn", text: `${a.id} has no band in the site file: it radiates nothing here, check the file` });
-    for (const b of a.bands) if (!(b.tx_power_w > 0)) lines.push({ level: "warn", text: `${a.id} ${b.name} has no power in the site file (0 W): check the file` });
+    if (!a.bands.length) lines.push({ level: "warn", topic: `file:${a.id}`, fileOnly: true, text: `${a.id} has no band in the site file: it radiates nothing here, check the file` });
+    for (const b of a.bands) if (!(b.tx_power_w > 0)) lines.push({ level: "warn", topic: `file:${a.id}:${b.name}`, fileOnly: true, text: `${a.id} ${b.name} has no power in the site file (0 W): check the file` });
   }
   return lines;
 }
 
+// The plan's lines against today's, so the engineer sees what it changes: each line after the plan
+// with `change` "unchanged", "new" (a problem today does not have) or "worse" (or none: changed, or
+// fine), then today's problems the plan clears ("fixed"), which have no line after it.
+const RANK = { ok: 0, warn: 1, bad: 2 };
+export function compareLines(now, after) {
+  const today = new Map(now.map((l) => [l.topic, l]));
+  const out = after.map((l) => {
+    const was = today.get(l.topic);
+    if (!was) return { ...l, change: l.level === "ok" ? null : "new" };
+    if (was.text === l.text && was.level === l.level) return { ...l, change: "unchanged" };
+    return { ...l, change: RANK[l.level] > RANK[was.level] ? "worse" : null };
+  });
+  const remaining = new Set(after.map((l) => l.topic));
+  const fixed = now.filter((l) => l.level !== "ok" && !l.fileOnly && !remaining.has(l.topic)).map((l) => ({ ...l, level: "ok", change: "fixed" }));
+  return [...fixed, ...out];
+}
+
 // A school or hospital whose height was assumed (no height in the open data): whether the finding
 // hangs on that assumption, from the check's lowest storey count (viewer/checks.js), one line each.
-export function heightLines(findings) {
+export const heightLines = (findings) => lowestHeights(findings).map(heightText);
+function lowestHeights(findings) {
   // Several antennas can reach the same building: it is in a zone from the lowest of their thresholds.
   const lowest = new Map();
   for (const f of findings) if (f.height_assumed && f.holds_from_storeys) {
     const seen = lowest.get(f.building);
     if (!seen || f.holds_from_storeys < seen.holds_from_storeys) lowest.set(f.building, f);
   }
-  return [...lowest.values()].map((f) => (f.holds_from_storeys > 1
-    ? `Height of ${f.building} assumed (${f.assumed_storeys} storeys): the zone reaches it only from ${f.holds_from_storeys} storeys up, so measure it`
-    : `Height of ${f.building} assumed (${f.assumed_storeys} storeys): the zone reaches it even at one storey, the lowest height tried`));
+  return [...lowest.values()];
 }
+const heightText = (f) => (f.holds_from_storeys > 1
+  ? `Height of ${f.building} assumed (${f.assumed_storeys} storeys): the zone reaches it only from ${f.holds_from_storeys} storeys up, so measure it`
+  : `Height of ${f.building} assumed (${f.assumed_storeys} storeys): the zone reaches it even at one storey, the lowest height tried`);
 
 // Sectors where the plan adds capacity: a new antenna or a new band (more spectrum). More power
 // is not capacity: it widens the coverage, the cell has the same resource blocks to share.

@@ -25,7 +25,7 @@ import { $, el, token, initShell, setText, reducedMotion, confirmClick } from ".
 import { initCards, showCard, hideCard, setCardSummary, foldCard } from "./cards.js";
 import { crewPlan } from "./crew.js";
 import { openActionPlan, result, diffSites, diffSteps, sitePlan, FIELDS, sendByEmail } from "./actionplan.js";
-import { statusLines, planSteps, siteProblem, usesUnknown, healthReach, CHECK_RADIUS_M, CAPACITY_PEOPLE_PER_ANTENNA } from "./overview.js";
+import { statusLines, compareLines, planSteps, siteProblem, usesUnknown, healthReach, CHECK_RADIUS_M, CAPACITY_PEOPLE_PER_ANTENNA } from "./overview.js";
 
 initShell();
 initCards();
@@ -988,13 +988,15 @@ function renderPanels(zones, checks, changes) {
 // there is a plan, the same points as they would be after it. The plan is only a simulation, so the
 // current state stays on top and never gives way to it.
 let overviewSignature = "", currentState = null;
+const CHANGE_TAG = { fixed: "fixed by the plan", unchanged: "unchanged", new: "new with the plan", worse: "worse with the plan" };
 function renderOverview(checks, changes, crew) {
   if (currentState?.of !== baseline || currentState.regime !== regimeKey || currentState.kpi !== kpi) {
     const zones = siteZones(baseline, REGIMES[regimeKey]);
     currentState = { of: baseline, regime: regimeKey, kpi, lines: statusLines(baseline, checkSite(baseline, zones), populationContext(baseline), { kpi }) };
   }
   const now = currentState.lines;
-  const after = changes.length ? statusLines(site, checks, populationContext(site), { coverageLoss: currentCoverageLoss(), kpi, before: baseline }) : [];
+  // After the plan, each line says what the plan does to it: fixed, unchanged, new or worse.
+  const after = changes.length ? compareLines(now, statusLines(site, checks, populationContext(site), { coverageLoss: currentCoverageLoss(), kpi, before: baseline })) : [];
   const steps = planSteps(baseline, site);
   const install = crew.visits.find((v) => v.name === "Installation visit");
   // Without an installation the change is remote, but an EMF measurement may still take someone on site.
@@ -1005,7 +1007,9 @@ function renderOverview(checks, changes, crew) {
   if (signature === overviewSignature) return;
   overviewSignature = signature;
   const icon = { ok: "✓", warn: "!", bad: "✕" };
-  const items = (lines) => lines.map((l) => el("li", { className: l.level }, el("span", { className: "mark", ariaHidden: "true", textContent: icon[l.level] }), el("span", { textContent: l.text })));
+  const items = (lines) => lines.map((l) => el("li", { className: `${l.level}${l.change ? ` ${l.change}` : ""}` },
+    el("span", { className: "mark", ariaHidden: "true", textContent: icon[l.level] }),
+    el("span", {}, el("span", { className: "line-text", textContent: l.text }), ...(l.change ? [" ", el("span", { className: "status-tag", textContent: CHANGE_TAG[l.change] })] : []))));
   $("statusLines").replaceChildren(...items(now));
   $("planSteps").replaceChildren(...(steps.length
     ? steps.map((t) => el("li", { textContent: t }))
