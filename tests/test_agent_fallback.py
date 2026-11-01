@@ -1,4 +1,4 @@
-"""When the configured model provider fails, the other one answers the same call."""
+"""When the configured model provider fails, the next one answers the same call."""
 
 from types import SimpleNamespace
 
@@ -45,6 +45,9 @@ def client(monkeypatch):
     monkeypatch.setattr(server, "OpenAI", FakeOpenAI)
     monkeypatch.setenv("BASETEN_API_KEY", "test")
     monkeypatch.setenv("MODEL_API_KEY", "test")
+    # Modal only where a test sets it up: the real .env may have it.
+    monkeypatch.delenv("MODAL_API_KEY", raising=False)
+    monkeypatch.delenv("MODAL_BASE_URL", raising=False)
     monkeypatch.delenv("AGENT_PROVIDER", raising=False)
     monkeypatch.setattr(server.time, "monotonic", lambda: FakeOpenAI.clock)
     FakeOpenAI.calls, FakeOpenAI.leak, FakeOpenAI.cost_s, FakeOpenAI.clock = [], False, 0.0, 0.0
@@ -54,6 +57,12 @@ def client(monkeypatch):
 
 def ask(client):
     return client.post("/api/chat", json={"messages": [{"role": "user", "content": "hi"}], "tools": []})
+
+
+@pytest.fixture
+def with_modal(monkeypatch):
+    monkeypatch.setenv("MODAL_API_KEY", "test")
+    monkeypatch.setenv("MODAL_BASE_URL", "https://ws--ep-x-server.us-west.modal.direct/v1")
 
 
 def test_the_configured_provider_answers_when_it_is_up(client):
@@ -76,6 +85,33 @@ def test_both_down_is_one_plain_error(client):
     FakeOpenAI.down = {"baseten", "meta.ai"}
     r = ask(client)
     assert r.status_code == 502 and "baseten" in r.json()["detail"] and "meta" in r.json()["detail"]
+    # Muse Wonder is never a fallback: only the configured provider and the fallbacks were asked.
+    assert FakeOpenAI.calls == ["meta-models/muse-spark-open-1026", "muse-spark-1.3"]
+
+
+def test_the_same_open_model_on_modal_answers_when_baseten_fails(client, with_modal):
+    FakeOpenAI.down = {"baseten"}
+    r = ask(client)
+    assert r.status_code == 200 and r.json()["model"] == "meta-models/Muse-Spark-Open-816B-A42B"
+    assert r.json()["fallback"] is True
+    assert FakeOpenAI.calls == ["meta-models/muse-spark-open-1026", "meta-models/Muse-Spark-Open-816B-A42B"]
+
+
+def test_the_meta_model_api_answers_when_both_open_model_hosts_fail(client, with_modal):
+    FakeOpenAI.down = {"baseten", "modal.direct"}
+    r = ask(client)
+    assert r.status_code == 200 and r.json()["model"] == "muse-spark-1.3" and r.json()["fallback"] is True
+
+
+def test_modal_without_its_endpoint_url_is_skipped(client, monkeypatch):
+    monkeypatch.setenv("MODAL_API_KEY", "test")
+    FakeOpenAI.down = {"baseten"}
+    r = ask(client)
+    assert r.status_code == 200 and r.json()["model"] == "muse-spark-1.3"
+
+
+def test_all_three_budgets_stay_under_the_pages_limit():
+    assert sum(server.TIMEOUTS_S) < 60 and len(server.TIMEOUTS_S) == len(server.FALLBACKS)
 
 
 def test_a_missing_key_skips_that_provider(client, monkeypatch):
@@ -89,7 +125,7 @@ def test_a_missing_key_skips_that_provider(client, monkeypatch):
 
 def test_leak_retries_stay_within_the_provider_budget(client):
     # Every answer leaks and each call takes 20 s: the second try gets only what is left of the
-    # 30 s budget, and no third try starts, so the page's 60 s limit is never at risk.
+    # first provider's budget, and no third try starts, so the page's 60 s limit is never at risk.
     FakeOpenAI.down, FakeOpenAI.leak, FakeOpenAI.cost_s = set(), True, 20.0
     r = ask(client)
     assert r.status_code == 200
@@ -109,7 +145,7 @@ def test_muse_wonder_answers_when_it_is_the_configured_provider(client, monkeypa
 def test_a_call_that_hangs_is_cut_at_the_provider_deadline(client, monkeypatch):
     # Baseten stalls past its whole budget: the call is abandoned at the deadline and the
     # Meta Model API answers, well before the stalled call would have returned.
-    monkeypatch.setattr(server, "TIMEOUTS_S", (0.3, 0.3))
+    monkeypatch.setattr(server, "TIMEOUTS_S", (0.3, 0.3, 0.3))
     FakeOpenAI.down, FakeOpenAI.hang = set(), {"baseten"}
     start = time.perf_counter()
     r = ask(client)

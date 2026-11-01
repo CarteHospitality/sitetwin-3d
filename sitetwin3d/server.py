@@ -38,8 +38,13 @@ from .portfolio import import_site
 VIEWER = Path(__file__).resolve().parents[1] / "viewer"
 # The planning agent runs on the open-weight model by default; AGENT_PROVIDER=wonder runs it on
 # Muse Wonder (Meta Model API, same key), with the same tools on the same twin.
-AGENT_MODELS = {"baseten": PROVIDERS["baseten"], "meta": PROVIDERS["meta"],
+# Modal serves the same open-weight model at the workspace's own endpoint, so its URL comes from .env.
+AGENT_MODELS = {"baseten": PROVIDERS["baseten"],
+                "modal": dict(base_url_env="MODAL_BASE_URL", key_env="MODAL_API_KEY", model="meta-models/Muse-Spark-Open-816B-A42B"),
+                "meta": PROVIDERS["meta"],
                 "wonder": {**PROVIDERS["meta"], "model": "muse-wonder-1.0"}}
+# Who answers when the configured provider fails: the open-weight model on another host first.
+FALLBACKS = ("baseten", "modal", "meta")
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 app = FastAPI(title="SiteTwin 3D")
@@ -59,8 +64,10 @@ def _count_call(request: Request) -> None:
     if not PUBLIC:
         return
     day = time.strftime("%Y-%m-%d")
-    # Behind Cloudflare the visitor is CF-Connecting-IP; the socket address is the proxy's.
-    visitor = request.headers.get("cf-connecting-ip") or (request.client.host if request.client else "?")
+    # Behind Cloudflare the visitor is CF-Connecting-IP, behind Modal's proxy the first X-Forwarded-For;
+    # the socket address is the proxy's. A forged header only moves a visitor to another count: the total holds.
+    forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    visitor = request.headers.get("cf-connecting-ip") or forwarded or (request.client.host if request.client else "?")
     with _used_lock:
         for key in [k for k in _used if k[0] != day]:
             del _used[key]
@@ -105,16 +112,21 @@ def _clean(text: str) -> str:
     return LEAK.sub("", text).strip()
 
 
+def _base_url(cfg: dict) -> str | None:
+    return cfg.get("base_url") or os.environ.get(cfg.get("base_url_env", ""))
+
+
 def _providers() -> list[str]:
-    """The configured provider first, then the other one, each only if its key is set."""
+    """The configured provider first, then the fallbacks in order, each only if its key (and URL) is set."""
     first = os.environ.get("AGENT_PROVIDER", "baseten")
-    return [p for p in (first, *(p for p in AGENT_MODELS if p != first)) if os.environ.get(AGENT_MODELS[p]["key_env"])]
+    chain = (first, *(p for p in FALLBACKS if p != first))
+    return [p for p in chain if os.environ.get(AGENT_MODELS[p]["key_env"]) and _base_url(AGENT_MODELS[p])]
 
 
-# Each provider's whole budget, its leak retries included: both together stay under the page's
+# Each provider's whole budget, its leak retries included: all together stay under the page's
 # 60 s limit for one model call (viewer/agent.js). A call still running at its deadline is abandoned,
 # since the HTTP client's timeouts bound each read, not the whole answer.
-TIMEOUTS_S = (30, 25)
+TIMEOUTS_S = (25, 18, 12)
 # A leaked turn is asked again only while this much of the budget is left.
 RETRY_MIN_S = 5
 CALLS = ThreadPoolExecutor(max_workers=8, thread_name_prefix="model-call")
@@ -130,7 +142,7 @@ def _create(client: OpenAI, cfg: dict, req: ChatRequest, left: float):
 
 
 def _ask(cfg: dict, req: ChatRequest, budget: float) -> dict:
-    client = OpenAI(base_url=cfg["base_url"], api_key=os.environ[cfg["key_env"]], max_retries=0)
+    client = OpenAI(base_url=_base_url(cfg), api_key=os.environ[cfg["key_env"]], max_retries=0)
     deadline = time.monotonic() + budget
     for attempt in range(3):
         left = deadline - time.monotonic()
@@ -154,8 +166,8 @@ def health() -> dict:
 
 @app.post("/api/chat")
 def chat(req: ChatRequest, request: Request) -> dict:
-    # If the configured provider fails (outage, quota, timeout), the other one answers this call;
-    # the page shows which model answered, and whether it was the fallback.
+    # If the configured provider fails (outage, quota, timeout), the next one answers this call;
+    # the page shows which model answered, and whether it was a fallback.
     _count_call(request)
     providers = _providers()
     if not providers:

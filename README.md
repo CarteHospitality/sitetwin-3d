@@ -37,8 +37,8 @@ The weak one is the request with three constraints at once (capacity in the sout
 
 | Model | Where | What it does |
 |---|---|---|
-| **Muse Spark Open** (`meta-models/muse-spark-open-1026`, on Baseten) | `viewer/agent.js`, relayed by `sitetwin3d/server.py` `/api/chat` | The Expert Operator agent: calls tools on the live 3D twin, compares options, applies the fix, plans the field work. |
-| **Muse Spark 1.3** (Meta Model API) | `sitetwin3d/extract.py`, `/api/photo`, `viewer/photo.js`; `/api/chat` as the agent's fallback | Reads a site photo: equipment, label text, safety notes. The agent then checks it against the twin. If Baseten fails or takes over 30 s, it answers the agent's call with the same tools (`tests/test_agent_fallback.py`). |
+| **Muse Spark Open** (`meta-models/muse-spark-open-1026`, on Baseten; the same open weights on a Modal Shared Endpoint as the first fallback) | `viewer/agent.js`, relayed by `sitetwin3d/server.py` `/api/chat` | The Expert Operator agent: calls tools on the live 3D twin, compares options, applies the fix, plans the field work. If Baseten fails or takes over 25 s, Modal answers the same call. |
+| **Muse Spark 1.3** (Meta Model API) | `sitetwin3d/extract.py`, `/api/photo`, `viewer/photo.js`; `/api/chat` as the agent's last fallback | Reads a site photo: equipment, label text, safety notes. The agent then checks it against the twin. If neither open-weight host answers in time, it answers the agent's call with the same tools (`tests/test_agent_fallback.py`). |
 | **Muse Voice Transcribe** (Meta Model API) | `viewer/voice.js`, `/api/transcribe` | Push-to-talk: the engineer speaks (Turkish or English), the agent acts. |
 
 ## What existed before vs. what is new
@@ -81,7 +81,7 @@ python -m venv .venv                               # tested with Python 3.12; No
 - The interface follows the browser language (Turkish or English); switch with the language button.
 - Load your own file: **Load file** on the map, or `python -m sitetwin3d.portfolio FILE.json --out viewer/data/private`.
 
-The Expert Operator needs `BASETEN_API_KEY`; voice and photo extraction need `MODEL_API_KEY` (Meta Model API). With both keys set, a call Baseten cannot answer goes to Muse Spark 1.3 on the Meta Model API, and the chat shows which model answered. Put them in `.env` (see `.env.example`), never in the repo.
+The Expert Operator needs `BASETEN_API_KEY`; voice and photo extraction need `MODEL_API_KEY` (Meta Model API). With both keys set, a call Baseten cannot answer goes to Muse Spark 1.3 on the Meta Model API, and the chat shows which model answered. With `MODAL_BASE_URL` and `MODAL_API_KEY` also set, Muse Spark Open on Modal is tried before that. Put them in `.env` (see `.env.example`), never in the repo.
 
 ## Data
 
@@ -93,7 +93,7 @@ The Expert Operator needs `BASETEN_API_KEY`; voice and photo extraction need `MO
 ## Privacy and data flow
 
 - The public demo runs on the five synthetic sample sites only. Real operator site files, their photos and anything derived from them stay on the engineer's machine (`data/private/`, `viewer/data/private/`, `viewer/data/uploads/`, all git-ignored).
-- What leaves the machine, and to whom: the Expert Operator's briefing and tool results (antenna data, neighbouring buildings and their uses, measured load) go to Muse Spark Open on Baseten (or, when Baseten fails, to Muse Spark 1.3 on the Meta Model API); a photo sent from the chat and push-to-talk audio go to the Meta Model API; the site's coordinates reach the map tile servers (OpenStreetMap, Esri) as tile requests. Addresses stay in the portfolio index and the action plan, which is only sent when the engineer e-mails it.
+- What leaves the machine, and to whom: the Expert Operator's briefing and tool results (antenna data, neighbouring buildings and their uses, measured load) go to Muse Spark Open on Baseten (or, when Baseten fails, to Muse Spark Open on Modal if it is set up, then to Muse Spark 1.3 on the Meta Model API); a photo sent from the chat and push-to-talk audio go to the Meta Model API; the site's coordinates reach the map tile servers (OpenStreetMap, Esri) as tile requests. Addresses stay in the portfolio index and the action plan, which is only sent when the engineer e-mails it.
 - API keys live in `.env`, never in the repo, and stay on the server: the browser never sees them. The server listens on 127.0.0.1 only, so its `/api/chat` relay is not open to the network.
 
 ## Limits

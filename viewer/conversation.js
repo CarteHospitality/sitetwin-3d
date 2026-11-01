@@ -29,7 +29,7 @@ const SCAN_MS = 0, REVEAL_MS = 0;
 const MAX_CARD_OPTIONS = 4;
 // The model that answered, by name; "(fallback)" when the configured provider failed and the other one
 // answered (sitetwin3d/server.py).
-const MODEL_NAMES = { "meta-models/muse-spark-open-1026": "Muse Spark Open · Baseten", "muse-spark-1.3": "Muse Spark 1.3 · Meta Model API", "muse-wonder-1.0": "Muse Wonder · Meta Model API" };
+const MODEL_NAMES = { "meta-models/muse-spark-open-1026": "Muse Spark Open · Baseten", "meta-models/Muse-Spark-Open-816B-A42B": "Muse Spark Open · Modal", "muse-spark-1.3": "Muse Spark 1.3 · Meta Model API", "muse-wonder-1.0": "Muse Wonder · Meta Model API" };
 // The card's coverage figure: every band whose good-signal area changes, a new band first, then the
 // largest change; a share for a band the site had, km² for a new one.
 function coverageText(r, heavy) {
