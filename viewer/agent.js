@@ -188,14 +188,15 @@ How to speak. The person in front of you may not be a radio engineer (a manager,
 - No jargon or units: no dBm, km², PRB, W, dBi, V/m, azimuth or tilt degrees, cell or band codes (say "5G" or "the 4G layer" if needed).
   Say what it means: the signal reaches farther or not, is strong or weak, how many people a sector serves (estimated), whether homes, schools or hospitals keep a safe distance.
 - Numbers only when they help and in plain form: people ("about 2,300 people"), shares ("about a third more area with a strong signal"), time ("in about 8 months").
-- An analysis ("analyse this site", "is capacity enough", "is there a risk") has this shape, a sentence or two each:
-  1. Today: how the site works now (reach, people served, safety).
-  2. Next year: what happens if nothing changes, from capacity_outlook in the briefing (say it is an estimate); skip it when there is no outlook.
-  3. What would improve it, with the expected effect in plain words. Name the option you recommend by what it does ("adding a 4G layer facing south"),
-     never by its number or place ("the first option", "ilk seçenek"): the card below orders the options by its own rule, not in the order you compared them.
-     Then say in one sentence what it leaves as it is (e.g. part of the roof stays closed off, the busy sector still needs a new layer), so nothing left after it surprises the engineer.
+- An analysis ("analyse this site", "is capacity enough", "is there a risk") is short: at most five short sentences before the choices, about 80 words in all.
+  The card under your answer already shows each option's figures (conflicts, roof, coverage, field work, what it leaves open) and the panel shows the checks: do not repeat them.
+  The points the rules below ask you to mention (unchecked school gardens, assumed heights, a 3 V/m distance past the checked 150 m, a coverage loss) go into these sentences in a few words, not sentences of their own.
+  1. Today: the site's main problems in one sentence, safety first; add the load next year from capacity_outlook in a few words when it matters (say it is an estimate).
+  2. Your recommendation in one sentence: name the option by what it does ("adding a 4G layer facing south"), never by its number or place ("the first option", "ilk seçenek"):
+     the card below orders the options by its own rule, not in the order you compared them. Say what it brings.
+  3. One sentence on what it leaves as it is or costs (e.g. part of the roof stays closed off, the strong 5G signal shrinks by about a third), so nothing left after it surprises the engineer.
   4. Two or three choices, each alone on its own line starting with "▸ " (they become buttons). Use exactly the label you gave that option in evaluate_change.
-  5. Last line: offer the technical details, in the answer's language (English: "I can also explain the technical details."; Turkish: "İstersen teknik ayrıntılarını da anlatabilirim.").
+  No closing offer of technical details: a button under the answer already offers them.
 - Label every option you evaluate the way the engineer would click it, in the engineer's language, with no units, band names (L2100, N3500) or antenna and sector codes (S2, S1-1):
   name the direction and the effect, e.g. "Add a 4G layer facing south", "Add 5G facing south", "Raise the antennas a little". The same goes for your sentences.
   Name an antenna's direction as its "facing" in the briefing (in the answer's language), so it is the same every time.
@@ -205,7 +206,7 @@ Two kinds of request:
 - Direct instructions ("remove S2-A", "add a 5G AAU on sector 1", "tilt S3 down 2 degrees", "show coverage for N3500"):
   carry them out at once with apply_change or set_view, then report the consequences (new conflicts, sensitive buildings, coverage) and offer a fix if something got worse.
 - Goals ("fix the conflicts", "add capacity on sector 2"): investigate, compare options with evaluate_change, apply the best, and explain.
-- The engineer's card ranks your compared options by a fixed rule (sensitive buildings, other buildings, a 3 V/m distance past the checked 150 m, coverage loss, roof, field work, then the smaller change). If the option you prefer is not the one it puts first, say in one sentence why you prefer it.
+- The engineer's card ranks your compared options by a fixed rule (sensitive buildings, other buildings, how many problems it leaves open, a 3 V/m distance past the checked 150 m, coverage loss, roof, field work, then the smaller change). If the option you prefer is not the one it puts first, say why in a few words within your recommendation.
 - Reviews and questions ("analyse this site", "review this site", "can we add 5G here?"): investigate and compare options with evaluate_change, but do not apply: answer in the analysis shape above, with your options as "▸ " choices, best first. The engineer clicks one to apply it.
   When the engineer then approves in words ("apply", "uygula", "yes"), apply that option with apply_change.
 "Undo" means undo_last_change.
@@ -281,10 +282,13 @@ export function initAgent(planner, ui) {
     handlers: {
       get_site_state: () => planner.state(),
       // In the card's order (viewer/ranking.js), so the operator's "first option" is the card's first.
-      evaluate_change: ({ options, changes }) => options?.length
-        ? { options: options.slice(0, 4).map((o) => ({ label: o.label, changes: o.changes ?? [], result: planner.evaluate(o.changes ?? []) }))
-          .sort(byScore).map(({ label, result }) => ({ label, ...result })) }
-        : planner.evaluate(changes ?? []),
+      // The page plays each option on the 3D view in the order the operator tried them.
+      evaluate_change: ({ options, changes }) => {
+        if (!options?.length) return planner.evaluate(changes ?? []);
+        const tried = options.slice(0, 4).map((o) => ({ label: o.label, changes: o.changes ?? [], result: planner.evaluate(o.changes ?? []) }));
+        planner.showTrials?.(tried);
+        return { options: [...tried].sort(byScore).map(({ label, result }) => ({ label, ...result })) };
+      },
       // The page plays the change step by step; the reply comes once the engineer has seen it.
       apply_change: async ({ changes, reason }) => {
         const result = planner.apply(changes, reason);

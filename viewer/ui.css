@@ -14,7 +14,7 @@
   --bad: var(--critical); --warn: var(--high);
   --scene-ground: #F2F4F7; --scene-building: #CDD5DE; --scene-site: #FFFFFF;
   --scene-edge: #8E9AA8; --scene-antenna: #3A4553; --scene-pole: #6B7785;
-  --emf-front: #E5484D; --emf-back: #F79009; --building-hit: #F6C1C3;
+  --emf-front: #E5484D; --emf-back: #F79009; --building-hit: #F4A7AA; --building-sensitive: #E5484D;
   --building-hit-edge: #D92D20; --baseline-wire: #7D8B9A;
   --coverage-weak: #D5E3FF; --coverage-fair: #9CBBF4;
   --coverage-good: #5A8BEA; --coverage-excellent: #1D4ED8;
@@ -214,7 +214,12 @@ html.page-hidden .pin::before, html.page-hidden .pin::after { animation-play-sta
 .mic-meter.static { width: auto; }
 .mic-meter.static .meter-text { display: inline; }
 .scene-label { position: absolute; left: 0; top: 0; z-index: 20; border: 2px solid var(--accent); background: var(--panel); padding: 6px 10px; border-radius: 6px; font-size: 14px; pointer-events: none; white-space: nowrap; }
-.scene-label.cleared { border-color: var(--ok); }
+.scene-label.cleared { border-color: var(--ok); color: var(--ok); font-weight: 600; }
+/* A school or hospital in a zone: the label over it stays while it is in the zone, and its dot pulses. */
+.scene-label.alert { display: flex; align-items: center; gap: 8px; z-index: 21; border-color: var(--critical); color: var(--critical); font-weight: 600; box-shadow: var(--shadow-float); }
+.alert-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--critical); flex: none; animation: alert-pulse 1.6s var(--ease-pulse) infinite; }
+@keyframes alert-pulse { 0% { box-shadow: 0 0 0 0 rgb(217 45 32 / 55%); } 70% { box-shadow: 0 0 0 10px rgb(217 45 32 / 0%); } 100% { box-shadow: 0 0 0 0 rgb(217 45 32 / 0%); } }
+@media (prefers-reduced-motion: reduce) { .alert-dot { animation: none; } }
 .view-status { top: 16px; left: 16px; pointer-events: none; }
 .msg, .run-activity { animation: message-in 180ms var(--ease-out); }
 .drawer-open { animation: panel-in 240ms var(--ease-out); }
@@ -475,6 +480,23 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
 .story-tag { padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #fff; background: var(--text-secondary); }
 .story-caption[data-tag="change"] .story-tag { background: var(--accent); }
 .story-caption[data-tag="after"] .story-tag { background: var(--ok); }
+
+/* An option the operator is trying, played on the 3D view: what it is, and today's problems it solves. */
+.trial-box { left: 50%; bottom: 16px; transform: translateX(-50%); width: min(360px, calc(100% - 32px)); display: grid; gap: 8px; padding: 12px 14px;
+  pointer-events: none; z-index: 600; border-color: var(--accent); box-shadow: var(--shadow-float); }
+.trial-head { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.trial-box .story-tag { background: var(--accent); }
+.trial-label { font-size: 16px; font-weight: 600; line-height: 1.3; color: var(--text); }
+.trial-checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
+.trial-checks li { display: flex; gap: 8px; align-items: baseline; }
+.trial-mark { width: 14px; flex: none; font-weight: 700; text-align: center; }
+.trial-checks .solved { color: var(--ok); }
+.trial-checks .open { color: var(--critical); }
+.trial-checks .added { color: var(--high); }
+.trial-summary { font-size: 13px; font-weight: 600; color: var(--text-secondary); border-top: 1px solid var(--border); padding-top: 8px; }
+.trial-summary.all { color: var(--ok); }
+/* While options play, the legend steps aside for the box. */
+.stage.trying #legend { display: none; }
 
 /* Manual adjustment while the operator works: the steps appear one by one, the control in use lights up. */
 .card.operating { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); transition: box-shadow .3s, border-color .3s; }

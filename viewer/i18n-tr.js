@@ -434,7 +434,7 @@ export const EXACT = {
   "✕ Failed": "✕ Başarısız",
   "Options the operator compared": "Operatörün karşılaştırdığı seçenekler",
   "Operator's choice": "Operatörün tercihi",
-  "Ranked by sensitive buildings, then other buildings, a 3 V/m distance past the checked 150 m, coverage loss, roof, field work and the size of the change": "Sıralama: önce hassas binalar, sonra diğer binalar, kontrol edilen 150 m'yi aşan 3 V/m mesafesi, kapsama kaybı, çatı, saha işi ve değişikliğin büyüklüğü",
+  "Ranked by sensitive buildings, then other buildings, the problems left open, a 3 V/m distance past the checked 150 m, coverage loss, roof, field work and the size of the change": "Sıralama: önce hassas binalar, sonra diğer binalar, açık kalan sorunlar, kontrol edilen 150 m'yi aşan 3 V/m mesafesi, kapsama kaybı, çatı, saha işi ve değişikliğin büyüklüğü",
   "Recommended": "Önerilen",
   "EMF conflicts": "EMF çakışması",
   "Field work": "Saha işi",
@@ -543,7 +543,18 @@ export const EXACT = {
   "School no longer inside an EMF zone": "Okul artık EMF bölgesinde değil",
   "Hospital no longer inside an EMF zone": "Hastane artık EMF bölgesinde değil",
   "Kindergarten no longer inside an EMF zone": "Anaokulu artık EMF bölgesinde değil",
-  "Still open": "Açık kalan"
+  "Still open": "Açık kalan",
+  // ---- 3D view: schools and hospitals in a zone, and the options the operator tries
+  "School · inside an EMF zone": "Okul · EMF bölgesinde",
+  "Kindergarten · inside an EMF zone": "Anaokulu · EMF bölgesinde",
+  "Hospital · inside an EMF zone": "Hastane · EMF bölgesinde",
+  "Hospital · above 3 V/m": "Hastane · 3 V/m'nin üstünde",
+  "✓ School · out of the zone": "✓ Okul · artık bölgenin dışında",
+  "✓ Kindergarten · out of the zone": "✓ Anaokulu · artık bölgenin dışında",
+  "✓ Hospital · out of the zone": "✓ Hastane · artık bölgenin dışında",
+  "✓ Hospital · below 3 V/m": "✓ Hastane · artık 3 V/m'nin altında",
+  "School or hospital inside a zone": "Bölgede okul ya da hastane",
+  "Operator trying": "Operatör deniyor"
 };
 
 // PHRASES: fixed English phrases replaced wherever they appear inside longer, partly dynamic text
@@ -968,4 +979,7 @@ export const PATTERNS = [
   ["^(\\d+) engineer · ~([\\d.]+) h$", "", "$1 mühendis · ~$2 sa"],
   ["^(\\d+) people, (\\d+) day\\(s\\)$", "", "$1 kişi, $2 gün"],
   ["^(\\d+) engineer, ~([\\d.]+) h, remote$", "", "$1 mühendis, ~$2 sa, uzaktan"],
+  // ---- 3D view: the options the operator tries
+  ["^Option (\\d+)$", "", "Seçenek $1"],
+  ["^Solved: (\\d+) of (\\d+) problems$", "", "Çözülen sorun: $1/$2"],
 ];

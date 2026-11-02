@@ -356,7 +356,7 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
     const more = options.length - rows.length;
     return { used, element: el("section", { className: "decision-card" },
       el("div", { className: "decision-title", textContent: "Options the operator compared" }),
-      el("div", { className: "decision-rule", textContent: "Ranked by sensitive buildings, then other buildings, a 3 V/m distance past the checked 150 m, coverage loss, roof, field work and the size of the change" }),
+      el("div", { className: "decision-rule", textContent: "Ranked by sensitive buildings, then other buildings, the problems left open, a 3 V/m distance past the checked 150 m, coverage loss, roof, field work and the size of the change" }),
       el("ol", {}, ...items),
       ...(more > 0 ? [el("div", { className: "decision-rule", textContent: `${more} more compared` })] : [])) };
   }

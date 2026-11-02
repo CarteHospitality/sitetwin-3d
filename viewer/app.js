@@ -25,7 +25,7 @@ import { $, el, token, initShell, setText, reducedMotion, confirmClick } from ".
 import { initCards, showCard, hideCard, setCardSummary, foldCard } from "./cards.js";
 import { crewPlan } from "./crew.js";
 import { openActionPlan, result, diffSites, diffSteps, sitePlan, FIELDS, sendByEmail } from "./actionplan.js";
-import { statusLines, compareLines, openProblems, planSteps, siteProblem, usesUnknown, healthReach, CHECK_RADIUS_M, CAPACITY_PEOPLE_PER_ANTENNA } from "./overview.js";
+import { statusLines, compareLines, openProblems, problemName, planSteps, siteProblem, usesUnknown, healthReach, CHECK_RADIUS_M, CAPACITY_PEOPLE_PER_ANTENNA } from "./overview.js";
 
 initShell();
 initCards();
@@ -101,10 +101,10 @@ function capacityOutlook() {
 const freshOpen = params.get("fresh") === "1";
 let selectedId = !freshOpen && site.antennas.some((a) => a.id === restored.view.selected) ? restored.view.selected : null;
 let regimeKey = restored.regime;
-// Coverage is on by default: where each antenna reaches is half of what the twin shows.
-const layers = { zones: true, coverage: true, baseline: false };
-// Coverage comes back on with every opening; the other layers keep the engineer's choice.
-for (const key of ["zones", "baseline"]) if (typeof restored.view.layers?.[key] === "boolean") layers[key] = restored.view.layers[key];
+// The opening shows the problem: the EMF zones and the buildings they reach. Coverage comes on with a
+// change the engineer watches (or by hand); a reload keeps the engineer's layers.
+const layers = { zones: true, coverage: false, baseline: false };
+for (const key of ["zones", "coverage", "baseline"]) if (!(freshOpen && key === "coverage") && typeof restored.view.layers?.[key] === "boolean") layers[key] = restored.view.layers[key];
 let coverageBand = freshOpen ? null : restored.view.coverageBand ?? null;
 let lastModelState = clone(site);
 const planActions = restored.actions.filter((a) => a && typeof a.time === "string" && Array.isArray(a.delta));
@@ -407,7 +407,10 @@ function applyChanges(s, changes) {
     const moved = c.action === "add_antenna" || typeof c.x_m === "number" || typeof c.z_m === "number";
     if (moved && !onRoof(a.x_m, a.z_m)) errors.push(`${a.id} is off the roof`);
     if ((c.action === "add_antenna" || typeof c.height_agl_m === "number") && (a.height_agl_m < HEIGHT_RANGE[0] || a.height_agl_m > HEIGHT_RANGE[1])) errors.push(`${a.id} height out of range (${HEIGHT_RANGE.join('-')} m)`);
-    if (a.bands.some((x) => x.tx_power_w < 1 || x.tx_power_w > maxPowerW(x))) errors.push(`${a.id} power out of range (1-80 W below 3 GHz, up to 240 W above)`);
+    // Only the powers this change sets: a band filed at 0 W (a gap in the file, the panel flags it)
+    // must not block a height or tilt change on its antenna.
+    const set = new Set([...Object.keys(c.band_power_w ?? {}), ...(c.add_bands ?? [])]);
+    if (a.bands.some((x) => set.has(x.name) && (x.tx_power_w < 1 || x.tx_power_w > maxPowerW(x)))) errors.push(`${a.id} power out of range (1-80 W below 3 GHz, up to 240 W above)`);
   }
   return { site: out, errors };
 }
@@ -773,8 +776,81 @@ async function playPlan(before, focus, ids) {
   card.classList.remove("operating");
 }
 
+// ---------- the options the operator tries, on the 3D view ----------
+// While the operator compares options, each one is shown on the 3D view in turn: its antennas move,
+// its zones and the buildings they reach follow, and a box over the view ticks off today's problems
+// it solves. Nothing changes in the plan: the view comes back to it once the options have played.
+// After the operator's answer, the options still waiting play at the quicker pace.
+const TRIAL_MS = 2600, TRIAL_QUICK_MS = 1000;
+const trialQueue = [];
+let trialView = false, trialNumber = 0, trialToken = 0, operatorRunning = false;
+// The plan's open problems now, counted as an option's problems_after is (planner.evaluate).
+function planProblems() {
+  const zones = siteZones(site, REGIMES[regimeKey]);
+  return openProblems(statusLines(site, checkSite(site, zones), populationContext(site), { coverageLoss: summarize(site).heavy_coverage_loss, kpi, before: baseline }));
+}
+function showTrials(options) {
+  if (reducedMotion.matches) return;
+  const today = planProblems();
+  for (const o of options) if (!o.result?.errors?.length) trialQueue.push({ ...o, today });
+  if (!trialView) playTrials();
+}
+async function playTrials() {
+  const token = ++trialToken;
+  trialView = true;
+  $("scene").classList.add("trying");
+  const regime = REGIMES[regimeKey];
+  const baseZones = siteZones(baseline, regime);
+  while (trialQueue.length && token === trialToken) {
+    const option = trialQueue.shift();
+    const { site: candidate, errors } = applyChanges(site, option.changes);
+    if (errors.length) continue;
+    trialNumber++;
+    renderTower(candidate);
+    const zones = siteZones(candidate, regime);
+    coveragePlane.visible = false;
+    sceneMotion.sync(candidate, zones, checkSite(candidate, zones), layers, baseline, baseZones, null, { animate: true, trial: true });
+    trialBox(option);
+    await new Promise((resolve) => setTimeout(resolve, operatorRunning ? TRIAL_MS : TRIAL_QUICK_MS));
+  }
+  if (token === trialToken) endTrials();
+}
+// Back to the plan: at once when the plan is about to change (an option applied), else when the
+// options have played.
+function endTrials() {
+  trialToken++;
+  trialQueue.length = 0;
+  if (!trialView) return;
+  trialView = false;
+  $("trialBox").hidden = true;
+  $("scene").classList.remove("trying");
+  update({ animate: true });
+}
+// The box over the view: which option, today's problems it solves (✓) or leaves (✗), and any it adds.
+function trialBox({ label, result, today }) {
+  const nameOf = (p) => problemName(p.topic);
+  const left = new Set((result.problems_after ?? []).map(nameOf));
+  const now = [...new Set(today.map(nameOf))];
+  const added = [...left].filter((name) => !now.includes(name));
+  const solved = now.filter((name) => !left.has(name)).length;
+  const row = (mark, name, className) => el("li", { className }, el("span", { className: "trial-mark", textContent: mark }), el("span", { textContent: name }));
+  $("trialNumber").textContent = `Option ${trialNumber}`;
+  $("trialLabel").textContent = label;
+  $("trialChecks").replaceChildren(...now.map((name) => left.has(name) ? row("✕", name, "open") : row("✓", name, "solved")),
+    ...added.map((name) => row("+", name, "added")));
+  const summary = $("trialSummary");
+  summary.className = left.size ? "trial-summary" : "trial-summary all";
+  summary.textContent = left.size ? `Solved: ${solved} of ${now.length} problems` : "Solves every problem found";
+  const box = $("trialBox");
+  box.hidden = false;
+  // A small lift, not a fade: the box reads fully even where the page's animations are held back.
+  box.animate([{ transform: "translate(-50%, 8px)" }, { transform: "translate(-50%, 0)" }], { duration: 300, easing: "cubic-bezier(.16,1,.3,1)" });
+}
+
 const planner = {
   get site() { return site; },
+  // Each option the operator compares, played on the 3D view (see showTrials).
+  showTrials,
   // Resolves when the change being played on screen has finished (the agent waits before replying).
   settled: () => lastShowcase,
   roofBounds,
@@ -808,6 +884,7 @@ const planner = {
   apply(changes, reason) {
     const { site: candidate, errors } = applyChanges(site, changes);
     if (errors.length) return { errors };
+    endTrials();
     lastReason = reason ?? lastReason;
     undoStack.push(site);
     const before = site;
@@ -1130,6 +1207,9 @@ function statsFor(result, antennaIds, focus) {
 let statsBefore = null;
 let countFrame = 0;
 function renderStats() {
+  // The numbers are the coverage map's: without it the box has nothing to say.
+  $("sceneStats").hidden = !layers.coverage;
+  if (!layers.coverage) { cancelAnimationFrame(countFrame); return; }
   const focus = site.antennas.some((a) => a.id === selectedId) ? selectedId : null;
   const current = layers.coverage && paintedCoverage?.key === JSON.stringify([coverageBand, site.antennas])
     ? statsFor(paintedCoverage.grid, paintedCoverage.antennas, focus) : null;
@@ -1178,7 +1258,7 @@ function renderCoverage(immediate = false) {
   coveragePending = false;
   if (!layers.coverage) { coveragePlane.visible = false; sceneMotion.invalidate(); return; }
   const key = JSON.stringify([coverageBand, site.antennas]);
-  coveragePlane.visible = paintedCoverageKey === key;
+  coveragePlane.visible = !trialView && paintedCoverageKey === key;
   sceneMotion.invalidate();
   if (paintedCoverageKey === key && (!layers.baseline || coverageComparison?.key === key && coverageComparison.before !== undefined)) return;
   coveragePending = true;
@@ -1198,7 +1278,7 @@ function renderCoverage(immediate = false) {
       paintCoverageView();
       paintedCoverageKey = key;
       coveragePending = false;
-      coveragePlane.visible = true;
+      coveragePlane.visible = !trialView;
       renderComparison();
       renderLegend();
       coverageTexture.needsUpdate = true;
@@ -1218,6 +1298,7 @@ window.addEventListener("pagehide", () => { clearTimeout(coverageTimer); coverag
 function renderLegend() {
   const items = [
     [token("emf-front"), "EMF zone, main lobe"], [token("emf-back"), "EMF zone, back lobe"], [token("building-hit"), "Neighbour inside a zone"],
+    [token("building-sensitive"), "School or hospital inside a zone"],
   ];
   if (layers.baseline) items.push([token("baseline-wire"), "Baseline zones (wireframe)"]);
   $("legend").replaceChildren(...items.map(([c, t]) => el("div", {}, el("span", { className: "sw", style: `background:${c}` }), t)));
@@ -1259,11 +1340,14 @@ function renderComparison(checks = checkSite(site, siteZones(site, REGIMES[regim
 }
 
 function update(options = {}) {
-  renderTower(site);
   const regime = REGIMES[regimeKey];
   const zones = siteZones(site, regime);
   const checks = checkSite(site, zones);
-  sceneMotion.sync(site, zones, checks, layers, baseline, siteZones(baseline, regime), selectedId, options);
+  // While an option the operator tries is on the view, the panels follow the plan and the view waits.
+  if (!trialView) {
+    renderTower(site);
+    sceneMotion.sync(site, zones, checks, layers, baseline, siteZones(baseline, regime), selectedId, options);
+  }
   const delta = diffSites(lastModelState, site);
   const nextAssessment = { hit: checks.hit.size, roof: checks.findings.filter((f) => f.level === "warn").length };
   if (delta.length) {
@@ -1477,7 +1561,11 @@ function renderAntennaPicker() {
 
 // ---------- assistant chat ----------
 const chat = initConversation({
-  onBusy: (on) => voice.setRunning(on),
+  onBusy: (on) => {
+    operatorRunning = on;
+    if (on) trialNumber = 0;
+    voice.setRunning(on);
+  },
   scanLines,
   onComplete: () => { if (pendingOpen && pageActive) location.href = pendingOpen; },
   speak: (text) => voice.speak(text),

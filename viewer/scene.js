@@ -10,6 +10,15 @@ const WIDE_DISTANCE_M = 470, WIDE_AHEAD_M = 100, CLOSE_DISTANCE_M = 38;
 // The opening drone view: how high it looks down from, how far it stands for a given structure
 // height, and one slow turn around the site.
 const DRONE_POLAR_DEG = 52, DRONE_DISTANCE_PER_M = 4.3, DRONE_DISTANCE_M = [150, 260], DRONE_TURN_MS = 48000;
+// An option the operator is trying: its antennas move fast enough to show several in a row.
+const TRIAL_MS = 900;
+// A school or hospital in a zone carries a label over the view for as long as it is in it; when a
+// change takes it out, the label says so for this long.
+const ALERT_TEXT = { school: "School · inside an EMF zone", kindergarten: "Kindergarten · inside an EMF zone",
+  hospital: "Hospital · inside an EMF zone", health: "Hospital · above 3 V/m" };
+const CLEARED_TEXT = { school: "School · out of the zone", kindergarten: "Kindergarten · out of the zone",
+  hospital: "Hospital · out of the zone", health: "Hospital · below 3 V/m" };
+const CLEARED_SENSITIVE_MS = 4200;
 
 // `tower`: a ground site (lattice tower, monopole): the structure is drawn by the page, and each
 // antenna hangs on a short mount pipe at its height instead of standing on a pole from the roof.
@@ -24,6 +33,8 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
   let orbiting = null;
   let framing = false, profile = null, refreshAfterProfile = false, reducedEffects = false;
   const neighbourOutlines = new Map();
+  // Schools and hospitals in a zone now: building id -> { use, label }.
+  const alerts = new Map();
   const panelMaterial = new T.MeshStandardMaterial({ color: token("scene-antenna"), roughness: .8 });
   const poleMaterial = new T.MeshStandardMaterial({ color: token("scene-pole"), roughness: .93 });
   const selectionMaterial = new T.LineBasicMaterial({ color: token("accent") });
@@ -160,7 +171,9 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
   // `slow`: a change applied for the engineer to watch (from the agent or a choice): it moves at a
   // readable pace, and a new antenna comes down from above into its place.
   // `instant`: buildings take their final colour at once (a picture of the state, not a transition).
-  function sync(site, results, checks, layers, baselineSite, baselineZones, selectedId, { animate = false, slow = false, instant = false } = {}) {
+  // `trial`: an option the operator is trying, not the plan: quicker moves, and only a school or
+  // hospital leaving the zone is labelled.
+  function sync(site, results, checks, layers, baselineSite, baselineZones, selectedId, { animate = false, slow = false, instant = false, trial = false } = {}) {
     selected = selectedId;
     if (!selectedId) located = null;
     selection.disabled = !selected;
@@ -197,17 +210,17 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
         // With an antenna selected its zone stays clear and the others fade, so overlapping sectors read apart.
         const faded = selected && a.id !== selected;
         const { front, back } = zone.group.userData;
-        front.material.uniforms.bodyAlpha.value = faded ? .025 : a.id === selected ? .12 : .10;
-        front.material.uniforms.edgeAlpha.value = faded ? .08 : a.id === selected ? .48 : .34;
-        back.material.uniforms.bodyAlpha.value = faded ? .015 : .07;
-        back.material.uniforms.edgeAlpha.value = faded ? .05 : .22;
+        front.material.uniforms.bodyAlpha.value = faded ? .03 : a.id === selected ? .19 : .16;
+        front.material.uniforms.edgeAlpha.value = faded ? .10 : a.id === selected ? .66 : .55;
+        back.material.uniforms.bodyAlpha.value = faded ? .02 : .09;
+        back.material.uniforms.edgeAlpha.value = faded ? .06 : .28;
         poseZone(zone.outline, value); zone.outline.visible = false;
       }
       const signature = JSON.stringify(value);
       if (node.signature !== signature) {
         node.signature = signature; node.target = value;
         if (!fresh && animate && !reducedMotion.matches) {
-          tweens.set(a.id, { from: { ...node.displayed }, to: value, started: performance.now(), duration: slow ? SLOW_MS : 320 });
+          tweens.set(a.id, { from: { ...node.displayed }, to: value, started: performance.now(), duration: slow ? SLOW_MS : trial ? TRIAL_MS : 320 });
         } else { tweens.delete(a.id); display(a.id, value); }
         dirtyShadow = true;
       } else if (fresh) display(a.id, value);
@@ -223,22 +236,37 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
       poseZone(group, valueOf(baseById.get(z.antenna_id), z));
     }
     baselineGroup.visible = layers.baseline;
+    const sensitive = new Map(checks.findings.filter((f) => f.sensitive && f.building).map((f) => [f.building, f.health ? "health" : f.use]));
     for (const [id, mesh] of Object.entries(neighbourMeshes)) {
       if (checks.hit.has(id)) {
         clearings.get(id)?.label?.remove(); clearings.delete(id);
-        mesh.material.color.set(token("building-hit"));
+        mesh.material.color.set(token(sensitive.has(id) ? "building-sensitive" : "building-hit"));
       } else if (instant) {
         clearings.get(id)?.label?.remove(); clearings.delete(id);
         mesh.material.color.set(token("scene-building"));
       } else if (finalHit.has(id)) {
         const old = clearings.get(id); old?.label?.remove();
-        clearings.set(id, { started: null, from: mesh.material.color.clone(), label: null });
+        const use = alerts.get(id)?.use ?? null;
+        clearings.set(id, { started: null, from: mesh.material.color.clone(), label: null, use, quiet: trial && !use });
       }
     }
     finalHit = new Set(checks.hit);
+    syncAlerts(instant ? new Map() : sensitive);
     syncOutlines();
     status.hidden = !tweens.size;
     invalidate();
+  }
+  // One label per school or hospital in a zone, kept over the building as the view moves.
+  function syncAlerts(sensitive) {
+    for (const [id, alert] of alerts) if (!sensitive.has(id)) { alert.label.remove(); alerts.delete(id); }
+    for (const [id, use] of sensitive) {
+      if (!neighbourMeshes[id] || alerts.get(id)?.use === use) continue;
+      alerts.get(id)?.label.remove();
+      const text = ALERT_TEXT[use] ?? `${use[0].toUpperCase()}${use.slice(1)} · inside an EMF zone`;
+      const label = el("div", { className: "scene-label alert" }, el("span", { className: "alert-dot", ariaHidden: "true" }), el("span", { textContent: text }));
+      host.append(label);
+      alerts.set(id, { use, label });
+    }
   }
   function syncOutlines() {
     const affected = [...new Set([located, ...finalHit, ...clearings.keys()].filter((id) => id && neighbourMeshes[id]))].slice(0, 8);
@@ -285,10 +313,12 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
       label.textContent = selected;
       project(label, new T.Vector3(node.displayed.x_m, node.displayed.height_agl_m + node.displayed.length_m / 2, node.displayed.z_m));
     } else label.hidden = true;
-    for (const [id, change] of clearings) if (change.label) {
+    const labelled = [...[...clearings].filter(([, change]) => change.label).map(([id, change]) => [id, change.label]),
+      ...[...alerts].map(([id, alert]) => [id, alert.label])];
+    for (const [id, element] of labelled) {
       const box = new T.Box3().setFromObject(neighbourMeshes[id]);
       const point = box.getCenter(new T.Vector3()); point.y = box.max.y;
-      project(change.label, point);
+      project(element, point);
     }
   }
   function settleClearing(now) {
@@ -302,12 +332,13 @@ export function createSceneMotion({ THREE: T, scene, renderer, camera, controls,
       neighbourMeshes[id].material.color.copy(change.from).lerp(new T.Color(token("scene-building")), standardEase(t));
       const edge = neighbourOutlines.get(id);
       if (edge) edge.material.color.set(token("building-hit-edge")).lerp(new T.Color(token(id === located ? "accent" : "scene-edge")), standardEase(t));
-      if (t === 1 && !change.label) {
-        change.label = el("div", { className: "scene-label cleared", textContent: `✓ ${id} · Modelled conflict cleared` });
+      if (t === 1 && !change.label && !change.quiet) {
+        change.label = el("div", { className: "scene-label cleared", textContent: change.use
+          ? `✓ ${CLEARED_TEXT[change.use] ?? `${change.use} · out of the zone`}` : `✓ ${id} · Modelled conflict cleared` });
         host.append(change.label);
       }
-      if (reducedMotion.matches) { if (id !== located) change.label.hidden = false; continue; }
-      if (now - change.started >= 1380) { change.label.remove(); clearings.delete(id); syncOutlines(); }
+      if (reducedMotion.matches) { if (change.label && id !== located) change.label.hidden = false; continue; }
+      if (now - change.started >= (change.use ? CLEARED_SENSITIVE_MS : 1380)) { change.label?.remove(); clearings.delete(id); syncOutlines(); }
       else moving = true;
     }
     return moving;
