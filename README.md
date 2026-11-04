@@ -2,7 +2,7 @@
 
 A **3D digital twin and change planner for mobile base-station sites**, built on Meta models. Load a site file, and every site is checked automatically on a map; open one and an **Expert Operator** agent (Muse Spark Open, by text or voice) finds the problem and simulates the fix: EMF safety zones against real neighbouring buildings, sensitive buildings like schools and hospitals, rooftop safety, capacity and coverage.
 
-Built for the Meta Global AI Developer Hackathon (Indie track). Demo video: _link to be added_.
+Built for the Meta Global AI Developer Hackathon (Indie track). Demo video (2:51): [youtu.be/wG8739ZJrHg](https://youtu.be/wG8739ZJrHg).
 
 **Try it online:** [the map of the ten sample sites](https://cartehospitality.github.io/sitetwin-3d/portfolio.html?portfolio=data/samples/portfolio.json). The map, the 3D twin, the EMF checks, manual changes and the action plan run in the browser; the Expert Operator needs the local server and a model key (see Quick start).
 
