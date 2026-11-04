@@ -1,0 +1,221 @@
+{
+  "schema": "jevbtk-digital-site@1",
+  "site_id": "SAMPLE-10_REDWOOD_CITY",
+  "site": {
+    "report_site_code": "SAMPLE-10_REDWOOD_CITY",
+    "name": "Synthetic sample site",
+    "operator": "DEMO",
+    "latitude_dms": "N 37° 29' 20,40''",
+    "longitude_dms": "W 122° 13' 26,40''",
+    "district": "Redwood City",
+    "province": "California"
+  },
+  "application": {
+    "type": "new",
+    "technology": "4.5G",
+    "reason": "New rooftop site on a low commercial building"
+  },
+  "sectors": {
+    "1": {
+      "azimuth_deg": 30
+    },
+    "2": {
+      "azimuth_deg": 150
+    },
+    "3": {
+      "azimuth_deg": 270
+    }
+  },
+  "antennas": [
+    {
+      "sector": 1,
+      "slot": 1,
+      "model": "Panel 65deg",
+      "action": "retain",
+      "height_m": 10.5,
+      "azimuth_deg": 30,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 2100,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 2,
+      "slot": 1,
+      "model": "Panel 65deg",
+      "action": "retain",
+      "height_m": 10.5,
+      "azimuth_deg": 150,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 2100,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 3,
+      "slot": 1,
+      "model": "Panel 65deg",
+      "action": "retain",
+      "height_m": 10.5,
+      "azimuth_deg": 270,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 2100,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    }
+  ],
+  "structure": {
+    "kind": "rooftop",
+    "building_height_m": 9.0
+  },
+  "network_kpi": {
+    "source": "OSS PM export, busy hour per cell (synthetic sample)",
+    "period": "2026-10-28",
+    "cells": [
+      {
+        "cell": "SAMPLE-10_REDWOOD_CITY_S1_L800",
+        "sector": 1,
+        "band": "L800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 52.0,
+        "rrc_users": 128,
+        "traffic_gb": 25.0
+      },
+      {
+        "cell": "SAMPLE-10_REDWOOD_CITY_S1_L1800",
+        "sector": 1,
+        "band": "L1800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 58.0,
+        "rrc_users": 159,
+        "traffic_gb": 25.3
+      },
+      {
+        "cell": "SAMPLE-10_REDWOOD_CITY_S1_L2100",
+        "sector": 1,
+        "band": "L2100",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 44.0,
+        "rrc_users": 116,
+        "traffic_gb": 20.0
+      },
+      {
+        "cell": "SAMPLE-10_REDWOOD_CITY_S2_L800",
+        "sector": 2,
+        "band": "L800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 46.0,
+        "rrc_users": 114,
+        "traffic_gb": 20.5
+      },
+      {
+        "cell": "SAMPLE-10_REDWOOD_CITY_S2_L1800",
+        "sector": 2,
+        "band": "L1800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 51.0,
+        "rrc_users": 145,
+        "traffic_gb": 21.9
+      },
+      {
+        "cell": "SAMPLE-10_REDWOOD_CITY_S2_L2100",
+        "sector": 2,
+        "band": "L2100",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 40.0,
+        "rrc_users": 108,
+        "traffic_gb": 17.1
+      },
+      {
+        "cell": "SAMPLE-10_REDWOOD_CITY_S3_L800",
+        "sector": 3,
+        "band": "L800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 49.0,
+        "rrc_users": 115,
+        "traffic_gb": 21.0
+      },
+      {
+        "cell": "SAMPLE-10_REDWOOD_CITY_S3_L1800",
+        "sector": 3,
+        "band": "L1800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 55.0,
+        "rrc_users": 140,
+        "traffic_gb": 23.3
+      },
+      {
+        "cell": "SAMPLE-10_REDWOOD_CITY_S3_L2100",
+        "sector": 3,
+        "band": "L2100",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 42.0,
+        "rrc_users": 107,
+        "traffic_gb": 21.2
+      }
+    ]
+  },
+  "notes": [
+    "Synthetic sample for SiteTwin 3D, near Meta's Menlo Park campus. Antenna data and network KPIs are invented; the location is an ordinary city block. It is checked against Turkey's BTK limits like every site here: the US FCC limits are looser and not modelled."
+  ]
+}

@@ -135,6 +135,8 @@ def from_sitetwin(doc: dict, neighbours: list[Neighbour] | None = None, host: Ne
     notes = [f"Imported from SiteTwin ({SCHEMA})."]
     if app.get("reason"):
         notes.append(f"SiteTwin application: {app['reason']}")
+    # The file's own notes (a sample says it is synthetic, and which limits apply where).
+    notes += [n for n in doc.get("notes") or [] if isinstance(n, str) and n.strip()]
     notes += extra_notes or []
     notes.append("Assumed, not in the SiteTwin file: " + "; ".join(sorted(assumed)) + ".")
     for m in (existing, proposed):

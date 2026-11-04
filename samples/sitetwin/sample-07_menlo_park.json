@@ -1,0 +1,232 @@
+{
+  "schema": "jevbtk-digital-site@1",
+  "site_id": "SAMPLE-07_MENLO_PARK",
+  "site": {
+    "report_site_code": "SAMPLE-07_MENLO_PARK",
+    "name": "Synthetic sample site",
+    "operator": "DEMO",
+    "latitude_dms": "N 37° 28' 45,23''",
+    "longitude_dms": "W 122° 9' 55,66''",
+    "district": "Menlo Park",
+    "province": "California"
+  },
+  "application": {
+    "type": "revision",
+    "technology": "4.5G",
+    "reason": "Second panel added on the east sector; west sector 2600 carrier still to be powered"
+  },
+  "sectors": {
+    "1": {
+      "azimuth_deg": 90
+    },
+    "2": {
+      "azimuth_deg": 210
+    },
+    "3": {
+      "azimuth_deg": 330
+    }
+  },
+  "antennas": [
+    {
+      "sector": 1,
+      "slot": 1,
+      "model": "Panel 65deg",
+      "action": "retain",
+      "height_m": 7.5,
+      "azimuth_deg": 90,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 800,
+          "operating_power_w": 40,
+          "electrical_tilt_deg": 3,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 40,
+          "electrical_tilt_deg": 3,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 1,
+      "slot": 2,
+      "model": "Panel 65deg",
+      "action": "retain",
+      "height_m": 7.5,
+      "azimuth_deg": 90,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 2100,
+          "operating_power_w": 40,
+          "electrical_tilt_deg": 3,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 2600,
+          "operating_power_w": 40,
+          "electrical_tilt_deg": 3,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 2,
+      "slot": 1,
+      "model": "Panel 65deg",
+      "action": "retain",
+      "height_m": 7.5,
+      "azimuth_deg": 210,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 3,
+      "slot": 1,
+      "model": "Panel 65deg",
+      "action": "retain",
+      "height_m": 7.5,
+      "azimuth_deg": 330,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 2600,
+          "operating_power_w": 0,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    }
+  ],
+  "structure": {
+    "kind": "rooftop",
+    "building_height_m": 6.0
+  },
+  "network_kpi": {
+    "source": "OSS PM export, busy hour per cell (synthetic sample)",
+    "period": "2026-10-28",
+    "cells": [
+      {
+        "cell": "SAMPLE-07_MENLO_PARK_S1_L800",
+        "sector": 1,
+        "band": "L800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 55.0,
+        "rrc_users": 157,
+        "traffic_gb": 26.7
+      },
+      {
+        "cell": "SAMPLE-07_MENLO_PARK_S1_L1800",
+        "sector": 1,
+        "band": "L1800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 61.0,
+        "rrc_users": 158,
+        "traffic_gb": 30.7
+      },
+      {
+        "cell": "SAMPLE-07_MENLO_PARK_S1_L2100",
+        "sector": 1,
+        "band": "L2100",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 49.0,
+        "rrc_users": 128,
+        "traffic_gb": 22.5
+      },
+      {
+        "cell": "SAMPLE-07_MENLO_PARK_S1_L2600",
+        "sector": 1,
+        "band": "L2600",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 38.0,
+        "rrc_users": 101,
+        "traffic_gb": 18.1
+      },
+      {
+        "cell": "SAMPLE-07_MENLO_PARK_S2_L800",
+        "sector": 2,
+        "band": "L800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 81.0,
+        "rrc_users": 210,
+        "traffic_gb": 41.2
+      },
+      {
+        "cell": "SAMPLE-07_MENLO_PARK_S2_L1800",
+        "sector": 2,
+        "band": "L1800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 88.0,
+        "rrc_users": 246,
+        "traffic_gb": 42.9
+      },
+      {
+        "cell": "SAMPLE-07_MENLO_PARK_S3_L800",
+        "sector": 3,
+        "band": "L800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 42.0,
+        "rrc_users": 103,
+        "traffic_gb": 18.4
+      },
+      {
+        "cell": "SAMPLE-07_MENLO_PARK_S3_L1800",
+        "sector": 3,
+        "band": "L1800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 47.0,
+        "rrc_users": 111,
+        "traffic_gb": 21.3
+      },
+      {
+        "cell": "SAMPLE-07_MENLO_PARK_S3_L2600",
+        "sector": 3,
+        "band": "L2600",
+        "busy_hour": "2026-10-28 00:00",
+        "prb_dl_pct": 0.0,
+        "rrc_users": 0,
+        "traffic_gb": 0.0
+      }
+    ]
+  },
+  "notes": [
+    "Synthetic sample for SiteTwin 3D, near Meta's Menlo Park campus. Antenna data and network KPIs are invented; the location is an ordinary city block. It is checked against Turkey's BTK limits like every site here: the US FCC limits are looser and not modelled."
+  ]
+}

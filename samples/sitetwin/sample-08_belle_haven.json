@@ -1,0 +1,254 @@
+{
+  "schema": "jevbtk-digital-site@1",
+  "site_id": "SAMPLE-08_BELLE_HAVEN",
+  "site": {
+    "report_site_code": "SAMPLE-08_BELLE_HAVEN",
+    "name": "Synthetic sample site",
+    "operator": "DEMO",
+    "latitude_dms": "N 37° 28' 36,73''",
+    "longitude_dms": "W 122° 9' 41,15''",
+    "district": "Menlo Park",
+    "province": "California"
+  },
+  "application": {
+    "type": "revision",
+    "technology": "5G",
+    "reason": "n78 massive-MIMO added on all sectors next to the 4G panels"
+  },
+  "sectors": {
+    "1": {
+      "azimuth_deg": 150
+    },
+    "2": {
+      "azimuth_deg": 270
+    },
+    "3": {
+      "azimuth_deg": 30
+    }
+  },
+  "antennas": [
+    {
+      "sector": 1,
+      "slot": 1,
+      "model": "Panel 65deg",
+      "action": "retain",
+      "height_m": 6.0,
+      "azimuth_deg": 150,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 1,
+      "slot": 2,
+      "model": "64T64R AAU",
+      "action": "retain",
+      "height_m": 6.0,
+      "azimuth_deg": 150,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 3500,
+          "operating_power_w": 60,
+          "electrical_tilt_deg": 2,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 2,
+      "slot": 1,
+      "model": "Panel 65deg",
+      "action": "retain",
+      "height_m": 6.0,
+      "azimuth_deg": 270,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 2,
+      "slot": 2,
+      "model": "64T64R AAU",
+      "action": "retain",
+      "height_m": 6.0,
+      "azimuth_deg": 270,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 3500,
+          "operating_power_w": 60,
+          "electrical_tilt_deg": 2,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 3,
+      "slot": 1,
+      "model": "Panel 65deg",
+      "action": "retain",
+      "height_m": 6.0,
+      "azimuth_deg": 30,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 20,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 3,
+      "slot": 2,
+      "model": "64T64R AAU",
+      "action": "retain",
+      "height_m": 6.0,
+      "azimuth_deg": 30,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 3500,
+          "operating_power_w": 60,
+          "electrical_tilt_deg": 2,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    }
+  ],
+  "structure": {
+    "kind": "rooftop",
+    "building_height_m": 3.5
+  },
+  "network_kpi": {
+    "source": "OSS PM export, busy hour per cell (synthetic sample)",
+    "period": "2026-10-28",
+    "cells": [
+      {
+        "cell": "SAMPLE-08_BELLE_HAVEN_S1_L800",
+        "sector": 1,
+        "band": "L800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 51.0,
+        "rrc_users": 130,
+        "traffic_gb": 21.9
+      },
+      {
+        "cell": "SAMPLE-08_BELLE_HAVEN_S1_L1800",
+        "sector": 1,
+        "band": "L1800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 57.0,
+        "rrc_users": 161,
+        "traffic_gb": 27.2
+      },
+      {
+        "cell": "SAMPLE-08_BELLE_HAVEN_S1_N3500",
+        "sector": 1,
+        "band": "N3500",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 22.0,
+        "rrc_users": 54,
+        "traffic_gb": 9.9
+      },
+      {
+        "cell": "SAMPLE-08_BELLE_HAVEN_S2_L800",
+        "sector": 2,
+        "band": "L800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 44.0,
+        "rrc_users": 120,
+        "traffic_gb": 18.7
+      },
+      {
+        "cell": "SAMPLE-08_BELLE_HAVEN_S2_L1800",
+        "sector": 2,
+        "band": "L1800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 49.0,
+        "rrc_users": 124,
+        "traffic_gb": 24.0
+      },
+      {
+        "cell": "SAMPLE-08_BELLE_HAVEN_S2_N3500",
+        "sector": 2,
+        "band": "N3500",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 19.0,
+        "rrc_users": 53,
+        "traffic_gb": 8.1
+      },
+      {
+        "cell": "SAMPLE-08_BELLE_HAVEN_S3_L800",
+        "sector": 3,
+        "band": "L800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 86.0,
+        "rrc_users": 207,
+        "traffic_gb": 37.8
+      },
+      {
+        "cell": "SAMPLE-08_BELLE_HAVEN_S3_L1800",
+        "sector": 3,
+        "band": "L1800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 93.0,
+        "rrc_users": 245,
+        "traffic_gb": 40.6
+      },
+      {
+        "cell": "SAMPLE-08_BELLE_HAVEN_S3_N3500",
+        "sector": 3,
+        "band": "N3500",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 31.0,
+        "rrc_users": 81,
+        "traffic_gb": 15.8
+      }
+    ]
+  },
+  "notes": [
+    "Synthetic sample for SiteTwin 3D, near Meta's Menlo Park campus. Antenna data and network KPIs are invented; the location is an ordinary city block. It is checked against Turkey's BTK limits like every site here: the US FCC limits are looser and not modelled."
+  ]
+}

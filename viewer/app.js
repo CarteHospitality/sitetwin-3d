@@ -1102,6 +1102,49 @@ function renderOverview(checks, changes, crew) {
   $("planReadyCrew").textContent = crewText;
 }
 
+// ---------- the result of a fix, said once it has played ----------
+// The operator's own time and the options it checked on this page, today's problems the plan solves
+// (as the right panel marks them), the field work it takes; then the way on, to the next site.
+const effort = { seconds: 0, options: 0 };
+const duration = (s) => {
+  const turkish = document.documentElement.lang === "tr", m = Math.floor(s / 60), r = Math.round(s % 60);
+  return m ? `${m} ${turkish ? "dk" : "min"} ${String(r).padStart(2, "0")} ${turkish ? "sn" : "s"}` : `${r} ${turkish ? "sn" : "s"}`;
+};
+async function showResult() {
+  const regime = REGIMES[regimeKey];
+  const now = statusLines(baseline, checkSite(baseline, siteZones(baseline, regime)), populationContext(baseline), { kpi });
+  const after = statusLines(site, checkSite(site, siteZones(site, regime)), populationContext(site), { coverageLoss: currentCoverageLoss(), kpi, before: baseline });
+  // A problem is solved when its point is fine after the plan or gone from it (the roof cleared, the
+  // busy sector given capacity); one the plan brings or worsens is counted apart.
+  const today = now.filter((l) => l.level !== "ok" && !l.fileOnly), afterOf = new Map(after.map((l) => [l.topic, l]));
+  const problems = today.length;
+  const fixed = today.filter((l) => !afterOf.has(l.topic) || afterOf.get(l.topic).level === "ok").length;
+  const added = compareLines(now, after).filter((l) => l.change === "new" || l.change === "worse").length;
+  const { crew } = planner.fieldWork();
+  const install = crew.visits.find((v) => v.name === "Installation visit");
+  const work = install ? `${crew.headcount} people, ${install.days} day(s)` : crew.visits.some((v) => !v.remote) ? "remote, then a measurement" : "remote only";
+  // Figures stay as written (already in the page's language); words go through the translation.
+  const stat = (value, label, words = false) => {
+    const figure = el("b", { textContent: value });
+    if (!words) figure.dataset.noI18n = "";
+    return el("div", { className: "result-stat" }, figure, el("span", { textContent: label }));
+  };
+  const index = await portfolioIndex().catch(() => ({ sites: [] }));
+  const at = index.sites.findIndex((s) => s.site_id === site.site_id);
+  const next = index.sites.length > 1 ? index.sites[(at + 1) % index.sites.length] : null;
+  const plan = el("button", { type: "button", textContent: "Action plan" });
+  plan.onclick = () => $("export").click();
+  const go = next && el("a", { className: "btn primary guide", textContent: `Next site: ${next.site_id} →`,
+    href: `index.html?${new URLSearchParams({ twin: next.twin, fresh: "1", portfolio: portfolioUrl, from: backTo })}` });
+  chat.append(el("section", { className: "result-card" },
+    el("div", { className: "result-title", textContent: fixed === problems && !added ? "✓ Every problem found is solved in the plan" : "✓ The fix is in the plan" }),
+    el("div", { className: "result-stats" },
+      stat(duration(effort.seconds), "operator time"), stat(String(effort.options), "options checked"),
+      stat(`${fixed}/${problems}`, "problems solved"), stat(work, "field work", true)),
+    el("div", { className: "result-note", textContent: "Checked against EMF zones, schools and hospitals, roof safety, coverage and capacity, before anyone goes to site. A simulation: nothing changes on the network." }),
+    el("div", { className: "result-actions" }, plan, ...(go ? [go] : []))));
+}
+
 // The action plan opens with e-mail, copy, print and share for the site chief.
 $("reviewPlan").onclick = () => $("export").click();
 $("sendPlanNow").onclick = async () => { const { plan } = await buildPlan(); await sendByEmail(plan); };
@@ -1567,7 +1610,13 @@ const chat = initConversation({
     voice.setRunning(on);
   },
   scanLines,
-  onComplete: () => { if (pendingOpen && pageActive) location.href = pendingOpen; },
+  // A run that changed the plan ends with its result (the change has played by then).
+  onComplete: (mode, run) => {
+    if (pendingOpen && pageActive) { location.href = pendingOpen; return; }
+    if (!run) return;
+    effort.seconds += run.seconds; effort.options += run.options;
+    if (run.applied && !run.failed) showResult();
+  },
   speak: (text) => voice.speak(text),
   // One conversation per site: switching sites must not show another site's chat.
   transcriptKey: `twin:${absoluteUrl(src)}`,
@@ -1584,7 +1633,7 @@ const chat = initConversation({
     if (r.errors) return chat.say("tool", `✕ ${r.errors.join(", ")}`);
     chat.say("tool", `✓ Added to plan (simulation): ${label}`);
     agent.note(`I applied option "${label}" from your choices myself (apply_change done). Do not apply it again.`);
-    lastShowcase.then(() => chat.say("assistant", watchedSummary() ?? tr("The plan is ready: the field work is on the right, and you can send the action plan to the team from there.")));
+    lastShowcase.then(() => { chat.say("assistant", watchedSummary() ?? tr("The plan is ready: the field work is on the right, and you can send the action plan to the team from there.")); showResult(); });
   },
   // A choice that is not one of the compared options (or a question): the agent takes it from there.
   onChoice: (text) => agent.ask(text),
@@ -1723,9 +1772,9 @@ if (!handoff && !$("chatLog").children.length) {
   const welcome = el("div", { className: "msg assistant welcome" },
     el("div", { textContent: tr(`${site.site_id} is open.`) }),
     el("div", { className: "welcome-problem", textContent: tr(problem) }),
-    el("div", { className: "welcome-ask", textContent: tr(clean ? "Analyse it with the button below, or ask your own question." : "Analyse the problem with the button below, or ask your own question.") }));
+    el("div", { className: "welcome-ask", textContent: tr(clean ? "Start here: press Analyse this site below, or ask your own question." : "Start here: press Analyse this problem below. The Expert Operator compares fixes on this twin in about a minute.") }));
   $("chatLog").append(welcome);
-  const ask = el("button", { type: "button", className: "chip suggest primary-ask", textContent: tr(clean ? "Analyse this site" : "Analyse this problem") });
+  const ask = el("button", { type: "button", className: "chip suggest primary-ask guide", textContent: tr(clean ? "Analyse this site" : "Analyse this problem") });
   // One first step: the general "Analyse this site" question waits until this one is used.
   const general = document.querySelector(".composer .chips .suggest");
   general.hidden = true;

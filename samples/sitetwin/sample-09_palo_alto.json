@@ -1,0 +1,221 @@
+{
+  "schema": "jevbtk-digital-site@1",
+  "site_id": "SAMPLE-09_PALO_ALTO",
+  "site": {
+    "report_site_code": "SAMPLE-09_PALO_ALTO",
+    "name": "Synthetic sample site",
+    "operator": "DEMO",
+    "latitude_dms": "N 37° 25' 31,80''",
+    "longitude_dms": "W 122° 8' 37,68''",
+    "district": "Palo Alto",
+    "province": "California"
+  },
+  "application": {
+    "type": "new",
+    "technology": "4.5G",
+    "reason": "New monopole between homes and small apartment blocks"
+  },
+  "sectors": {
+    "1": {
+      "azimuth_deg": 0
+    },
+    "2": {
+      "azimuth_deg": 120
+    },
+    "3": {
+      "azimuth_deg": 240
+    }
+  },
+  "antennas": [
+    {
+      "sector": 1,
+      "slot": 1,
+      "model": "Panel 65deg",
+      "action": "retain",
+      "height_m": 15.0,
+      "azimuth_deg": 0,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 800,
+          "operating_power_w": 40,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 40,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 2100,
+          "operating_power_w": 40,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 2,
+      "slot": 1,
+      "model": "Panel 65deg",
+      "action": "retain",
+      "height_m": 15.0,
+      "azimuth_deg": 120,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 800,
+          "operating_power_w": 40,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 40,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 2100,
+          "operating_power_w": 40,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    },
+    {
+      "sector": 3,
+      "slot": 1,
+      "model": "Panel 65deg",
+      "action": "retain",
+      "height_m": 15.0,
+      "azimuth_deg": 240,
+      "mechanical_tilt_deg": 0,
+      "bands": [
+        {
+          "frequency_mhz": 800,
+          "operating_power_w": 40,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 1800,
+          "operating_power_w": 40,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        },
+        {
+          "frequency_mhz": 2100,
+          "operating_power_w": 40,
+          "electrical_tilt_deg": 4,
+          "gain_dbi": null,
+          "safety_distance_m": null
+        }
+      ]
+    }
+  ],
+  "structure": {
+    "kind": "monopole",
+    "building_height_m": null
+  },
+  "network_kpi": {
+    "source": "OSS PM export, busy hour per cell (synthetic sample)",
+    "period": "2026-10-28",
+    "cells": [
+      {
+        "cell": "SAMPLE-09_PALO_ALTO_S1_L800",
+        "sector": 1,
+        "band": "L800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 48.0,
+        "rrc_users": 135,
+        "traffic_gb": 21.3
+      },
+      {
+        "cell": "SAMPLE-09_PALO_ALTO_S1_L1800",
+        "sector": 1,
+        "band": "L1800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 55.0,
+        "rrc_users": 152,
+        "traffic_gb": 27.3
+      },
+      {
+        "cell": "SAMPLE-09_PALO_ALTO_S1_L2100",
+        "sector": 1,
+        "band": "L2100",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 41.0,
+        "rrc_users": 100,
+        "traffic_gb": 19.4
+      },
+      {
+        "cell": "SAMPLE-09_PALO_ALTO_S2_L800",
+        "sector": 2,
+        "band": "L800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 71.0,
+        "rrc_users": 181,
+        "traffic_gb": 35.3
+      },
+      {
+        "cell": "SAMPLE-09_PALO_ALTO_S2_L1800",
+        "sector": 2,
+        "band": "L1800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 82.0,
+        "rrc_users": 234,
+        "traffic_gb": 40.6
+      },
+      {
+        "cell": "SAMPLE-09_PALO_ALTO_S2_L2100",
+        "sector": 2,
+        "band": "L2100",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 66.0,
+        "rrc_users": 171,
+        "traffic_gb": 30.6
+      },
+      {
+        "cell": "SAMPLE-09_PALO_ALTO_S3_L800",
+        "sector": 3,
+        "band": "L800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 39.0,
+        "rrc_users": 103,
+        "traffic_gb": 19.8
+      },
+      {
+        "cell": "SAMPLE-09_PALO_ALTO_S3_L1800",
+        "sector": 3,
+        "band": "L1800",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 45.0,
+        "rrc_users": 118,
+        "traffic_gb": 23.1
+      },
+      {
+        "cell": "SAMPLE-09_PALO_ALTO_S3_L2100",
+        "sector": 3,
+        "band": "L2100",
+        "busy_hour": "2026-10-28 21:00",
+        "prb_dl_pct": 33.0,
+        "rrc_users": 92,
+        "traffic_gb": 16.0
+      }
+    ]
+  },
+  "notes": [
+    "Synthetic sample for SiteTwin 3D, near Meta's Menlo Park campus. Antenna data and network KPIs are invented; the location is an ordinary city block. It is checked against Turkey's BTK limits like every site here: the US FCC limits are looser and not modelled."
+  ]
+}

@@ -50,7 +50,8 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
   log.after(notice);
   notice.onclick = () => { log.scrollTop = log.scrollHeight; notice.hidden = true; };
   log.addEventListener("scroll", () => { if (log.scrollHeight - log.scrollTop - log.clientHeight <= 48) notice.hidden = true; });
-  let group, rail, groupTitle, trials, trialTitle, waitRow, waitTimer, runStart;
+  // `answeredAt`: when the run's answer came, so the time a spoken reply takes to read out is not the operator's.
+  let group, rail, groupTitle, trials, trialTitle, waitRow, waitTimer, runStart, answeredAt = 0;
   let rows = new Map(), trialCount = 0, completedTrials = 0, failedTrials = 0;
   const queuedRequests = new Map();
   let runFailed = false;
@@ -101,7 +102,7 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
   }
   function say(role, text) {
     if (role === "user") lastAsked = text;
-    if (role === "assistant" && !restoring) return afterScan(() => show(role, text));
+    if (role === "assistant" && !restoring) { answeredAt = performance.now(); return afterScan(() => show(role, text)); }
     show(role, text);
   }
   function show(role, text) {
@@ -186,7 +187,7 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
     } else {
       waiting(false);
       const failed = [...rows.values()].some((r) => r.failed);
-      const seconds = Math.round((performance.now() - runStart) / 1000);
+      const seconds = Math.round(((answeredAt > runStart ? answeredAt : performance.now()) - runStart) / 1000);
       const scanned = scanList, run = group, title = groupTitle;
       afterScan(() => {
         // A plain answer with no tool steps and no account needs no activity row.
@@ -208,7 +209,8 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
       scanList = null;
     }
     onBusy(on, mode);
-    if (!on) onComplete(mode);
+    // What the run took: its time, the options it tried, whether it changed the plan.
+    if (!on) onComplete(mode, { seconds: ((answeredAt > runStart ? answeredAt : performance.now()) - runStart) / 1000, options: completedTrials - failedTrials, applied: appliedInRun, failed: runFailed });
   }
   function toolStart(id, name, args) {
     // One evaluate_change call can carry several options; count each as a trial.
@@ -328,9 +330,10 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
       if (r?.errors?.length) return el("li", { className: "option impossible" }, el("div", { className: "option-head" }, name), el("div", { className: "muted", textContent: "Not possible" }));
       const loss = r.heavy_coverage_loss ?? [], work = r.field_work;
       // It adds the option to the simulated plan; nothing reaches the network. An option that keeps
-      // the site as it is ("keep and monitor") has nothing to add.
+      // the site as it is ("keep and monitor") has nothing to add. The recommended one is the next
+      // step: a soft ring points at it.
       const empty = changeSize(o) === 0;
-      const apply = el("button", { type: "button", className: recommended && !empty ? "primary" : "", textContent: empty ? "Nothing to add" : "Add to plan (simulation)", disabled: empty });
+      const apply = el("button", { type: "button", className: recommended && !empty ? "primary guide" : "", textContent: empty ? "Nothing to add" : "Add to plan (simulation)", disabled: empty });
       apply.onclick = () => {
         for (const b of buttons) b.disabled = true;
         if (stale(o.at)) { apply.textContent = "Plan changed: compare again"; return; }
@@ -377,7 +380,9 @@ export function initConversation({ onBusy = () => {}, onComplete = () => {}, spe
     log.replaceChildren();
     notice.hidden = true;
   }
-  return { user: (text) => say("user", text), assistant: (text) => say("assistant", text), photo, clear,
+  // A block the page builds itself (the result of a fix), after anything still being revealed.
+  const append = (node) => afterScan(() => change(() => log.append(node)));
+  return { user: (text) => say("user", text), assistant: (text) => say("assistant", text), photo, clear, append,
     queued: (id, text) => { const row = el("div", { className: "msg tool", textContent: `◷ Queued · ${text}` }); queuedRequests.set(id, row); change(() => log.append(row)); },
     requestStart: (id) => { queuedRequests.get(id)?.remove(); queuedRequests.delete(id); },
     // A failed run says so at once: the account's remaining lines are dropped.

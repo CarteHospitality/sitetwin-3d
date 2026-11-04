@@ -66,6 +66,71 @@
     "retain": 3
    },
    "twin": "data/samples/sites/sample-05_bursa.twin.json"
+  },
+  {
+   "site_id": "SAMPLE-06_EAST_PALO_ALTO",
+   "lat": 37.4733,
+   "lon": -122.145889,
+   "address": "East Palo Alto, California",
+   "structure": "rooftop",
+   "technology": "4.5G",
+   "reason": "South-east sector boosted to 60 W per band for new apartments; antennas kept low on a flat roof",
+   "antenna_actions": {
+    "retain": 3
+   },
+   "twin": "data/samples/sites/sample-06_east_palo_alto.twin.json"
+  },
+  {
+   "site_id": "SAMPLE-07_MENLO_PARK",
+   "lat": 37.479231,
+   "lon": -122.165461,
+   "address": "Menlo Park, California",
+   "structure": "rooftop",
+   "technology": "4.5G",
+   "reason": "Second panel added on the east sector; west sector 2600 carrier still to be powered",
+   "antenna_actions": {
+    "retain": 4
+   },
+   "twin": "data/samples/sites/sample-07_menlo_park.twin.json"
+  },
+  {
+   "site_id": "SAMPLE-08_BELLE_HAVEN",
+   "lat": 37.476869,
+   "lon": -122.161431,
+   "address": "Menlo Park, California",
+   "structure": "rooftop",
+   "technology": "5G",
+   "reason": "n78 massive-MIMO added on all sectors next to the 4G panels",
+   "antenna_actions": {
+    "retain": 6
+   },
+   "twin": "data/samples/sites/sample-08_belle_haven.twin.json"
+  },
+  {
+   "site_id": "SAMPLE-09_PALO_ALTO",
+   "lat": 37.4255,
+   "lon": -122.1438,
+   "address": "Palo Alto, California",
+   "structure": "monopole",
+   "technology": "4.5G",
+   "reason": "New monopole between homes and small apartment blocks",
+   "antenna_actions": {
+    "retain": 3
+   },
+   "twin": "data/samples/sites/sample-09_palo_alto.twin.json"
+  },
+  {
+   "site_id": "SAMPLE-10_REDWOOD_CITY",
+   "lat": 37.489,
+   "lon": -122.224,
+   "address": "Redwood City, California",
+   "structure": "rooftop",
+   "technology": "4.5G",
+   "reason": "New rooftop site on a low commercial building",
+   "antenna_actions": {
+    "retain": 3
+   },
+   "twin": "data/samples/sites/sample-10_redwood_city.twin.json"
   }
  ]
 }

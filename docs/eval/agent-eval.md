@@ -7,6 +7,10 @@ answer, every tool step of the run and which failed, the decision card, whether 
 and the twin's own status after it. All 39 records, with the full answers, are in
 [runs-2026-10-31.json](runs-2026-10-31.json).
 
+These runs were measured on commit 97aae19, before the Modal fallback, the third comparison, the
+card's ranking by problems left open and the shorter answers; Baseten's time limit was 30 s then
+and is 25 s now.
+
 Each request has a pass rule, fixed before the runs (below). The model's wording and options vary
 between runs; three runs show how much.
 

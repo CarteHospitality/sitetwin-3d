@@ -223,10 +223,27 @@ function downloadSiteList() {
   link.click();
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }
-// The button names the sites, so the operator fixes exactly the ones the briefing lists.
+// A portfolio tour: each site opens in turn, most urgent first, and its operator fixes it; the map
+// ends with one combined action plan. Started by the operator's fix_sites, or at once by the button.
+function startFixing(siteIds) {
+  // Most urgent first, whatever order the model listed them in.
+  const picked = [...new Set((siteIds ?? []).map(findSite).filter(Boolean))]
+    .sort((a, b) => LEVELS[b.a.level].rank - LEVELS[a.a.level].rank || b.a.score - a.a.score);
+  if (!picked.length) return { error: "none of these sites is on the map" };
+  // Each twin gets a one-site instruction; "fix all sites" there would send its agent elsewhere.
+  const ask = document.documentElement.lang === "tr" ? "Bu sahadaki en önemli sorunu en küçük değişiklikle düzelt." : "Fix the most important problem on this site with the smallest change.";
+  const stops = picked.map((s) => ({ site_id: s.entry.site_id, url: `${twinUrl(s, ask, mapAgent.voice)}&tour=1` }));
+  startTour(stops, `${location.pathname}${location.search}`);
+  select(picked[0]);
+  pendingOpen = stops[0].url;
+  saveMapState();
+  logAction(`Fixing ${picked.length} sites in turn: ${picked.map((s) => s.entry.site_id).join(", ")}`);
+  return { fixing: picked.map((s) => s.entry.site_id), instruction: ask };
+}
+// The button names the sites the briefing lists and starts their tour itself: no model call to decide it.
 const fixUrgent = () => {
-  const ids = sites.filter((s) => ["critical", "high"].includes(s.a.level)).map((s) => s.entry.site_id).join(", ");
-  mapAgent.ask(document.documentElement.lang === "tr" ? `Acil sahaları sırayla düzelt: ${ids}` : `Fix the urgent sites one by one: ${ids}`);
+  const started = startFixing(sites.filter((s) => ["critical", "high"].includes(s.a.level)).map((s) => s.entry.site_id));
+  if (!started.error && pendingOpen) location.href = pendingOpen;
 };
 
 // The operator's opening summary, written from the checks (no model call). Assistant messages are
@@ -238,7 +255,9 @@ function showBriefing({ fresh = false } = {}) {
   briefing ??= el("div", { className: "msg assistant briefing" });
   renderBriefing();
   $("chatLog").append(briefing);
-  $("chatLog").scrollTop = $("chatLog").scrollHeight;
+  // Its first lines in view (what to do, how far along), the list of sites under them.
+  const log = $("chatLog");
+  log.scrollTop = briefing.getBoundingClientRect().top - log.getBoundingClientRect().top + log.scrollTop - 8;
 }
 // In the online demo (static files) there is no operator to ask: the briefing says so and offers
 // only what works without it.
@@ -249,20 +268,24 @@ function renderBriefing() {
   if (!briefing) return;
   const urgent = sites.filter((s) => ["critical", "high"].includes(s.a.level));
   const work = plannedWork();
-  const allOpen = briefing.querySelector("details")?.open ?? false;
   const button = (text, onclick) => Object.assign(el("button", { type: "button", textContent: tr(text) }), { onclick });
+  // Every site, most urgent first, the next one to try ringed; how many are fixed in the plan so far.
+  const rows = sites.map(siteLink);
+  const first = sites.findIndex((s) => !work.includes(s));
+  if (first >= 0 && !staticDemo) rows[first].classList.add("guide");
   briefing.replaceChildren(
     el("p", { textContent: urgent.length ? tr(`Checked ${sites.length} sites, ${urgent.length} need action:`)
       : `${tr(`Checked ${sites.length} sites automatically`)}. ${tr("No site needs urgent action.")}` }),
-    ...(urgent.length ? [el("div", { className: "home-list" }, ...urgent.slice(0, 3).map(siteLink))] : []),
-    ...(work.length ? [el("p", { textContent: tr(`${work.length} site(s) have planned field work.`) })] : []),
+    el("p", { className: "briefing-hint", textContent: tr("Pick any site, open it in 3D and let the Expert Operator fix it: about a minute each.") }),
+    ...(work.length ? [el("div", { className: "briefing-progress" },
+      el("span", { textContent: tr(`Fixed in the plan: ${work.length} of ${sites.length} sites`) }),
+      el("span", { className: "bar", ariaHidden: "true" }, el("i", { style: `width:${Math.round(work.length / sites.length * 100)}%` })))] : []),
+    el("div", { className: "home-list" }, ...rows),
     ...(staticDemo ? [el("p", { className: "muted", textContent: tr(STATIC_NOTE) })] : []),
     el("div", { className: "briefing-actions" },
       ...(urgent.length && !staticDemo ? [button("Fix urgent sites one by one", fixUrgent)] : []),
       ...(work.length ? [button(work.length > 1 ? `Combined action plan (${work.length} sites)` : "Action plan", openCombinedPlan)] : []),
-      button("Download the list (CSV)", downloadSiteList)),
-    Object.assign(el("details", {}, el("summary", { textContent: tr(`All sites (${sites.length})`) }),
-      el("div", { className: "home-list" }, ...sites.map(siteLink))), { open: allOpen }));
+      button("Download the list (CSV)", downloadSiteList)));
 }
 function goHome() {
   stopFollowing();
@@ -523,21 +546,7 @@ const mapAgent = createAgent({
       logAction(`Showed ${s.entry.site_id}: ${LEVELS[s.a.level].label}`);
       return { focused: s.entry.site_id, level: LEVELS[s.a.level].label, issues: s.a.issues };
     },
-    fix_sites: ({ site_ids }) => {
-      // Most urgent first, whatever order the model listed them in.
-      const picked = [...new Set((site_ids ?? []).map(findSite).filter(Boolean))]
-        .sort((a, b) => LEVELS[b.a.level].rank - LEVELS[a.a.level].rank || b.a.score - a.a.score);
-      if (!picked.length) return { error: "none of these sites is on the map" };
-      // Each twin gets a one-site instruction; "fix all sites" there would send its agent elsewhere.
-      const ask = document.documentElement.lang === "tr" ? "Bu sahadaki en önemli sorunu en küçük değişiklikle düzelt." : "Fix the most important problem on this site with the smallest change.";
-      const stops = picked.map((s) => ({ site_id: s.entry.site_id, url: `${twinUrl(s, ask, mapAgent.voice)}&tour=1` }));
-      startTour(stops, `${location.pathname}${location.search}`);
-      select(picked[0]);
-      pendingOpen = stops[0].url;
-      saveMapState();
-      logAction(`Fixing ${picked.length} sites in turn: ${picked.map((s) => s.entry.site_id).join(", ")}`);
-      return { fixing: picked.map((s) => s.entry.site_id), instruction: ask };
-    },
+    fix_sites: ({ site_ids }) => startFixing(site_ids),
     open_site: ({ site_id, instruction }) => {
       const s = findSite(site_id);
       if (!s) return { error: `no site ${site_id}` };

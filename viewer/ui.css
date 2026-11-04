@@ -481,6 +481,24 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
 .story-caption[data-tag="change"] .story-tag { background: var(--accent); }
 .story-caption[data-tag="after"] .story-tag { background: var(--ok); }
 
+/* The next step, pointed at softly: a ring that breathes around it, nothing that moves the layout. */
+.guide { animation: guide-ring 2.4s var(--ease-pulse) infinite; }
+.guide:disabled { animation: none; }
+@keyframes guide-ring { 0% { box-shadow: 0 0 0 0 rgb(11 99 206 / 50%); } 70% { box-shadow: 0 0 0 9px rgb(11 99 206 / 0%); } 100% { box-shadow: 0 0 0 0 rgb(11 99 206 / 0%); } }
+@media (prefers-reduced-motion: reduce) { .guide { animation: none; outline: 2px solid var(--accent); outline-offset: 2px; } }
+
+/* The result of a fix in the chat: what the operator's work came to, and the way on. */
+.result-card { border: 1px solid color-mix(in srgb, var(--ok) 45%, var(--border)); border-radius: var(--radius-card); background: color-mix(in srgb, var(--ok) 6%, var(--surface-0));
+  padding: 12px; display: grid; gap: 10px; animation: message-in 240ms var(--ease-out); }
+.result-title { font-weight: 700; color: var(--ok); font-size: 14px; }
+.result-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+.result-stat { display: grid; gap: 1px; }
+.result-stat b { font-size: 18px; line-height: 1.2; color: var(--text); }
+.result-stat span { font-size: 12px; color: var(--muted); }
+.result-note { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+.result-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.result-actions .btn { text-decoration: none; display: inline-flex; align-items: center; }
+
 /* An option the operator is trying, played on the 3D view: what it is, and today's problems it solves. */
 .trial-box { left: 50%; bottom: 16px; transform: translateX(-50%); width: min(360px, calc(100% - 32px)); display: grid; gap: 8px; padding: 12px 14px;
   pointer-events: none; z-index: 600; border-color: var(--accent); box-shadow: var(--shadow-float); }
@@ -640,6 +658,10 @@ button.primary:hover, .btn.primary:hover { background: #0A58B8; color: var(--on-
 .briefing-actions button { font-size: 13px; padding: 4px 10px; min-height: 0; background: var(--surface-0); border-color: var(--border-control); }
 .briefing-actions button:hover { background: var(--surface-selected); }
 .home-list { display: grid; gap: 4px; margin-bottom: 10px; }
+.briefing-hint { color: var(--text-secondary); font-size: 13px; }
+.briefing-progress { display: grid; gap: 4px; font-size: 13px; font-weight: 600; color: var(--ok); margin: 2px 0 8px; }
+.briefing-progress .bar { height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.briefing-progress .bar i { display: block; height: 100%; background: var(--ok); border-radius: inherit; transition: width var(--duration-panel) var(--ease-out); }
 .home-site { display: grid; grid-template-columns: 16px auto minmax(0, 1fr); align-items: center; gap: 8px; width: 100%; min-height: 0; padding: 6px 8px;
   text-align: left; font-weight: 400; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-control); }
 .home-site:hover { background: var(--surface-selected); }

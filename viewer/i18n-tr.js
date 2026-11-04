@@ -554,7 +554,19 @@ export const EXACT = {
   "✓ Hospital · out of the zone": "✓ Hastane · artık bölgenin dışında",
   "✓ Hospital · below 3 V/m": "✓ Hastane · artık 3 V/m'nin altında",
   "School or hospital inside a zone": "Bölgede okul ya da hastane",
-  "Operator trying": "Operatör deniyor"
+  "Operator trying": "Operatör deniyor",
+  // ---- Guidance and the result of a fix
+  "Start here: press Analyse this problem below. The Expert Operator compares fixes on this twin in about a minute.": "Buradan başlayın: aşağıdaki Bu sorunu analiz et düğmesine basın. Uzman Operatör bu ikizde çözümleri yaklaşık bir dakikada karşılaştırır.",
+  "Start here: press Analyse this site below, or ask your own question.": "Buradan başlayın: aşağıdaki Bu sahayı analiz et düğmesine basın ya da kendi sorunuzu sorun.",
+  "Pick any site, open it in 3D and let the Expert Operator fix it: about a minute each.": "Bir saha seçin, 3B'de açın ve Uzman Operatör düzeltsin: her biri yaklaşık bir dakika.",
+  "✓ Every problem found is solved in the plan": "✓ Bulunan tüm sorunlar planda çözüldü",
+  "✓ The fix is in the plan": "✓ Düzeltme planda",
+  "operator time": "operatör süresi",
+  "options checked": "denenen seçenek",
+  "problems solved": "çözülen sorun",
+  "field work": "saha işi",
+  "remote, then a measurement": "uzaktan, sonra ölçüm",
+  "Checked against EMF zones, schools and hospitals, roof safety, coverage and capacity, before anyone goes to site. A simulation: nothing changes on the network.": "EMF bölgeleri, okul ve hastaneler, çatı güvenliği, kapsama ve kapasiteye göre, sahaya kimse gitmeden kontrol edildi. Simülasyon: şebekede hiçbir şey değişmez."
 };
 
 // PHRASES: fixed English phrases replaced wherever they appear inside longer, partly dynamic text
@@ -981,5 +993,7 @@ export const PATTERNS = [
   ["^(\\d+) engineer, ~([\\d.]+) h, remote$", "", "$1 mühendis, ~$2 sa, uzaktan"],
   // ---- 3D view: the options the operator tries
   ["^Option (\\d+)$", "", "Seçenek $1"],
+  ["^Next site: (\\S+) →$", "", "Sonraki saha: $1 →"],
+  ["^Fixed in the plan: (\\d+) of (\\d+) sites$", "", "Planda çözülen: $2 sahadan $1"],
   ["^Solved: (\\d+) of (\\d+) problems$", "", "Çözülen sorun: $1/$2"],
 ];

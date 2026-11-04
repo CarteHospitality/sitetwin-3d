@@ -12,7 +12,8 @@ import random
 DAY = "2026-10-28"
 
 # Busy-hour PRB per cell (sector, band) -> peak %. Adana's S2 is full although few people
-# live in its lobe; Izmir's S3 stays busy on N700 even with its new 5G layers.
+# live in its lobe; Izmir's S3 stays busy on N700 even with its new 5G layers; East Palo Alto's S1,
+# boosted for new apartments, is full on L1800; Redwood City has no busy cell.
 SITES = {
     "SAMPLE-01_ANKARA": {("S1", "L800"): 52, ("S1", "L1800"): 58, ("S1", "L2100"): 47, ("S2", "L800"): 45, ("S2", "L1800"): 50,
                          ("S2", "L2100"): 41, ("S3", "L800"): 68, ("S3", "L1800"): 84, ("S3", "L2100"): 71},
@@ -25,6 +26,17 @@ SITES = {
                         ("S3", "L1800"): 44},
     "SAMPLE-05_BURSA": {("S1", "L800"): 63, ("S1", "L1800"): 69, ("S1", "L2100"): 78, ("S2", "L800"): 42, ("S2", "L1800"): 48,
                         ("S2", "L2100"): 40, ("S3", "L800"): 35, ("S3", "L1800"): 46, ("S3", "L2100"): 37},
+    "SAMPLE-06_EAST_PALO_ALTO": {("S1", "L800"): 78, ("S1", "L1800"): 91, ("S1", "L2100"): 74, ("S2", "L800"): 46, ("S2", "L1800"): 52,
+                                 ("S2", "L2100"): 43, ("S3", "L800"): 38, ("S3", "L1800"): 44, ("S3", "L2100"): 36},
+    # The west 2600 carrier is filed at 0 W: a cell that carries nothing yet.
+    "SAMPLE-07_MENLO_PARK": {("S1", "L800"): 55, ("S1", "L1800"): 61, ("S1", "L2100"): 49, ("S1", "L2600"): 38, ("S2", "L800"): 81,
+                             ("S2", "L1800"): 88, ("S3", "L800"): 42, ("S3", "L1800"): 47, ("S3", "L2600"): 0},
+    "SAMPLE-08_BELLE_HAVEN": {("S1", "L800"): 51, ("S1", "L1800"): 57, ("S1", "N3500"): 22, ("S2", "L800"): 44, ("S2", "L1800"): 49,
+                              ("S2", "N3500"): 19, ("S3", "L800"): 86, ("S3", "L1800"): 93, ("S3", "N3500"): 31},
+    "SAMPLE-09_PALO_ALTO": {("S1", "L800"): 48, ("S1", "L1800"): 55, ("S1", "L2100"): 41, ("S2", "L800"): 71, ("S2", "L1800"): 82,
+                            ("S2", "L2100"): 66, ("S3", "L800"): 39, ("S3", "L1800"): 45, ("S3", "L2100"): 33},
+    "SAMPLE-10_REDWOOD_CITY": {("S1", "L800"): 52, ("S1", "L1800"): 58, ("S1", "L2100"): 44, ("S2", "L800"): 46, ("S2", "L1800"): 51,
+                               ("S2", "L2100"): 40, ("S3", "L800"): 49, ("S3", "L1800"): 55, ("S3", "L2100"): 42},
 }
 
 
