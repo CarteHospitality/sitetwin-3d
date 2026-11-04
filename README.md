@@ -4,7 +4,7 @@ A **3D digital twin and change planner for mobile base-station sites**, built on
 
 Built for the Meta Global AI Developer Hackathon (Indie track). Demo video (2:51): [youtu.be/wG8739ZJrHg](https://youtu.be/wG8739ZJrHg).
 
-**Try it online:** [the map of the ten sample sites](https://cartehospitality.github.io/sitetwin-3d/portfolio.html?portfolio=data/samples/portfolio.json). The map, the 3D twin, the EMF checks, manual changes and the action plan run in the browser; the Expert Operator needs the local server and a model key (see Quick start).
+**Try it live, with the agent:** [the map of the ten sample sites](https://meymandar02--sitetwin-3d.us-east.modal.run/portfolio.html). Open any site in 3D and press **Analyse this problem**: the Expert Operator fixes it on the real models in about a minute (sample sites only, with a daily cap on model calls). A static copy without the agent is on [GitHub Pages](https://cartehospitality.github.io/sitetwin-3d/portfolio.html?portfolio=data/samples/portfolio.json): the map, the 3D twin, the EMF checks, manual changes and the action plan run in the browser there; the Expert Operator needs a model server (the live demo above, or the local server with a model key, see Quick start).
 
 ## Demo in three minutes
 
